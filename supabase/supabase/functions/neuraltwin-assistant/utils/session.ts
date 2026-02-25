@@ -1,4 +1,4 @@
-import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.89.0';
+import { SupabaseClient } from "@supabase/supabase-js";
 import { createConversation, getConversation } from '../../_shared/chatLogger.ts';
 
 interface SessionInput {

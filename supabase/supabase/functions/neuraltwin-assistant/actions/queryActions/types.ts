@@ -4,7 +4,7 @@
 
 import { UIAction } from '../navigationActions.ts';
 import { ClassificationResult } from '../../intent/classifier.ts';
-import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.89.0';
+import { SupabaseClient } from "@supabase/supabase-js";
 
 export type { UIAction, ClassificationResult, SupabaseClient };
 

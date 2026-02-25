@@ -10,7 +10,7 @@
  * C 버전 기반 + E 버전 기능 통합 (channel 파라미터, 이벤트 로깅, 세션 인계)
  */
 
-import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.89.0';
+import { SupabaseClient } from '@supabase/supabase-js';
 
 // ============================================================================
 // 타입 정의

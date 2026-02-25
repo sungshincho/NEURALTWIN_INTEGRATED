@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.89.0';
+import { createClient } from "@supabase/supabase-js";
 import { logAIResponse, createExecutionTimer, extractParseResultForLogging } from '../_shared/aiResponseLogger.ts';
 import { safeJsonParse, SIMULATION_FALLBACK, logParseResult } from '../_shared/safeJsonParse.ts';
 

@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.79.0';
+import { createClient } from "@supabase/supabase-js";
 import { safeJsonParse, INFERENCE_FALLBACK, logParseResult } from '../_shared/safeJsonParse.ts';
 
 /**

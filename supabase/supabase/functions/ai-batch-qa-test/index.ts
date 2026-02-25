@@ -10,7 +10,7 @@
  * - linked: 시뮬레이션 → 진단 이슈 추출 → 최적화 연결 테스트
  */
 
-import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.89.0';
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 // 🆕 Phase 5: Structured Output 스키마 검증용 상수
 const VMD_PRINCIPLES = [

@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.79.0';
+import { createClient } from "@supabase/supabase-js";
 import { parseCSVFromStorage } from './csv-parser.ts';
 
 const corsHeaders = {

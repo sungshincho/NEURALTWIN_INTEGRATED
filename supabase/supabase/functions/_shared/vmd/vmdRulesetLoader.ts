@@ -7,7 +7,7 @@
  * 작성일: 2026-01-12
  */
 
-import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.89.0';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 // ============================================================================
 // 타입 정의
