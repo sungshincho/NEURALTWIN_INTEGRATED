@@ -34,8 +34,8 @@ import { createEmptyProfile } from './memory/types.ts';
 import { assembleContext } from './contextAssembler.ts';
 // Phase 7: 레이아웃 힌트 추출 (검색 결과 → 매장 공간 정보 구조화)
 import { extractLayoutHints, formatLayoutHintForPrompt, validateAndCorrectZones, type LayoutHint } from './search/layoutHintExtractor.ts';
-// Direct AI Gateway
-import { chatCompletionStream, chatCompletion } from "../_shared/ai/gateway.ts";
+// Direct AI Gateway (with Fallback Chain)
+import { chatCompletionStreamWithFallback, chatCompletionWithFallback } from "../_shared/ai/gateway.ts";
 
 // ═══════════════════════════════════════════
 //  VizDirective 타입 및 파싱 유틸리티
@@ -816,7 +816,6 @@ async function callAIGateway(
   stream: boolean = true
 ): Promise<Response> {
   const opts = {
-    model: 'gemini-2.5-flash',
     messages: [
       { role: 'system', content: systemPrompt },
       ...messages
@@ -826,13 +825,20 @@ async function callAIGateway(
   };
 
   if (stream) {
-    return chatCompletionStream(opts);
+    const response = await chatCompletionStreamWithFallback(opts);
+    const modelUsed = response.headers.get('X-AI-Model-Used');
+    if (modelUsed) console.log(`[retail-chatbot] Streaming response using: ${modelUsed}`);
+    return response;
   }
 
-  // Non-streaming: wrap chatCompletion result in a Response
-  const result = await chatCompletion(opts);
+  // Non-streaming: wrap chatCompletionWithFallback result in a Response
+  const result = await chatCompletionWithFallback(opts);
+  console.log(`[retail-chatbot] Response generated using: ${result.modelUsed}`);
   return new Response(JSON.stringify(result), {
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'X-AI-Model-Used': result.modelUsed,
+    },
   });
 }
 
