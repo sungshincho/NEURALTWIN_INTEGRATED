@@ -8,12 +8,14 @@ from queue import Queue, Empty
 from datetime import datetime, timezone, timedelta
 import paho.mqtt.client as mqtt
 
-MQTT_HOST = "100.87.27.7"
-MQTT_PORT = 1883
-MQTT_TOPIC = "neuralsense/rssi"
+from config import MQTT_BROKER_IP, MQTT_BROKER_PORT, MQTT_TOPIC_PREFIX, PI_IDS
+
+MQTT_HOST = MQTT_BROKER_IP
+MQTT_PORT = MQTT_BROKER_PORT
+MQTT_TOPIC = MQTT_TOPIC_PREFIX + "/rssi"
 
 CAL_PHONE_MAC = "a8:76:50:e9:28:20"
-ALL_PIS = ["pi10", "pi5", "pi7", "pi8", "pi9", "pi11", "pi12", "pi13"]
+ALL_PIS = PI_IDS
 
 MAX_SAMPLES_PER_PI = 8
 TIMEOUT_SEC = 180

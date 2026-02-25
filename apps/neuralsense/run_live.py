@@ -8,9 +8,14 @@ from statistics import median
 from datetime import datetime, timezone, timedelta
 import paho.mqtt.client as mqtt
 
-MQTT_HOST = "100.87.27.7"
-MQTT_PORT = 1883
-MQTT_TOPIC = "neuralsense/rssi"
+from config import (
+    MQTT_BROKER_IP, MQTT_BROKER_PORT, MQTT_TOPIC_PREFIX,
+    WINDOW_SEC, MIN_SOURCES, OUTPUT_DIR,
+)
+
+MQTT_HOST = MQTT_BROKER_IP
+MQTT_PORT = MQTT_BROKER_PORT
+MQTT_TOPIC = MQTT_TOPIC_PREFIX + "/rssi"
 
 ZONES_CSV = "zones.csv"
 CAL_JSONL = os.path.join("output", "calibration.jsonl")
@@ -22,8 +27,6 @@ OUT_TRANS = os.path.join(OUT_DIR, "transitions.jsonl")
 OUT_DWELL = os.path.join(OUT_DIR, "dwells.jsonl")
 OUT_ERR = os.path.join(OUT_DIR, "run_live_errors.jsonl")
 
-WINDOW_SEC = 5
-MIN_SOURCES = 8
 MATCH_DIFF_DBM = 7.0
 
 KST = timezone(timedelta(hours=9))
