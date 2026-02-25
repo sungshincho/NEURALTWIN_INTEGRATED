@@ -2,7 +2,7 @@ import React, { useMemo, useRef } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Grid, Html, PerspectiveCamera } from '@react-three/drei';
 import * as THREE from 'three';
-import { useSimulationStore, EntityState, CustomerAgent, ZoneMetric } from '@/stores/simulationStore';
+import { useSimulationStore, EntityState, CustomerAgent, ZoneMetric } from '@/store/simulationStore';
 
 // ============== Zone Component ==============
 

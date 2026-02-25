@@ -23,7 +23,7 @@ import { TransformControls } from './TransformControls';
 import { PostProcessing } from './PostProcessing';
 import { CustomerAgents } from '../components/CustomerAgents';
 import { useSimulationEngine } from '@/hooks/useSimulationEngine';
-import { useSimulationStore } from '@/stores/simulationStore';
+import { useSimulationStore } from '@/store/simulationStore';
 import { ChildProductItem } from '@/features/simulation/components/digital-twin/ChildProductItem';
 import { useDeviceCapability } from '@/hooks/useDeviceCapability';
 import type { StudioMode, EnvironmentPreset, Canvas3DProps, RenderingConfig } from '../types';

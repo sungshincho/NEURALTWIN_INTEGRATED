@@ -12,7 +12,7 @@ import {
   AlertTriangle,
   CheckCircle,
 } from 'lucide-react';
-import { useSimulationStore } from '@/stores/simulationStore';
+import { useSimulationStore } from '@/store/simulationStore';
 
 // ============== KPI Card Component ==============
 

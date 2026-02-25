@@ -17,8 +17,8 @@
 import React, { useRef, useMemo, Suspense } from 'react';
 import * as THREE from 'three';
 import { Line, Html, useGLTF } from '@react-three/drei';
-import { useSimulationStore, STATE_COLORS } from '@/stores/simulationStore';
-import type { CustomerAgent as CustomerAgentType } from '@/stores/simulationStore';
+import { useSimulationStore, STATE_COLORS } from '@/store/simulationStore';
+import type { CustomerAgent as CustomerAgentType } from '@/store/simulationStore';
 
 // ============================================================================
 // 공유 Geometry 인스턴스 (성능 최적화 C)

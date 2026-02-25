@@ -11,7 +11,7 @@ import {
 import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { Play, Pause, Square, RotateCcw, Gauge } from 'lucide-react';
-import { useSimulationStore, SimulationMode } from '@/stores/simulationStore';
+import { useSimulationStore, SimulationMode } from '@/store/simulationStore';
 
 // ============== Mode Configuration ==============
 

@@ -37,7 +37,7 @@ import { convertToRenderingConfig, isDayTime, isCurrentTimeDayMode, isDayTimeWit
 import { useStoreContext } from '@/features/simulation/hooks/useStoreContext';
 import { useEnhancedAIInference } from '@/features/simulation/hooks/useEnhancedAIInference';
 import { useDateFilterStore } from '@/store/dateFilterStore';
-import { useSimulationStore, STATE_COLORS, STATE_LABELS, type CustomerState } from '@/stores/simulationStore';
+import { useSimulationStore, STATE_COLORS, STATE_LABELS, type CustomerState } from '@/store/simulationStore';
 import { useZoneHeatmapData } from '@/hooks/useZoneMetrics';
 
 // 타입 변환 헬퍼

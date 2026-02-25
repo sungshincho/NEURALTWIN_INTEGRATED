@@ -582,13 +582,13 @@ function inferTypeFromModel3dType(model3dType?: string): ModelLayer['type'] {
  * 카테고리별 기본 상품 모델 URL 반환
  */
 function getDefaultProductModelUrl(category?: string): string | null {
-  // TODO: 실제 기본 모델 URL로 교체 필요
+  const baseUrl = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/3d-models/defaults`;
   const defaults: Record<string, string> = {
-    'outer': 'https://bdrvowacecxnraaivlhr.supabase.co/storage/v1/object/public/3d-models/defaults/product_coat.glb',
-    'top': 'https://bdrvowacecxnraaivlhr.supabase.co/storage/v1/object/public/3d-models/defaults/product_top.glb',
-    'bottom': 'https://bdrvowacecxnraaivlhr.supabase.co/storage/v1/object/public/3d-models/defaults/product_pants.glb',
-    'shoes': 'https://bdrvowacecxnraaivlhr.supabase.co/storage/v1/object/public/3d-models/defaults/product_shoes.glb',
-    'accessory': 'https://bdrvowacecxnraaivlhr.supabase.co/storage/v1/object/public/3d-models/defaults/product_accessory.glb',
+    'outer': `${baseUrl}/product_coat.glb`,
+    'top': `${baseUrl}/product_top.glb`,
+    'bottom': `${baseUrl}/product_pants.glb`,
+    'shoes': `${baseUrl}/product_shoes.glb`,
+    'accessory': `${baseUrl}/product_accessory.glb`,
   };
 
   if (!category) return null;
