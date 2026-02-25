@@ -1,0 +1,1091 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* NEURALTWIN Design System - 3D Glassmorphism + Monochrome */
+/* Import Pretendard font */
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+
+@layer base {
+  :root {
+    /* ===== Light Mode - Pure Black/White Monochrome ===== */
+    
+    /* Core Colors */
+    --background: 0 0% 92%;
+    --background-gradient: linear-gradient(180deg, #e8e8ec 0%, #f0f0f4 20%, #eaeaee 45%, #e5e5e9 70%, #ededed 100%);
+    --foreground: 0 0% 5%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 5%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 5%;
+
+    /* Primary - Black */
+    --primary: 0 0% 8%;
+    --primary-foreground: 0 0% 98%;
+
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 8%;
+
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
+
+    --accent: 0 0% 96%;
+    --accent-foreground: 0 0% 8%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 0 0% 65%;
+
+    --radius: 24px;
+    --radius-sm: 12px;
+    --radius-xs: 8px;
+
+    /* ===== 3D Glassmorphism System ===== */
+    
+    /* Glass Backgrounds */
+    --glass-bg: linear-gradient(165deg, 
+      rgba(255,255,255,0.95) 0%, 
+      rgba(253,253,255,0.85) 20%, 
+      rgba(255,255,255,0.92) 40%, 
+      rgba(251,251,254,0.8) 60%, 
+      rgba(255,255,255,0.94) 80%, 
+      rgba(254,254,255,0.88) 100%
+    );
+    
+    --glass-bg-dark: linear-gradient(165deg, 
+      rgba(48,48,58,0.98) 0%, 
+      rgba(32,32,40,0.97) 30%, 
+      rgba(42,42,52,0.98) 60%, 
+      rgba(35,35,45,0.97) 100%
+    );
+
+    /* Metallic Borders */
+    --glass-border: linear-gradient(145deg, 
+      rgba(255,255,255,0.95) 0%, 
+      rgba(220,220,230,0.6) 50%, 
+      rgba(255,255,255,0.93) 100%
+    );
+    
+    --glass-border-dark: linear-gradient(145deg, 
+      rgba(75,75,85,0.92) 0%, 
+      rgba(40,40,50,0.85) 50%, 
+      rgba(60,60,70,0.92) 100%
+    );
+
+    /* 3D Shadow System - Light */
+    --shadow-3d: 
+      0 1px 1px rgba(0,0,0,0.02),
+      0 2px 2px rgba(0,0,0,0.02),
+      0 4px 4px rgba(0,0,0,0.02),
+      0 8px 8px rgba(0,0,0,0.02),
+      0 16px 16px rgba(0,0,0,0.02),
+      0 32px 32px rgba(0,0,0,0.02);
+
+    /* 3D Shadow System - Dark */
+    --shadow-3d-dark: 
+      0 2px 4px rgba(0,0,0,0.2),
+      0 8px 16px rgba(0,0,0,0.25),
+      0 16px 32px rgba(0,0,0,0.2),
+      0 32px 64px rgba(0,0,0,0.15);
+
+    /* Chrome Edge Highlights */
+    --chrome-top: linear-gradient(90deg, 
+      transparent 0%, 
+      rgba(255,255,255,0.9) 10%, 
+      rgba(255,255,255,1) 50%, 
+      rgba(255,255,255,0.9) 90%, 
+      transparent 100%
+    );
+    
+    --chrome-left: linear-gradient(180deg, 
+      rgba(255,255,255,1) 0%, 
+      rgba(255,255,255,0.5) 60%, 
+      transparent 100%
+    );
+
+    --chrome-top-dark: linear-gradient(90deg, 
+      transparent 0%, 
+      rgba(255,255,255,0.15) 20%, 
+      rgba(255,255,255,0.25) 50%, 
+      rgba(255,255,255,0.15) 80%, 
+      transparent 100%
+    );
+
+    /* Surface Reflection */
+    --glass-reflection: linear-gradient(180deg, 
+      rgba(255,255,255,0.8) 0%, 
+      rgba(255,255,255,0.4) 20%, 
+      rgba(255,255,255,0.1) 55%, 
+      transparent 100%
+    );
+
+    --glass-reflection-dark: linear-gradient(180deg, 
+      rgba(255,255,255,0.07) 0%, 
+      rgba(255,255,255,0.02) 35%, 
+      transparent 100%
+    );
+
+    /* 3D Text Gradients */
+    --text-3d-hero: linear-gradient(180deg, 
+      #1a1a1f 0%, 
+      #0a0a0c 35%, 
+      #1a1a1f 70%, 
+      #0c0c0e 100%
+    );
+
+    --text-3d-label: linear-gradient(180deg, 
+      #8a8a8f 0%, 
+      #9a9a9f 50%, 
+      #7a7a7f 100%
+    );
+
+    --text-3d-dark: linear-gradient(180deg, 
+      #ffffff 0%, 
+      #d8d8dd 35%, 
+      #ffffff 70%, 
+      #e5e5ea 100%
+    );
+
+    /* Icon Container */
+    --icon-bg: linear-gradient(145deg, 
+      rgba(255,255,255,0.98) 0%, 
+      rgba(230,230,238,0.95) 40%, 
+      rgba(245,245,250,0.98) 100%
+    );
+
+    --icon-bg-dark: linear-gradient(145deg, 
+      rgba(255,255,255,0.14) 0%, 
+      rgba(255,255,255,0.04) 50%, 
+      rgba(255,255,255,0.09) 100%
+    );
+
+    /* Sidebar */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 240 5% 6%;
+    --sidebar-primary: 240 4% 14%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 2% 94%;
+    --sidebar-accent-foreground: 240 4% 14%;
+    --sidebar-border: 240 2% 90%;
+    --sidebar-ring: 240 3% 65%;
+
+    /* Chart Colors - Monochrome */
+    --chart-1: 240 4% 20%;
+    --chart-2: 240 3% 40%;
+    --chart-3: 240 2% 60%;
+    --chart-4: 240 2% 75%;
+    --chart-5: 240 2% 85%;
+
+    /* Backdrop Blur */
+    --blur-glass: blur(80px) saturate(200%);
+    --blur-subtle: blur(40px) saturate(180%);
+  }
+
+  /* Dark mode - Pure Black/White Monochrome */
+  .dark {
+    /* Core - Pure Black */
+    --background: 0 0% 5%;
+    --background-gradient: linear-gradient(180deg, #0a0a0c 0%, #111114 20%, #0d0d10 45%, #0a0a0c 70%, #0f0f12 100%);
+    --foreground: 0 0% 98%;
+    
+    /* Cards - Dark Gray */
+    --card: 0 0% 8%;
+    --card-foreground: 0 0% 98%;
+    
+    /* Popover */
+    --popover: 0 0% 8%;
+    --popover-foreground: 0 0% 98%;
+    
+    /* Primary - White */
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 5%;
+    
+    /* Secondary */
+    --secondary: 0 0% 12%;
+    --secondary-foreground: 0 0% 98%;
+    
+    /* Muted */
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 55%;
+    
+    /* Accent */
+    --accent: 0 0% 12%;
+    --accent-foreground: 0 0% 98%;
+    
+    /* Border/Input */
+    --border: 0 0% 15%;
+    --input: 0 0% 15%;
+    --ring: 0 0% 55%;
+
+    /* Sidebar - Dark Mode */
+    --sidebar-background: 0 0% 6%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 0 0% 98%;
+    --sidebar-primary-foreground: 0 0% 5%;
+    --sidebar-accent: 0 0% 12%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 0 0% 15%;
+    --sidebar-ring: 0 0% 55%;
+    
+    /* Chart Colors - Monochrome */
+    --chart-1: 0 0% 95%;
+    --chart-2: 0 0% 75%;
+    --chart-3: 0 0% 55%;
+    --chart-4: 0 0% 35%;
+    --chart-5: 0 0% 20%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply text-foreground antialiased;
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    background: var(--background-gradient);
+    min-height: 100vh;
+    /* 전역 텍스트 선택 비활성화 - 대시보드 UI 최적화 */
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+  }
+
+  /* 입력 필드는 텍스트 선택 허용 */
+  input,
+  textarea,
+  [contenteditable="true"],
+  .selectable {
+    user-select: text;
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+  }
+
+  /* 코드 블록, 에러 메시지 등 복사가 필요한 영역 */
+  pre,
+  code,
+  .copy-enabled {
+    user-select: text;
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+  }
+
+  /* Typography */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold;
+    letter-spacing: -0.02em;
+  }
+}
+
+@layer components {
+  /* ===== 3D Glass Card System ===== */
+  
+  .glass-card-3d {
+    background: var(--glass-border);
+    border-radius: var(--radius);
+    padding: 1.5px;
+    box-shadow: var(--shadow-3d);
+  }
+
+  .glass-card-3d-inner {
+    background: var(--glass-bg);
+    backdrop-filter: var(--blur-glass);
+    -webkit-backdrop-filter: var(--blur-glass);
+    border-radius: calc(var(--radius) - 1px);
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .glass-card-3d-dark {
+    background: var(--glass-border-dark);
+    border-radius: var(--radius);
+    padding: 1.5px;
+    box-shadow: var(--shadow-3d-dark);
+  }
+
+  .glass-card-3d-dark-inner {
+    background: var(--glass-bg-dark);
+    backdrop-filter: var(--blur-glass);
+    -webkit-backdrop-filter: var(--blur-glass);
+    border-radius: calc(var(--radius) - 1px);
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Chrome Edge Highlights */
+  .chrome-edge-top {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: var(--chrome-top);
+    pointer-events: none;
+  }
+
+  .chrome-edge-left {
+    position: absolute;
+    top: 1px;
+    left: 0;
+    bottom: 25%;
+    width: 1px;
+    background: var(--chrome-left);
+    pointer-events: none;
+  }
+
+  .chrome-edge-top-dark {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: var(--chrome-top-dark);
+    pointer-events: none;
+  }
+
+  /* Surface Reflection */
+  .glass-reflection {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 55%;
+    background: var(--glass-reflection);
+    border-radius: calc(var(--radius) - 1px) calc(var(--radius) - 1px) 50% 50%;
+    pointer-events: none;
+  }
+
+  .glass-reflection-dark {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 55%;
+    background: var(--glass-reflection-dark);
+    border-radius: calc(var(--radius) - 1px) calc(var(--radius) - 1px) 50% 50%;
+    pointer-events: none;
+  }
+
+  /* Bottom Shadow */
+  .glass-bottom-shadow {
+    position: absolute;
+    bottom: 0;
+    left: 8%;
+    right: 8%;
+    height: 25%;
+    background: linear-gradient(0deg, rgba(0,0,0,0.02) 0%, transparent 100%);
+    border-radius: 0 0 calc(var(--radius) - 1px) calc(var(--radius) - 1px);
+    pointer-events: none;
+  }
+
+  .glass-bottom-shadow-dark {
+    position: absolute;
+    bottom: 0;
+    left: 8%;
+    right: 8%;
+    height: 25%;
+    background: linear-gradient(0deg, rgba(0,0,0,0.35) 0%, transparent 100%);
+    border-radius: 0 0 calc(var(--radius) - 1px) calc(var(--radius) - 1px);
+    pointer-events: none;
+  }
+
+  /* ===== 3D Icon Container ===== */
+  
+  .icon-3d {
+    background: var(--icon-bg);
+    border-radius: 32%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    border: 1px solid rgba(255,255,255,0.95);
+    box-shadow: 
+      0 2px 4px rgba(0,0,0,0.05),
+      0 4px 8px rgba(0,0,0,0.06),
+      0 8px 16px rgba(0,0,0,0.05),
+      inset 0 2px 4px rgba(255,255,255,1),
+      inset 0 -2px 4px rgba(0,0,0,0.04);
+  }
+
+  .icon-3d::before {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 12%;
+    right: 12%;
+    height: 38%;
+    background: linear-gradient(180deg, rgba(255,255,255,1) 0%, rgba(255,255,255,0) 100%);
+    border-radius: 40% 40% 50% 50%;
+  }
+
+  .icon-3d-dark {
+    background: var(--icon-bg-dark);
+    border-radius: 32%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    border: 1px solid rgba(255,255,255,0.12);
+    box-shadow: 
+      inset 0 1px 2px rgba(255,255,255,0.12),
+      inset 0 -2px 4px rgba(0,0,0,0.25),
+      0 4px 12px rgba(0,0,0,0.3);
+  }
+
+  /* ===== 3D Badge ===== */
+  
+  .badge-3d {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px;
+    background: linear-gradient(145deg, 
+      rgba(255,255,255,0.98) 0%, 
+      rgba(240,240,245,0.95) 40%, 
+      rgba(250,250,252,0.98) 100%
+    );
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.95);
+    box-shadow: 
+      0 2px 4px rgba(0,0,0,0.04),
+      0 4px 8px rgba(0,0,0,0.05),
+      inset 0 1px 2px rgba(255,255,255,1),
+      inset 0 -1px 1px rgba(0,0,0,0.02);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .badge-3d::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 50%;
+    background: linear-gradient(180deg, rgba(255,255,255,0.7) 0%, transparent 100%);
+    border-radius: 10px 10px 0 0;
+    pointer-events: none;
+  }
+
+  .badge-3d-dark {
+    background: linear-gradient(145deg, 
+      rgba(255,255,255,0.12) 0%, 
+      rgba(255,255,255,0.04) 50%, 
+      rgba(255,255,255,0.08) 100%
+    );
+    border: 1px solid rgba(255,255,255,0.1);
+    box-shadow: 
+      inset 0 1px 1px rgba(255,255,255,0.08),
+      0 2px 6px rgba(0,0,0,0.2);
+  }
+
+  /* ===== 3D Text Styles ===== */
+  
+  .text-3d-hero {
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    background: var(--text-3d-hero);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 3px 3px rgba(0,0,0,0.1));
+  }
+
+  .text-3d-number {
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: #0a0a0c;
+    text-shadow: 
+      0 1px 0 rgba(255,255,255,0.7),
+      0 -1px 0 rgba(0,0,0,0.04),
+      0 2px 4px rgba(0,0,0,0.06);
+  }
+
+  .text-3d-heading {
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #18181b;
+    text-shadow: 
+      0 1px 1px rgba(255,255,255,0.85),
+      0 -1px 1px rgba(0,0,0,0.03);
+  }
+
+  .text-3d-label {
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-size: 10px;
+    background: var(--text-3d-label);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: 0 1px 1px rgba(255,255,255,0.6);
+  }
+
+  .text-3d-body {
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    color: #515158;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.5);
+  }
+
+  /* Dark Text Variants */
+  .text-3d-dark-number {
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    background: var(--text-3d-dark);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
+  }
+
+  .text-3d-dark-label {
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-size: 10px;
+    color: rgba(255,255,255,0.4);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  }
+
+  .text-3d-dark-body {
+    font-weight: 500;
+    color: rgba(255,255,255,0.6);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+  }
+
+  /* ===== 3D Progress Bar ===== */
+  
+  .progress-3d {
+    height: 8px;
+    background: linear-gradient(180deg, 
+      rgba(235,235,242,0.95) 0%, 
+      rgba(248,248,252,0.9) 45%, 
+      rgba(242,242,248,0.95) 100%
+    );
+    border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.9);
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.04);
+    overflow: hidden;
+    position: relative;
+  }
+
+  .progress-3d::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 50%;
+    background: linear-gradient(180deg, rgba(255,255,255,0.55) 0%, transparent 100%);
+  }
+
+  .progress-3d-fill {
+    height: 100%;
+    background: linear-gradient(180deg, #2c2c35 0%, #1c1c24 45%, #252530 100%);
+    border-radius: 4px;
+    box-shadow: 
+      0 1px 3px rgba(0,0,0,0.18),
+      inset 0 1px 1px rgba(255,255,255,0.1);
+  }
+
+  /* ===== Glass Tabs ===== */
+  
+  .tabs-glass {
+    background: var(--glass-border);
+    border-radius: 16px;
+    padding: 1.5px;
+    box-shadow: 
+      0 2px 4px rgba(0,0,0,0.04),
+      0 4px 8px rgba(0,0,0,0.05),
+      0 8px 16px rgba(0,0,0,0.04);
+  }
+
+  .tabs-glass-inner {
+    display: flex;
+    gap: 3px;
+    padding: 5px;
+    background: linear-gradient(165deg, 
+      rgba(255,255,255,0.92) 0%, 
+      rgba(250,250,254,0.85) 50%, 
+      rgba(255,255,255,0.9) 100%
+    );
+    backdrop-filter: blur(40px);
+    border-radius: 15px;
+    position: relative;
+  }
+
+  .tab-trigger-glass {
+    padding: 10px 20px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: transparent;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    color: #515158;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.5);
+    cursor: pointer;
+    transition: all 0.25s ease;
+  }
+
+  .tab-trigger-glass[data-state="active"] {
+    background: linear-gradient(145deg, #222228 0%, #2c2c34 45%, #1c1c24 100%);
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 
+      0 2px 4px rgba(0,0,0,0.16),
+      0 4px 8px rgba(0,0,0,0.14),
+      inset 0 1px 1px rgba(255,255,255,0.1);
+    color: transparent;
+  }
+
+  .tab-trigger-glass[data-state="active"] span {
+    background: linear-gradient(180deg, #ffffff 0%, #d0d0d5 40%, #ffffff 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 1px 1px rgba(0,0,0,0.3));
+  }
+
+  /* ===== Funnel Bar ===== */
+  
+  .funnel-bar {
+    background: linear-gradient(180deg, 
+      rgba(255,255,255,0.98) 0%, 
+      rgba(235,235,242,0.95) 30%, 
+      rgba(248,248,252,0.98) 60%, 
+      rgba(242,242,248,0.95) 100%
+    );
+    border-radius: 10px 10px 3px 3px;
+    border: 1px solid rgba(255,255,255,0.95);
+    box-shadow: 
+      0 2px 4px rgba(0,0,0,0.05),
+      inset 0 2px 4px rgba(255,255,255,1);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .funnel-bar::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 50%;
+    background: linear-gradient(180deg, rgba(255,255,255,0.8) 0%, transparent 100%);
+    border-radius: 10px 10px 0 0;
+  }
+
+  .funnel-bar-dark {
+    background: linear-gradient(180deg, #2c2c35 0%, #1c1c24 35%, #252530 65%, #1a1a22 100%);
+    border: 1px solid rgba(255,255,255,0.1);
+    box-shadow: 
+      0 4px 8px rgba(0,0,0,0.18),
+      inset 0 1px 1px rgba(255,255,255,0.1);
+  }
+
+  /* ===== Background Image Layer ===== */
+  
+  .bg-glass-cube {
+    position: relative;
+  }
+
+  .bg-glass-cube::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url('/images/glass-cube-bg.png');
+    background-size: cover;
+    background-position: center;
+    opacity: 0.4;
+    mix-blend-mode: soft-light;
+    pointer-events: none;
+  }
+
+  .bg-glass-cube::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url('/images/glass-cube-bg.png');
+    background-size: 120% auto;
+    background-position: center 60%;
+    opacity: 0.15;
+    filter: blur(30px);
+    pointer-events: none;
+  }
+
+  /* ===== Utility Classes ===== */
+  
+  .perspective-1200 {
+    perspective: 1200px;
+  }
+
+  .glass-blur {
+    backdrop-filter: var(--blur-glass);
+    -webkit-backdrop-filter: var(--blur-glass);
+  }
+
+  .glass-blur-subtle {
+    backdrop-filter: var(--blur-subtle);
+    -webkit-backdrop-filter: var(--blur-subtle);
+  }
+}
+
+@layer utilities {
+  /* Custom Shadows */
+  .shadow-3d { box-shadow: var(--shadow-3d); }
+  .shadow-3d-dark { box-shadow: var(--shadow-3d-dark); }
+
+  /* Shake Animation */
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+    20%, 40%, 60%, 80% { transform: translateX(4px); }
+  }
+
+  .animate-shake {
+    animation: shake 0.5s ease-in-out;
+  }
+
+  /* Noise Texture */
+  .noise-texture {
+    position: relative;
+  }
+  
+  .noise-texture::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0.03;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+    pointer-events: none;
+  }
+}
+
+/* ============================================
+   Select Dropdown Scrollbar - Always Visible
+   @layer 밖에 위치하여 높은 특이성 확보
+   ============================================ */
+
+/* 기본 스크롤바 설정 */
+.select-dropdown-viewport,
+[data-radix-select-viewport].select-dropdown-viewport {
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(100,100,100,0.6) rgba(100,100,100,0.2) !important;
+  scrollbar-gutter: stable !important;
+  overflow-y: scroll !important;
+}
+
+/* WebKit 기반 브라우저 (Chrome, Safari, Edge) */
+.select-dropdown-viewport::-webkit-scrollbar,
+[data-radix-select-viewport].select-dropdown-viewport::-webkit-scrollbar {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  width: 8px !important;
+  display: block !important;
+  background: transparent !important;
+}
+
+.select-dropdown-viewport::-webkit-scrollbar-track,
+[data-radix-select-viewport].select-dropdown-viewport::-webkit-scrollbar-track {
+  background: rgba(100,100,100,0.15) !important;
+  border-radius: 4px !important;
+  margin: 4px 0 !important;
+}
+
+.select-dropdown-viewport::-webkit-scrollbar-thumb,
+[data-radix-select-viewport].select-dropdown-viewport::-webkit-scrollbar-thumb {
+  background: rgba(100,100,100,0.5) !important;
+  border-radius: 4px !important;
+  min-height: 30px !important;
+  border: 1px solid rgba(100,100,100,0.2) !important;
+}
+
+.select-dropdown-viewport::-webkit-scrollbar-thumb:hover,
+[data-radix-select-viewport].select-dropdown-viewport::-webkit-scrollbar-thumb:hover {
+  background: rgba(100,100,100,0.7) !important;
+}
+
+/* Dark 모드 스크롤바 */
+.dark .select-dropdown-viewport,
+.dark [data-radix-select-viewport].select-dropdown-viewport {
+  scrollbar-color: rgba(180,180,180,0.6) rgba(60,60,60,0.3) !important;
+}
+
+.dark .select-dropdown-viewport::-webkit-scrollbar-track,
+.dark [data-radix-select-viewport].select-dropdown-viewport::-webkit-scrollbar-track {
+  background: rgba(60,60,60,0.4) !important;
+}
+
+.dark .select-dropdown-viewport::-webkit-scrollbar-thumb,
+.dark [data-radix-select-viewport].select-dropdown-viewport::-webkit-scrollbar-thumb {
+  background: rgba(180,180,180,0.5) !important;
+  border: 1px solid rgba(180,180,180,0.2) !important;
+}
+
+.dark .select-dropdown-viewport::-webkit-scrollbar-thumb:hover,
+.dark [data-radix-select-viewport].select-dropdown-viewport::-webkit-scrollbar-thumb:hover {
+  background: rgba(180,180,180,0.7) !important;
+}
+
+/* ============================================
+   Digital Twin Studio - 다크모드 고정 스타일
+   (웹 다크모드 전환과 무관하게 항상 다크 테마 적용)
+   ============================================ */
+
+/* 스튜디오 컨테이너 - 항상 다크모드 스타일 강제 */
+.digital-twin-studio {
+  /* 다크모드 CSS 변수 강제 적용 */
+  --background: 0 0% 5% !important;
+  --foreground: 0 0% 98% !important;
+  --card: 0 0% 8% !important;
+  --card-foreground: 0 0% 98% !important;
+  --popover: 0 0% 8% !important;
+  --popover-foreground: 0 0% 98% !important;
+  --primary: 0 0% 98% !important;
+  --primary-foreground: 0 0% 5% !important;
+  --secondary: 0 0% 12% !important;
+  --secondary-foreground: 0 0% 98% !important;
+  --muted: 0 0% 12% !important;
+  --muted-foreground: 0 0% 55% !important;
+  --accent: 0 0% 12% !important;
+  --accent-foreground: 0 0% 98% !important;
+  --border: 0 0% 15% !important;
+  --input: 0 0% 15% !important;
+  --ring: 0 0% 55% !important;
+  
+  color-scheme: dark !important;
+}
+
+/* 스튜디오 내부 모든 요소 - 다크모드 강제 */
+.digital-twin-studio,
+.digital-twin-studio *,
+.digital-twin-studio *::before,
+.digital-twin-studio *::after {
+  color-scheme: dark !important;
+}
+
+/* ===== 모든 텍스트 색상 강제 ===== */
+.digital-twin-studio {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.digital-twin-studio span,
+.digital-twin-studio p,
+.digital-twin-studio div,
+.digital-twin-studio label,
+.digital-twin-studio h1,
+.digital-twin-studio h2,
+.digital-twin-studio h3,
+.digital-twin-studio h4,
+.digital-twin-studio h5,
+.digital-twin-studio h6 {
+  color: inherit !important;
+}
+
+/* 탭 버튼 텍스트 - 항상 흰색 */
+.digital-twin-studio button {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+.digital-twin-studio button:hover {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* 활성 탭 */
+.digital-twin-studio button[class*="border-b-2"],
+.digital-twin-studio button[class*="text-blue"] {
+  color: #60a5fa !important;
+}
+
+/* 레이어 패널 내 모든 텍스트 */
+.digital-twin-studio .text-white,
+.digital-twin-studio .text-white\/90,
+.digital-twin-studio .text-white\/80,
+.digital-twin-studio .text-white\/70,
+.digital-twin-studio .text-white\/60,
+.digital-twin-studio .text-white\/50,
+.digital-twin-studio .text-white\/40 {
+  color: rgba(255, 255, 255, var(--tw-text-opacity, 1)) !important;
+}
+
+/* 숫자 표시 (4/4, 11/11 등) */
+.digital-twin-studio .text-xs,
+.digital-twin-studio .text-sm,
+.digital-twin-studio .text-\[10px\],
+.digital-twin-studio .text-\[11px\] {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+/* 아이콘 색상 */
+.digital-twin-studio svg {
+  color: inherit !important;
+}
+
+/* ===== 배경 - Tailwind 원본 유지 ===== */
+/* bg-black/80 등의 원본 opacity는 그대로 유지 */
+
+/* 패널 배경 - Canvas 컨테이너는 제외 */
+/* 주의: Canvas는 투명해야 3D가 보임 */
+
+/* ===== 보더 강제 ===== */
+.digital-twin-studio .border-white\/10,
+.digital-twin-studio .border-white\/20 {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* ===== 입력 필드 ===== */
+.digital-twin-studio input,
+.digital-twin-studio select,
+.digital-twin-studio textarea {
+  background-color: rgba(0, 0, 0, 0.5) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.digital-twin-studio input::placeholder,
+.digital-twin-studio textarea::placeholder {
+  color: rgba(255, 255, 255, 0.4) !important;
+}
+
+/* ===== 체크박스/슬라이더 ===== */
+.digital-twin-studio input[type="checkbox"] {
+  accent-color: #3b82f6 !important;
+}
+
+.digital-twin-studio input[type="range"] {
+  accent-color: #3b82f6 !important;
+}
+
+/* ===== 스크롤바 ===== */
+.digital-twin-studio ::-webkit-scrollbar {
+  width: 6px !important;
+  height: 6px !important;
+}
+
+.digital-twin-studio ::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.3) !important;
+  border-radius: 3px !important;
+}
+
+.digital-twin-studio ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border-radius: 3px !important;
+}
+
+.digital-twin-studio ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3) !important;
+}
+
+/* ===== 호버 상태 ===== */
+.digital-twin-studio .hover\:bg-white\/5:hover,
+.digital-twin-studio .hover\:bg-white\/10:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* ===== Radix UI 컴포넌트 ===== */
+.digital-twin-studio [data-radix-popper-content-wrapper] {
+  --tw-bg-opacity: 1 !important;
+}
+
+.digital-twin-studio [data-radix-menu-content],
+.digital-twin-studio [data-radix-select-content],
+.digital-twin-studio [role="tooltip"],
+.digital-twin-studio [role="dialog"] {
+  background-color: rgba(15, 15, 20, 0.98) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.digital-twin-studio [data-radix-menu-item],
+.digital-twin-studio [data-radix-select-item] {
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.digital-twin-studio [data-radix-menu-item]:hover,
+.digital-twin-studio [data-radix-menu-item][data-highlighted],
+.digital-twin-studio [data-radix-select-item]:hover,
+.digital-twin-studio [data-radix-select-item][data-highlighted] {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  color: white !important;
+}
+
+/* ============================================
+   Assistant Highlight Animation
+   챗봇 어시스턴트가 특정 요소를 하이라이트할 때 사용
+   ============================================ */
+
+@keyframes assistant-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(59, 130, 246, 0.2);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+  }
+}
+
+@keyframes assistant-glow {
+  0%, 100% {
+    outline-color: rgba(59, 130, 246, 0.6);
+  }
+  50% {
+    outline-color: rgba(59, 130, 246, 0.9);
+  }
+}
+
+.assistant-highlight {
+  position: relative;
+  outline: 2px solid rgba(59, 130, 246, 0.7);
+  outline-offset: 4px;
+  border-radius: 8px;
+  animation: assistant-pulse 1s ease-in-out infinite, assistant-glow 1s ease-in-out infinite;
+  z-index: 10;
+}
+
+/* 다크 모드에서의 하이라이트 */
+.dark .assistant-highlight {
+  outline-color: rgba(96, 165, 250, 0.7);
+  animation: assistant-pulse-dark 1s ease-in-out infinite, assistant-glow-dark 1s ease-in-out infinite;
+}
+
+@keyframes assistant-pulse-dark {
+  0% {
+    box-shadow: 0 0 0 0 rgba(96, 165, 250, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(96, 165, 250, 0.2);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(96, 165, 250, 0);
+  }
+}
+
+@keyframes assistant-glow-dark {
+  0%, 100% {
+    outline-color: rgba(96, 165, 250, 0.6);
+  }
+  50% {
+    outline-color: rgba(96, 165, 250, 0.9);
+  }
+}

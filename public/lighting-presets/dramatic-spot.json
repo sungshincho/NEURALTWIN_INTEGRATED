@@ -1,0 +1,35 @@
+{
+  "name": "dramatic-spot",
+  "description": "Dramatic spotlight for premium products",
+  "lights": [
+    {
+      "type": "ambient",
+      "color": "#1a1a1a",
+      "intensity": 0.2
+    },
+    {
+      "type": "spot",
+      "color": "#ffffff",
+      "intensity": 2.0,
+      "position": { "x": 0, "y": 8, "z": 0 },
+      "target": { "x": 0, "y": 0, "z": 0 }
+    },
+    {
+      "type": "spot",
+      "color": "#ffd700",
+      "intensity": 1.5,
+      "position": { "x": -4, "y": 6, "z": 4 },
+      "target": { "x": -2, "y": 0, "z": 2 }
+    },
+    {
+      "type": "spot",
+      "color": "#ffd700",
+      "intensity": 1.5,
+      "position": { "x": 4, "y": 6, "z": -4 },
+      "target": { "x": 2, "y": 0, "z": -2 }
+    }
+  ],
+  "environment": {
+    "background": "#0d0d0d"
+  }
+}

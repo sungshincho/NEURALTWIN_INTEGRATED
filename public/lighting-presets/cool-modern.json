@@ -1,0 +1,27 @@
+{
+  "name": "cool-modern",
+  "description": "Cool, modern high-tech environment",
+  "lights": [
+    {
+      "type": "ambient",
+      "color": "#e6f2ff",
+      "intensity": 0.5
+    },
+    {
+      "type": "directional",
+      "color": "#b3d9ff",
+      "intensity": 1.0,
+      "position": { "x": -5, "y": 12, "z": 8 },
+      "target": { "x": 0, "y": 0, "z": 0 }
+    },
+    {
+      "type": "point",
+      "color": "#80b3ff",
+      "intensity": 0.6,
+      "position": { "x": 0, "y": 6, "z": 0 }
+    }
+  ],
+  "environment": {
+    "background": "#d9ecff"
+  }
+}
