@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+.next/
+.turbo/
+
+# Environment (절대 커밋 금지!)
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python (NeuralSense)
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Supabase local
+.supabase/
+
+# Logs
+*.log
+npm-debug.log*

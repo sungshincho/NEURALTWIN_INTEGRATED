@@ -1,0 +1,30 @@
+{
+  "name": "neuraltwin",
+  "private": true,
+  "version": "0.0.1",
+  "description": "NeuralTwin Integrated Monorepo — Retail Analytics Platform",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "dev:website": "turbo run dev --filter=@neuraltwin/website",
+    "dev:os": "turbo run dev --filter=@neuraltwin/os-dashboard",
+    "lint": "turbo run lint",
+    "type-check": "turbo run type-check",
+    "test": "turbo run test",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "supabase:start": "npx supabase start",
+    "supabase:functions:serve": "npx supabase functions serve",
+    "supabase:gen-types": "npx supabase gen types typescript --project-id bdrvowacecxnraaivlhr > packages/types/src/database.types.ts"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0",
+    "prettier": "^3.2.0",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.15.0"
+}

@@ -1,0 +1,5 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+  # neuralsense는 Python이므로 pnpm workspace에서 제외
+  # supabase/는 Deno 런타임이므로 pnpm workspace에서 제외
