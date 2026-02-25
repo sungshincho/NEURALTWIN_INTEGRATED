@@ -816,7 +816,7 @@ async function callAIGateway(
   stream: boolean = true
 ): Promise<Response> {
   const opts = {
-    model: 'gemini-2.5-pro',
+    model: 'gemini-2.5-flash',
     messages: [
       { role: 'system', content: systemPrompt },
       ...messages
