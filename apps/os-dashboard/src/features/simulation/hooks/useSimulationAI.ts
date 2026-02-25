@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useSimulationStore } from '@/stores/simulationStore';
+import { useSimulationStore } from '@/store/simulationStore';
 import { useSelectedStore } from '@/hooks/useSelectedStore';
 import { toast } from 'sonner';
 

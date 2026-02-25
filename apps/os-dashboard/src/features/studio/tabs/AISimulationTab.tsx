@@ -18,7 +18,7 @@ import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { useSimulationStore, STATE_COLORS, STATE_LABELS } from '@/stores/simulationStore';
+import { useSimulationStore, STATE_COLORS, STATE_LABELS } from '@/store/simulationStore';
 import { useSimulationStore as useAISimulationStore } from '../stores/simulationStore';
 import { buildStoreContext } from '../utils/store-context-builder';
 import { DiagnosticIssueList, type DiagnosticIssue } from '../components/DiagnosticIssueList';

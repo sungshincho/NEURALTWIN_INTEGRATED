@@ -25,7 +25,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { useSimulationStore, STATE_COLORS, STATE_LABELS } from '@/stores/simulationStore';
+import { useSimulationStore, STATE_COLORS, STATE_LABELS } from '@/store/simulationStore';
 import { cn } from '@/lib/utils';
 
 export function RealtimeSimulationPanel() {

@@ -3,7 +3,7 @@ import { SimulationScene } from '../components/SimulationScene';
 import { SimulationControls } from '../components/SimulationControls';
 import { SimulationMetrics } from '../components/SimulationMetrics';
 import { useSimulationEngine } from '../hooks/useSimulationEngine';
-import { useSimulationStore, EntityState } from '@/stores/simulationStore';
+import { useSimulationStore, EntityState } from '@/store/simulationStore';
 import { useOntologyEntities } from '@/hooks/useOntologyData';
 import { useSelectedStore } from '@/hooks/useSelectedStore';
 import { useQuery } from '@tanstack/react-query';

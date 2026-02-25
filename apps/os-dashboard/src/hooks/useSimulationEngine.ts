@@ -11,7 +11,7 @@
  */
 
 import { useEffect, useRef, useCallback } from 'react';
-import { useSimulationStore, CustomerAgent, STATE_COLORS, CustomerState } from '@/stores/simulationStore';
+import { useSimulationStore, CustomerAgent, STATE_COLORS, CustomerState } from '@/store/simulationStore';
 import { useCustomerFlowData, FlowPath, ZoneInfo } from '@/features/studio/hooks/useCustomerFlowData';
 import { getQualityConfig } from '@/utils/deviceCapability';
 

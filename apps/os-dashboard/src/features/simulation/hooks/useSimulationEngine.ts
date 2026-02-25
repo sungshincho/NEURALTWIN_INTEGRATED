@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { useSimulationStore, CustomerAgent, ZoneMetric, STATE_COLORS } from '@/stores/simulationStore';
+import { useSimulationStore, CustomerAgent, ZoneMetric, STATE_COLORS } from '@/store/simulationStore';
 import { supabase } from '@/integrations/supabase/client';
 import { useSelectedStore } from '@/hooks/useSelectedStore';
 

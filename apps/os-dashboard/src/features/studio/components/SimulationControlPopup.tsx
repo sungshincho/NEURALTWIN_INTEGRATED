@@ -9,7 +9,7 @@
 
 import { memo, useCallback } from 'react';
 import { Play, Pause, Square, RotateCcw, Gauge, Users, DollarSign, Clock, TrendingUp } from 'lucide-react';
-import { useSimulationStore, STATE_COLORS, STATE_LABELS, CustomerState } from '@/stores/simulationStore';
+import { useSimulationStore, STATE_COLORS, STATE_LABELS, CustomerState } from '@/store/simulationStore';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
