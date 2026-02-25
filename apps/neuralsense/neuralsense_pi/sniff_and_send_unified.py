@@ -14,6 +14,8 @@
 # - Use a MONITOR mode interface (often wlan1mon), not managed mode wlan1.
 
 import argparse
+import sys
+import os
 import time
 import json
 import hashlib
@@ -21,9 +23,12 @@ import paho.mqtt.client as mqtt
 from scapy.all import sniff
 from scapy.layers.dot11 import Dot11
 
-MQTT_HOST = "100.87.27.7"
-MQTT_PORT = 1883
-MQTT_TOPIC = "neuralsense/rssi"
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from config import MQTT_BROKER_IP, MQTT_BROKER_PORT, MQTT_TOPIC_PREFIX
+
+MQTT_HOST = MQTT_BROKER_IP
+MQTT_PORT = MQTT_BROKER_PORT
+MQTT_TOPIC = MQTT_TOPIC_PREFIX + "/rssi"
 
 RSSI_MIN_DBM = -95
 RSSI_MAX_DBM = -20
