@@ -7,7 +7,7 @@
  * - 모델 파라미터 업데이트 및 버전 관리
  */
 
-import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.89.0';
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 // ============================================================================
 // Type Definitions

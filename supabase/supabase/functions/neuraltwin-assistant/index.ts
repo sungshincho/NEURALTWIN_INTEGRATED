@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.89.0';
+import { createClient } from "@supabase/supabase-js";
 import { checkRateLimit, cleanupExpiredEntries } from '../_shared/rateLimiter.ts';
 import { saveMessage } from '../_shared/chatLogger.ts';
 import { logSessionStart } from '../_shared/chatEventLogger.ts';

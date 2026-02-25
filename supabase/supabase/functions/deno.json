@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "lib": ["deno.window"],
+    "strict": true
+  },
+  "imports": {
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.89.0",
+    "xlsx": "https://esm.sh/xlsx@0.18.5",
+    "@shared/": "./_shared/"
+  }
+}

@@ -7,7 +7,7 @@
  * - ROI 예측 검증
  */
 
-import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.89.0';
+import { SupabaseClient } from "@supabase/supabase-js";
 
 // ============================================================================
 // 타입 정의
