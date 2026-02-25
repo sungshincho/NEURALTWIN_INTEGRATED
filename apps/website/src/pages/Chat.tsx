@@ -529,6 +529,7 @@ const Chat = () => {
 
     try {
       const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+      const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       const sessionId = getOrCreateSessionId();
 
       // 파일 업로드
@@ -564,7 +565,11 @@ const Chat = () => {
 
       const response = await fetch(`${SUPABASE_URL}/functions/v1/retail-chatbot`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+          "apikey": SUPABASE_ANON_KEY,
+        },
         body: JSON.stringify({
           message: userMessage.content,
           sessionId,
@@ -751,12 +756,15 @@ const Chat = () => {
     setIsSubmittingLead(true);
     try {
       const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+      const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       const sessionId = getOrCreateSessionId();
 
       const response = await fetch(`${SUPABASE_URL}/functions/v1/retail-chatbot`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+          "apikey": SUPABASE_ANON_KEY,
         },
         body: JSON.stringify({
           action: "capture_lead",
@@ -824,10 +832,15 @@ const Chat = () => {
   // 리액션 로그를 백엔드에 전송 (fire-and-forget)
   const logReaction = useCallback((type: 'copy' | 'positive' | 'negative', messageId: string, messageContent?: string) => {
     const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+    const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
     if (!SUPABASE_URL) return;
     fetch(`${SUPABASE_URL}/functions/v1/retail-chatbot`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'apikey': SUPABASE_ANON_KEY,
+      },
       body: JSON.stringify({
         action: 'log_reaction',
         sessionId: getOrCreateSessionId(),
