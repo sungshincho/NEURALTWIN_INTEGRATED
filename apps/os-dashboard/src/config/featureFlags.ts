@@ -109,93 +109,93 @@ export const FEATURE_FLAGS = {
     aiSalesForecast: { 
       enabled: false, 
       tier: 3,
-      requiredAPI: ['Lovable AI'],
+      requiredAPI: ['Google AI'],
     } as FeatureFlagConfig,
     anomalyDetection: { 
       enabled: false, 
       tier: 3,
-      requiredAPI: ['Lovable AI'],
+      requiredAPI: ['Google AI'],
     } as FeatureFlagConfig,
 
     // Customer Analysis
     customerJourneyPrediction: { 
       enabled: false, 
       tier: 3,
-      requiredAPI: ['Lovable AI'],
+      requiredAPI: ['Google AI'],
     } as FeatureFlagConfig,
     churnRiskPrediction: { 
       enabled: false, 
       tier: 3,
-      requiredAPI: ['Lovable AI'],
+      requiredAPI: ['Google AI'],
     } as FeatureFlagConfig,
     personalizedRecommendations: { 
       enabled: false, 
       tier: 3,
-      requiredAPI: ['Lovable AI'],
+      requiredAPI: ['Google AI'],
     } as FeatureFlagConfig,
 
     // Digital Twin 3D
     aiLayoutOptimization: { 
       enabled: false, 
       tier: 3,
-      requiredAPI: ['Lovable AI'],
+      requiredAPI: ['Google AI'],
     } as FeatureFlagConfig,
     displayEfficiencyScore: { 
       enabled: false, 
       tier: 3,
-      requiredAPI: ['Lovable AI'],
+      requiredAPI: ['Google AI'],
     } as FeatureFlagConfig,
     abTestSimulation: { 
       enabled: false, 
       tier: 3,
-      requiredAPI: ['Lovable AI'],
+      requiredAPI: ['Google AI'],
     } as FeatureFlagConfig,
 
     // Data Management
     aiDataImputation: { 
       enabled: false, 
       tier: 3,
-      requiredAPI: ['Lovable AI'],
+      requiredAPI: ['Google AI'],
       requiredData: ['age', 'gender', 'category'],
     } as FeatureFlagConfig,
     autoProductCategorization: { 
       enabled: false, 
       tier: 3,
-      requiredAPI: ['Lovable AI'],
+      requiredAPI: ['Google AI'],
     } as FeatureFlagConfig,
     missingFieldInference: { 
       enabled: false, 
       tier: 3,
-      requiredAPI: ['Lovable AI'],
+      requiredAPI: ['Google AI'],
     } as FeatureFlagConfig,
 
     // Forecasting
     salesForecast7d: { 
       enabled: false, 
       tier: 3,
-      requiredAPI: ['Lovable AI'],
+      requiredAPI: ['Google AI'],
     } as FeatureFlagConfig,
     demandForecast: { 
       enabled: false, 
       tier: 3,
-      requiredAPI: ['Lovable AI'],
+      requiredAPI: ['Google AI'],
     } as FeatureFlagConfig,
     visitorForecast: { 
       enabled: false, 
       tier: 3,
-      requiredAPI: ['Lovable AI'],
+      requiredAPI: ['Google AI'],
     } as FeatureFlagConfig,
 
     // Ontology Graph
     aiRelationInference: { 
       enabled: false, 
       tier: 3,
-      requiredAPI: ['Lovable AI'],
+      requiredAPI: ['Google AI'],
     } as FeatureFlagConfig,
     autoGraphDiscovery: { 
       enabled: false, 
       tier: 3,
-      requiredAPI: ['Lovable AI'],
+      requiredAPI: ['Google AI'],
     } as FeatureFlagConfig,
   },
 } as const;

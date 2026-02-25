@@ -9,6 +9,7 @@ export function getEnvConfig() {
     supabaseUrl: requireEnv('SUPABASE_URL'),
     supabaseServiceKey: requireEnv('SUPABASE_SERVICE_ROLE_KEY'),
     supabaseAnonKey: Deno.env.get('SUPABASE_ANON_KEY'),
-    lovableApiKey: Deno.env.get('LOVABLE_API_KEY'),
+    googleAiApiKey: Deno.env.get('GOOGLE_AI_API_KEY'),
+    aiProvider: Deno.env.get('AI_PROVIDER') || 'google',
   };
 }

@@ -58,77 +58,84 @@ serve(async (req) => {
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    
-    if (!LOVABLE_API_KEY) {
-      console.error('LOVABLE_API_KEY is not configured');
+    const GOOGLE_AI_API_KEY = Deno.env.get('GOOGLE_AI_API_KEY');
+
+    if (!GOOGLE_AI_API_KEY) {
+      console.error('GOOGLE_AI_API_KEY is not configured');
       return new Response(
         JSON.stringify({ error: 'AI service not configured' }),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
     }
 
     console.log('Starting image upscaling for user:', user.id);
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash-image-preview",
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: "Upscale this image to higher resolution. Enhance the details, sharpness, and clarity while maintaining the original composition and style. Make it ultra high definition and crystal clear."
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: imageUrl
-                }
-              }
-            ]
-          }
-        ],
-        modalities: ["image", "text"]
-      })
-    });
+    // Prepare image content for Google AI
+    // Support both data URLs (base64) and public URLs
+    const imageParts: any[] = [
+      { text: "Upscale this image to higher resolution. Enhance the details, sharpness, and clarity while maintaining the original composition and style. Make it ultra high definition and crystal clear." }
+    ];
+
+    if (imageUrl.startsWith('data:')) {
+      // Extract base64 from data URL: data:image/png;base64,xxxxx
+      const matches = imageUrl.match(/^data:([^;]+);base64,(.+)$/);
+      if (matches) {
+        imageParts.push({
+          inlineData: { mimeType: matches[1], data: matches[2] }
+        });
+      }
+    } else {
+      // For HTTP URLs, download the image first
+      const imgResponse = await fetch(imageUrl);
+      if (!imgResponse.ok) {
+        return new Response(
+          JSON.stringify({ error: 'Failed to download source image' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      const imgBuffer = await imgResponse.arrayBuffer();
+      const imgBase64 = btoa(String.fromCharCode(...new Uint8Array(imgBuffer)));
+      const mimeType = imgResponse.headers.get('content-type') || 'image/jpeg';
+      imageParts.push({
+        inlineData: { mimeType, data: imgBase64 }
+      });
+    }
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GOOGLE_AI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: imageParts }],
+          generationConfig: {
+            responseModalities: ["TEXT", "IMAGE"],
+          },
+        }),
+      }
+    );
 
     if (!response.ok) {
       if (response.status === 429) {
         return new Response(
           JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
-          { 
-            status: 429, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          {
+            status: 429,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
         );
       }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'AI credits exhausted. Please add credits to continue.' }),
-          { 
-            status: 402, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        );
-      }
-      
+
       const errorText = await response.text();
-      console.error('AI gateway error:', response.status, errorText);
+      console.error('Google AI error:', response.status, errorText);
       return new Response(
         JSON.stringify({ error: 'Failed to upscale image' }),
-        { 
-          status: response.status, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: response.status,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
     }
@@ -136,8 +143,12 @@ serve(async (req) => {
     const data = await response.json();
     console.log('Upscaling completed successfully');
 
-    // Extract the upscaled image
-    const upscaledImageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    // Extract the upscaled image from Google AI response
+    const parts = data.candidates?.[0]?.content?.parts || [];
+    const imagePart = parts.find((p: any) => p.inlineData?.mimeType?.startsWith('image/'));
+    const upscaledImageUrl = imagePart
+      ? `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`
+      : null;
     
     if (!upscaledImageUrl) {
       console.error('No image in response');
