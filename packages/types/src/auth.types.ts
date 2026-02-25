@@ -1,4 +1,4 @@
-import type { Enums } from './database.helpers';
+import type { Enums } from './database.types';
 
 // DB Enum 기반 역할
 export type AppRole = Enums<'app_role'>;
