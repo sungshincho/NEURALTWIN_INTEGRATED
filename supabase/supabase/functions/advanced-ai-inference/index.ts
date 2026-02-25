@@ -1,4 +1,7 @@
-import { createClient } from "@supabase/supabase-js";
+import { createSupabaseAdmin } from "../_shared/supabase-client.ts";
+import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { errorResponse } from "../_shared/error.ts";
+import { chatCompletion } from "../_shared/ai/gateway.ts";
 
 // ============================================================================
 // ⚠️ DEPRECATION NOTICE ⚠️
@@ -34,10 +37,6 @@ import {
   type PastPerformanceResult,
 } from './learning.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 // Helper function to clean AI response and extract valid JSON
 function cleanJsonResponse(content: string): string {
@@ -1786,30 +1785,22 @@ interface InferenceRequest {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCorsOptions(req);
+  if (corsResponse) return corsResponse;
 
   // 🆕 실행 시간 측정 시작
   const executionTimer = createExecutionTimer();
   executionTimer.start();
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createSupabaseAdmin();
     const authHeader = req.headers.get('Authorization')!;
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')!;
 
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    );
     if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return errorResponse('Unauthorized', 401);
     }
 
     let body: InferenceRequest;
@@ -1817,10 +1808,7 @@ Deno.serve(async (req) => {
       body = await req.json();
     } catch (parseError) {
       console.error('Request JSON parse error:', parseError);
-      return new Response(JSON.stringify({ error: 'Invalid JSON in request body' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return errorResponse('Invalid JSON in request body', 400);
     }
     const inferenceType = body.inference_type || body.type;
     console.log('Advanced AI inference request:', inferenceType);
@@ -1837,32 +1825,32 @@ Deno.serve(async (req) => {
     let result;
     switch (inferenceType) {
       case 'causal':
-        result = await performCausalInference(body, lovableApiKey);
+        result = await performCausalInference(body);
         break;
       case 'anomaly':
-        result = await performAnomalyDetection(body, lovableApiKey);
+        result = await performAnomalyDetection(body);
         break;
       case 'prediction':
-        result = await performPredictiveModeling(body, lovableApiKey);
+        result = await performPredictiveModeling(body);
         break;
       case 'pattern':
-        result = await performPatternDiscovery(body, lovableApiKey);
+        result = await performPatternDiscovery(body);
         break;
       case 'layout_optimization':
         // ⚠️ DEPRECATED: generate-optimization 함수의 'both' 타입 사용 권장
         console.warn('[DEPRECATED] layout_optimization: 향후 generate-optimization 함수로 마이그레이션 예정');
-        result = await performLayoutOptimization(enrichedBody, lovableApiKey);
+        result = await performLayoutOptimization(enrichedBody);
         break;
       case 'flow_simulation':
-        result = await performFlowSimulation(enrichedBody, lovableApiKey);
+        result = await performFlowSimulation(enrichedBody);
         break;
       case 'staffing_optimization':
         // ⚠️ DEPRECATED: generate-optimization 함수의 'staffing' 타입 사용 권장
         console.warn('[DEPRECATED] staffing_optimization: generate-optimization 함수의 staffing 타입으로 마이그레이션 권장');
-        result = await performStaffingOptimization(enrichedBody, lovableApiKey);
+        result = await performStaffingOptimization(enrichedBody);
         break;
       case 'congestion_simulation':
-        result = await performCongestionSimulation(enrichedBody, lovableApiKey);
+        result = await performCongestionSimulation(enrichedBody);
         break;
       default:
         throw new Error('Invalid inference type: ' + inferenceType);
@@ -1938,35 +1926,28 @@ Deno.serve(async (req) => {
 
     // 🆕 에러 발생 시에도 로깅 시도
     try {
-      const supabaseUrl = Deno.env.get('SUPABASE_URL');
-      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-      if (supabaseUrl && supabaseKey) {
-        const supabase = createClient(supabaseUrl, supabaseKey);
-        const body = await req.clone().json().catch(() => ({}));
-        await logAIResponse(supabase, {
-          storeId: body.storeId || 'unknown',
-          functionName: 'advanced-ai-inference',
-          simulationType: (body.inference_type || body.type || 'unknown') as SimulationType,
-          inputVariables: body,
-          aiResponse: {},
-          executionTimeMs: executionTimer.getElapsedMs(),
-          hadError: true,
-          errorMessage,
-        });
-      }
+      const supabase = createSupabaseAdmin();
+      const body = await req.clone().json().catch(() => ({}));
+      await logAIResponse(supabase, {
+        storeId: body.storeId || 'unknown',
+        functionName: 'advanced-ai-inference',
+        simulationType: (body.inference_type || body.type || 'unknown') as SimulationType,
+        inputVariables: body,
+        aiResponse: {},
+        executionTimeMs: executionTimer.getElapsedMs(),
+        hadError: true,
+        errorMessage,
+      });
     } catch (logError) {
       console.warn('[advanced-ai-inference] Failed to log error:', logError);
     }
 
-    return new Response(JSON.stringify({ error: errorMessage }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return errorResponse(errorMessage, 500);
   }
 });
 
 // Causal Inference: 인과 관계 추론
-async function performCausalInference(request: InferenceRequest, apiKey: string) {
+async function performCausalInference(request: InferenceRequest) {
   const { data = [], graph_data, parameters = {} } = request;
   
   const dataSummary = summarizeData(data, graph_data);
@@ -1990,25 +1971,12 @@ PARAMETERS:
 
 Return a JSON object with causal_relationships, causal_chains, and insights.`;
 
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-pro',
-      messages: [{ role: 'user', content: prompt }],
-      response_format: { type: 'json_object' },
-    }),
+  const result = await chatCompletion({
+    model: 'gemini-2.5-pro',
+    messages: [{ role: 'user', content: prompt }],
+    jsonMode: true,
   });
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`AI API error: ${error}`);
-  }
-
-  const result = await response.json();
   const aiContent = result.choices?.[0]?.message?.content || '';
   const analysis = safeParseAIResponse(aiContent, { relationships: [], chains: [], summary: {} });
 
@@ -2020,7 +1988,7 @@ Return a JSON object with causal_relationships, causal_chains, and insights.`;
 }
 
 // Anomaly Detection: 이상 탐지
-async function performAnomalyDetection(request: InferenceRequest, apiKey: string) {
+async function performAnomalyDetection(request: InferenceRequest) {
   const { data = [], time_series_data, parameters = {} } = request;
   
   const statisticalAnomalies = detectStatisticalAnomalies(data, parameters);
@@ -2043,25 +2011,12 @@ ${JSON.stringify(statisticalAnomalies, null, 2)}
 
 Return a JSON object with anomalies, patterns, and summary.`;
 
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-pro',
-      messages: [{ role: 'user', content: prompt }],
-      response_format: { type: 'json_object' },
-    }),
+  const result = await chatCompletion({
+    model: 'gemini-2.5-pro',
+    messages: [{ role: 'user', content: prompt }],
+    jsonMode: true,
   });
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`AI API error: ${error}`);
-  }
-
-  const result = await response.json();
   const aiContent = result.choices?.[0]?.message?.content || '';
   const analysis = safeParseAIResponse(aiContent, { anomalies: [], patterns: [], summary: {} });
 
@@ -2074,21 +2029,21 @@ Return a JSON object with anomalies, patterns, and summary.`;
 }
 
 // Predictive Modeling: 예측 모델링
-async function performPredictiveModeling(request: InferenceRequest, apiKey: string) {
+async function performPredictiveModeling(request: InferenceRequest) {
   const { data = [], time_series_data, graph_data, parameters = {} } = request;
   
   const scenarioType = parameters.scenario_type;
   
   if (scenarioType === 'layout') {
-    return performLayoutSimulation(request, apiKey);
+    return performLayoutSimulation(request);
   } else if (scenarioType === 'demand') {
-    return performDemandForecast(request, apiKey);
+    return performDemandForecast(request);
   } else if (scenarioType === 'inventory') {
-    return performInventoryOptimization(request, apiKey);
+    return performInventoryOptimization(request);
   } else if (scenarioType === 'pricing') {
-    return performPricingOptimization(request, apiKey);
+    return performPricingOptimization(request);
   } else if (scenarioType === 'recommendation') {
-    return performRecommendationStrategy(request, apiKey);
+    return performRecommendationStrategy(request);
   }
   
   const dataSummary = summarizeData(data, graph_data);
@@ -2105,25 +2060,12 @@ ${JSON.stringify(timeSeriesSummary, null, 2)}
 
 Return a JSON object with predictions, feature_importance, drivers, risks, and model_quality.`;
 
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-pro',
-      messages: [{ role: 'user', content: prompt }],
-      response_format: { type: 'json_object' },
-    }),
+  const result = await chatCompletion({
+    model: 'gemini-2.5-pro',
+    messages: [{ role: 'user', content: prompt }],
+    jsonMode: true,
   });
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`AI API error: ${error}`);
-  }
-
-  const result = await response.json();
   const aiContent = result.choices?.[0]?.message?.content || '';
   const analysis = safeParseAIResponse(aiContent, { predictions: [], trends: [], summary: {} });
 
@@ -2140,7 +2082,7 @@ Return a JSON object with predictions, feature_importance, drivers, risks, and m
 // ============================================================================
 
 // Layout Simulation: 레이아웃 최적화 시뮬레이션 (v5 - Product Optimization)
-async function performLayoutSimulation(request: InferenceRequest, apiKey: string) {
+async function performLayoutSimulation(request: InferenceRequest) {
   console.log('performLayoutSimulation v5 - AI Product Placement Optimization');
   console.log('=== Layout Simulation Start ===');
 
@@ -2372,45 +2314,33 @@ async function performLayoutSimulation(request: InferenceRequest, apiKey: string
   try {
     console.log('Calling AI API for furniture + product optimization...');
     
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          {
-            role: 'system',
-            content: `You are a data-driven retail layout AND product placement expert. 
+    const result = await chatCompletion({
+      model: 'gemini-2.5-flash',
+      messages: [
+        {
+          role: 'system',
+          content: `You are a data-driven retail layout AND product placement expert.
 You optimize both furniture positions AND product placements on furniture.
 Return ONLY valid JSON, no markdown code blocks, no explanations.
 Base ALL recommendations on the provided real data.`
-          },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.3,
-        max_tokens: 6000,
-      }),
+        },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.3,
+      maxTokens: 6000,
     });
 
-    if (response.ok) {
-      const result = await response.json();
-      const aiContent = result.choices?.[0]?.message?.content || '';
-      
-      console.log('AI response length:', aiContent.length);
-      
-      if (aiContent.trim()) {
-        const parsed = safeParseAIResponse(aiContent, {});
-        if (parsed && Object.keys(parsed).length > 0) {
-          aiResponse = parsed;
-          console.log('Parsed layoutChanges count:', aiResponse.layoutChanges?.length || 0);
-          console.log('Parsed productPlacements count:', aiResponse.productPlacements?.length || 0);
-        }
+    const aiContent = result.choices?.[0]?.message?.content || '';
+
+    console.log('AI response length:', aiContent.length);
+
+    if (aiContent.trim()) {
+      const parsed = safeParseAIResponse(aiContent, {});
+      if (parsed && Object.keys(parsed).length > 0) {
+        aiResponse = parsed;
+        console.log('Parsed layoutChanges count:', aiResponse.layoutChanges?.length || 0);
+        console.log('Parsed productPlacements count:', aiResponse.productPlacements?.length || 0);
       }
-    } else {
-      console.error('AI API error:', response.status, await response.text());
     }
   } catch (e) {
     console.error('AI call error:', e);
@@ -3003,7 +2933,7 @@ Return ONLY valid JSON (no markdown):
 }
 
 // Business Goal Analysis
-async function performBusinessGoalAnalysis(request: InferenceRequest, apiKey: string) {
+async function performBusinessGoalAnalysis(request: InferenceRequest) {
   const { parameters = {} } = request;
   const goalText = parameters.goal_text || '';
   
@@ -3014,25 +2944,12 @@ BUSINESS GOAL: ${goalText}
 Analyze this business goal and recommend 3-5 actionable simulation scenarios.
 Return a JSON object with recommendations array.`;
 
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
-      messages: [{ role: 'user', content: prompt }],
-      response_format: { type: 'json_object' },
-    }),
+  const result = await chatCompletion({
+    model: 'gemini-2.5-flash',
+    messages: [{ role: 'user', content: prompt }],
+    jsonMode: true,
   });
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`AI API error: ${error}`);
-  }
-
-  const result = await response.json();
   const aiContent = result.choices?.[0]?.message?.content || '';
   const analysis = safeParseAIResponse(aiContent, { patterns: [], insights: [], summary: {} });
 
@@ -3040,7 +2957,7 @@ Return a JSON object with recommendations array.`;
 }
 
 // Demand Forecast
-async function performDemandForecast(request: InferenceRequest, apiKey: string) {
+async function performDemandForecast(request: InferenceRequest) {
   const { parameters = {} } = request;
   const storeContext = parameters.store_context;
   
@@ -3078,32 +2995,19 @@ ${ontologyAnalysis.summaryForAI}
 
 Return a comprehensive JSON object with predictedKpi, confidenceScore, aiInsights, demandDrivers, demandForecast, topProducts, and recommendations.`;
 
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-pro',
-      messages: [{ role: 'user', content: prompt }],
-      response_format: { type: 'json_object' },
-      temperature: 0.6,
-    }),
+  const result = await chatCompletion({
+    model: 'gemini-2.5-pro',
+    messages: [{ role: 'user', content: prompt }],
+    jsonMode: true,
+    temperature: 0.6,
   });
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`AI API error: ${error}`);
-  }
-
-  const result = await response.json();
   const prediction = safeParseAIResponse(result.choices?.[0]?.message?.content || '', {});
-  
+
   if (prediction.confidenceScore !== undefined) {
     prediction.confidenceScore = Number(prediction.confidenceScore);
   }
-  
+
   return {
     type: 'demand_forecast',
     timestamp: new Date().toISOString(),
@@ -3116,7 +3020,7 @@ Return a comprehensive JSON object with predictedKpi, confidenceScore, aiInsight
 }
 
 // Inventory Optimization
-async function performInventoryOptimization(request: InferenceRequest, apiKey: string) {
+async function performInventoryOptimization(request: InferenceRequest) {
   const { parameters = {} } = request;
   const storeContext = parameters.store_context;
 
@@ -3152,32 +3056,19 @@ ${ontologyAnalysis.summaryForAI}
 
 Return a JSON object with predictedKpi, confidenceScore, aiInsights, inventoryOptimization, and recommendations.`;
 
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-pro',
-      messages: [{ role: 'user', content: prompt }],
-      response_format: { type: 'json_object' },
-      temperature: 0.5,
-    }),
+  const result = await chatCompletion({
+    model: 'gemini-2.5-pro',
+    messages: [{ role: 'user', content: prompt }],
+    jsonMode: true,
+    temperature: 0.5,
   });
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`AI API error: ${error}`);
-  }
-
-  const result = await response.json();
   const prediction = safeParseAIResponse(result.choices?.[0]?.message?.content || '', {});
-  
+
   if (prediction.confidenceScore !== undefined) {
     prediction.confidenceScore = Number(prediction.confidenceScore);
   }
-  
+
   return {
     type: 'inventory_optimization',
     timestamp: new Date().toISOString(),
@@ -3190,7 +3081,7 @@ Return a JSON object with predictedKpi, confidenceScore, aiInsights, inventoryOp
 }
 
 // Pricing Optimization
-async function performPricingOptimization(request: InferenceRequest, apiKey: string) {
+async function performPricingOptimization(request: InferenceRequest) {
   const { parameters = {} } = request;
   const storeContext = parameters.store_context;
 
@@ -3226,32 +3117,19 @@ ${ontologyAnalysis.summaryForAI}
 
 Return a JSON object with predictedKpi, confidenceScore, aiInsights, pricingOptimization, and recommendations.`;
 
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-pro',
-      messages: [{ role: 'user', content: prompt }],
-      response_format: { type: 'json_object' },
-      temperature: 0.6,
-    }),
+  const result = await chatCompletion({
+    model: 'gemini-2.5-pro',
+    messages: [{ role: 'user', content: prompt }],
+    jsonMode: true,
+    temperature: 0.6,
   });
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`AI API error: ${error}`);
-  }
-
-  const result = await response.json();
   const prediction = safeParseAIResponse(result.choices?.[0]?.message?.content || '', {});
-  
+
   if (prediction.confidenceScore !== undefined) {
     prediction.confidenceScore = Number(prediction.confidenceScore);
   }
-  
+
   return {
     type: 'pricing_optimization',
     timestamp: new Date().toISOString(),
@@ -3264,7 +3142,7 @@ Return a JSON object with predictedKpi, confidenceScore, aiInsights, pricingOpti
 }
 
 // Recommendation Strategy
-async function performRecommendationStrategy(request: InferenceRequest, apiKey: string) {
+async function performRecommendationStrategy(request: InferenceRequest) {
   const { parameters = {} } = request;
   const storeContext = parameters.store_context;
 
@@ -3298,31 +3176,18 @@ ${ontologyAnalysis.summaryForAI}
 
 Return a JSON object with predictedKpi, confidenceScore, aiInsights, recommendationStrategy, and recommendations.`;
 
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
-      messages: [{ role: 'user', content: prompt }],
-      response_format: { type: 'json_object' },
-    }),
+  const result = await chatCompletion({
+    model: 'gemini-2.5-flash',
+    messages: [{ role: 'user', content: prompt }],
+    jsonMode: true,
   });
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`AI API error: ${error}`);
-  }
-
-  const result = await response.json();
   const prediction = safeParseAIResponse(result.choices?.[0]?.message?.content || '', {});
-  
+
   if (prediction.confidenceScore !== undefined) {
     prediction.confidenceScore = Number(prediction.confidenceScore);
   }
-  
+
   return {
     type: 'recommendation_strategy',
     timestamp: new Date().toISOString(),
@@ -3335,11 +3200,11 @@ Return a JSON object with predictedKpi, confidenceScore, aiInsights, recommendat
 }
 
 // Pattern Discovery
-async function performPatternDiscovery(request: InferenceRequest, apiKey: string) {
+async function performPatternDiscovery(request: InferenceRequest) {
   const { data = [], graph_data, time_series_data, parameters = {} } = request;
   
   if (parameters.analysis_type === 'business_goal_analysis') {
-    return performBusinessGoalAnalysis(request, apiKey);
+    return performBusinessGoalAnalysis(request);
   }
   
   const dataSummary = summarizeData(data, graph_data);
@@ -3356,25 +3221,12 @@ ${JSON.stringify(timeSeriesSummary, null, 2)}
 
 Return a JSON object with patterns, segments, trends, insights, and summary.`;
 
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-pro',
-      messages: [{ role: 'user', content: prompt }],
-      response_format: { type: 'json_object' },
-    }),
+  const result = await chatCompletion({
+    model: 'gemini-2.5-pro',
+    messages: [{ role: 'user', content: prompt }],
+    jsonMode: true,
   });
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`AI API error: ${error}`);
-  }
-
-  const result = await response.json();
   const aiContent = result.choices?.[0]?.message?.content || '';
   const analysis = safeParseAIResponse(aiContent, { patterns: [], clusters: [], summary: {} });
 
@@ -3503,7 +3355,7 @@ function detectStatisticalAnomalies(data: any[] | undefined, parameters: any) {
 // ============================================================================
 
 // 레이아웃 최적화 시뮬레이션
-async function performLayoutOptimization(request: InferenceRequest, apiKey: string) {
+async function performLayoutOptimization(request: InferenceRequest) {
   const { params, storeId, orgId } = request;
   const sceneData = params?.sceneData;
   const storeContext = params?.storeContext;
@@ -3713,26 +3565,12 @@ Return a JSON object with this exact structure:
   });
 
   try {
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-pro',
-        messages: [{ role: 'user', content: prompt }],
-        response_format: { type: 'json_object' },
-      }),
+    const result = await chatCompletion({
+      model: 'gemini-2.5-pro',
+      messages: [{ role: 'user', content: prompt }],
+      jsonMode: true,
     });
 
-    if (!response.ok) {
-      const error = await response.text();
-      console.error('Layout optimization API error:', error);
-      throw new Error(`AI API error: ${error}`);
-    }
-
-    const result = await response.json();
     const aiResponse = safeParseAIResponse(result.choices[0]?.message?.content, {
       furnitureMoves: [],
       productPlacements: [],
@@ -4132,7 +3970,7 @@ function generateHeatmapDataForStore(width: number, depth: number, intensityBoos
 }
 
 // 동선 시뮬레이션
-async function performFlowSimulation(request: InferenceRequest, apiKey: string) {
+async function performFlowSimulation(request: InferenceRequest) {
   const { params } = request;
   const sceneData = params?.sceneData;
   const storeContext = params?.storeContext;
@@ -4237,26 +4075,12 @@ Return a JSON object with this exact structure:
 }`;
 
   try {
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-pro',
-        messages: [{ role: 'user', content: prompt }],
-        response_format: { type: 'json_object' },
-      }),
+    const result = await chatCompletion({
+      model: 'gemini-2.5-pro',
+      messages: [{ role: 'user', content: prompt }],
+      jsonMode: true,
     });
 
-    if (!response.ok) {
-      const error = await response.text();
-      console.error('Flow simulation API error:', error);
-      throw new Error(`AI API error: ${error}`);
-    }
-
-    const result = await response.json();
     const aiResponse = safeParseAIResponse(result.choices[0]?.message?.content, {
       summary: { totalCustomers: customerCount, avgTravelTime: 300, avgTravelDistance: 45, avgDwellTime: 120, conversionRate: 0.35, bottleneckCount: 1 },
       bottlenecks: [],
@@ -4568,7 +4392,7 @@ function generateBottlenecksFromZoneMetrics(
 }
 
 // 인력 배치 최적화 시뮬레이션
-async function performStaffingOptimization(request: InferenceRequest, apiKey: string) {
+async function performStaffingOptimization(request: InferenceRequest) {
   const { params } = request;
   const storeContext = params?.storeContext;
   const supabaseClient = params?.supabaseClient;
@@ -4665,26 +4489,12 @@ Return a JSON object with this exact structure:
 }`;
 
   try {
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-pro',
-        messages: [{ role: 'user', content: prompt }],
-        response_format: { type: 'json_object' },
-      }),
+    const result = await chatCompletion({
+      model: 'gemini-2.5-pro',
+      messages: [{ role: 'user', content: prompt }],
+      jsonMode: true,
     });
 
-    if (!response.ok) {
-      const error = await response.text();
-      console.error('Staffing optimization API error:', error);
-      throw new Error(`AI API error: ${error}`);
-    }
-
-    const result = await response.json();
     const aiResponse = safeParseAIResponse(result.choices[0]?.message?.content, {
       staffPositions: [],
       zoneCoverage: [],
@@ -4786,7 +4596,7 @@ Return a JSON object with this exact structure:
 }
 
 // 혼잡도 시뮬레이션
-async function performCongestionSimulation(request: InferenceRequest, apiKey: string) {
+async function performCongestionSimulation(request: InferenceRequest) {
   const { params } = request;
   const storeContext = params?.storeContext;
   const timeRange = params?.timeRange || { start: 10, end: 22 };
@@ -4844,26 +4654,12 @@ Return a JSON object with this exact structure:
 }`;
 
   try {
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash', // 빠른 응답을 위해 flash 모델 사용
-        messages: [{ role: 'user', content: prompt }],
-        response_format: { type: 'json_object' },
-      }),
+    const result = await chatCompletion({
+      model: 'gemini-2.5-flash',
+      messages: [{ role: 'user', content: prompt }],
+      jsonMode: true,
     });
 
-    if (!response.ok) {
-      const error = await response.text();
-      console.error('Congestion simulation API error:', error);
-      throw new Error(`AI API error: ${error}`);
-    }
-
-    const result = await response.json();
     const aiResponse = safeParseAIResponse(result.choices[0]?.message?.content, {
       summary: { peakHour: 14, peakDensity: 0.7, avgDensity: 0.4, bottleneckCount: 2 },
       hourlyData: [],

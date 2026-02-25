@@ -1,4 +1,8 @@
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { SupabaseClient } from "@supabase/supabase-js";
+import { createSupabaseAdmin } from "../_shared/supabase-client.ts";
+import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { errorResponse } from "../_shared/error.ts";
+import { chatCompletion } from "../_shared/ai/gateway.ts";
 
 // AI 응답 로깅 시스템
 import {
@@ -133,11 +137,6 @@ import {
  * - 가구 위치 최적화 (이동 가능 가구만)
  * - AI 기반 또는 룰 기반 추천 생성
  */
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 interface Vector3D {
   x: number;
@@ -294,29 +293,24 @@ interface AILayoutOptimizationResult {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCorsOptions(req);
+  if (corsResponse) return corsResponse;
 
   // 🆕 실행 시간 측정 시작
   const executionTimer = createExecutionTimer();
   executionTimer.start();
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createSupabaseAdmin();
     const authHeader = req.headers.get('Authorization');
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
-
-    // Service Role 키로 Supabase 클라이언트 생성 (RLS 우회)
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      global: { headers: authHeader ? { Authorization: authHeader } : {} },
-    });
+    const hasAIKey = !!Deno.env.get('GOOGLE_AI_API_KEY') || !!Deno.env.get('OPENAI_API_KEY');
 
     // 인증 확인 (선택적 - anon key도 허용)
     let userId: string | null = null;
     if (authHeader) {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser(
+        authHeader.replace('Bearer ', '')
+      );
       userId = user?.id || null;
     }
 
@@ -388,7 +382,6 @@ Deno.serve(async (req) => {
       console.log(`[generate-optimization] 🧑‍💼 Staffing optimization requested (type: ${optimization_type})`);
       staffingResult = await performStaffingOptimization(
         supabase,
-        lovableApiKey || '',
         store_id,
         layoutData,
         performanceData,
@@ -419,10 +412,9 @@ Deno.serve(async (req) => {
           },
         },
       };
-    } else if (lovableApiKey) {
+    } else if (hasAIKey) {
       // both, furniture, product 타입: AI 최적화 수행
       result = await generateAIOptimization(
-        lovableApiKey,
         layoutData,
         performanceData,
         slotsData,
@@ -807,7 +799,7 @@ Deno.serve(async (req) => {
           vmdAnalysis
         ),
         executionTimeMs,
-        modelUsed: lovableApiKey ? 'gemini-2.5-flash' : 'rule-based',
+        modelUsed: hasAIKey ? 'gemini-2.5-flash' : 'rule-based',
       });
       console.log(`[generate-optimization] Response logged successfully (${executionTimeMs}ms)`);
     } catch (logError) {
@@ -949,30 +941,23 @@ Deno.serve(async (req) => {
 
     // 🆕 에러 발생 시에도 로깅 시도
     try {
-      const supabaseUrl = Deno.env.get('SUPABASE_URL');
-      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-      if (supabaseUrl && supabaseKey) {
-        const supabase = createClient(supabaseUrl, supabaseKey);
-        const body = await req.clone().json().catch(() => ({}));
-        await logAIResponse(supabase, {
-          storeId: body.store_id || 'unknown',
-          functionName: 'generate-optimization',
-          simulationType: body.optimization_type || 'unknown',
-          inputVariables: body,
-          aiResponse: {},
-          executionTimeMs: executionTimer.getElapsedMs(),
-          hadError: true,
-          errorMessage,
-        });
-      }
+      const supabase = createSupabaseAdmin();
+      const body = await req.clone().json().catch(() => ({}));
+      await logAIResponse(supabase, {
+        storeId: body.store_id || 'unknown',
+        functionName: 'generate-optimization',
+        simulationType: body.optimization_type || 'unknown',
+        inputVariables: body,
+        aiResponse: {},
+        executionTimeMs: executionTimer.getElapsedMs(),
+        hadError: true,
+        errorMessage,
+      });
     } catch (logError) {
       console.warn('[generate-optimization] Failed to log error:', logError);
     }
 
-    return new Response(JSON.stringify({ error: errorMessage }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return errorResponse(errorMessage, 500);
   }
 });
 
@@ -1266,7 +1251,6 @@ function extractPartialData(jsonStr: string): any {
 }
 
 async function generateAIOptimization(
-  apiKey: string,
   layoutData: any,
   performanceData: any,
   slotsData: any[],
@@ -1396,34 +1380,21 @@ async function generateAIOptimization(
 
     // 🆕 Sprint 1: Tool Call 반복 처리 루프
     while (true) {
-      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          messages,
-          // 🔧 Gemini는 tool_choice + response_format을 동시에 지원하지 않음
-          // Tool Use 진행 중에는 response_format 생략, 최종 응답에만 사용
-          ...(enableToolUse && toolCallIterations < maxIterations ? {} : { response_format: responseFormat }),
-          max_tokens: 16000,
-          // 🆕 Sprint 1: Tool Use 파라미터 추가
-          // tool_choice: 'required' - AI가 반드시 Tool을 호출하도록 강제 (첫 호출)
-          // response_format을 생략했으므로 'required' 사용 가능
-          ...(enableToolUse && toolCallIterations < maxIterations ? {
-            tools: OPENROUTER_TOOLS,
-            tool_choice: toolCallIterations === 0 ? 'required' : 'auto',
-          } : {}),
-        }),
+      data = await chatCompletion({
+        model: 'gemini-2.5-flash',
+        messages,
+        // 🔧 Gemini는 tool_choice + response_format을 동시에 지원하지 않음
+        // Tool Use 진행 중에는 response_format 생략, 최종 응답에만 사용
+        ...(enableToolUse && toolCallIterations < maxIterations ? {} : { responseFormat }),
+        maxTokens: 16000,
+        // 🆕 Sprint 1: Tool Use 파라미터 추가
+        // tool_choice: 'required' - AI가 반드시 Tool을 호출하도록 강제 (첫 호출)
+        // response_format을 생략했으므로 'required' 사용 가능
+        ...(enableToolUse && toolCallIterations < maxIterations ? {
+          tools: OPENROUTER_TOOLS,
+          toolChoice: toolCallIterations === 0 ? 'required' : 'auto',
+        } : {}),
       });
-
-      if (!response.ok) {
-        throw new Error(`AI API error: ${await response.text()}`);
-      }
-
-      data = await response.json();
 
       // 🆕 Sprint 1: Tool Call 처리
       if (enableToolUse && hasToolCalls(data) && toolCallIterations < maxIterations) {
@@ -2169,7 +2140,6 @@ function generateRuleBasedOptimization(
  * AI 기반 인력 배치 최적화
  *
  * @param supabase - Supabase 클라이언트
- * @param apiKey - AI API 키
  * @param storeId - 매장 ID
  * @param layoutData - 레이아웃 데이터
  * @param performanceData - 성과 데이터
@@ -2177,7 +2147,6 @@ function generateRuleBasedOptimization(
  */
 async function performStaffingOptimization(
   supabase: SupabaseClient,
-  apiKey: string,
   storeId: string,
   layoutData: any,
   performanceData: any,
@@ -2309,28 +2278,14 @@ Return a JSON object with this exact structure:
 4. Each insight should reference the assignment_strategy being applied`;
 
   // 5. AI 호출 또는 룰 기반 생성
-  if (apiKey) {
+  const hasAIKey = !!Deno.env.get('GOOGLE_AI_API_KEY') || !!Deno.env.get('OPENAI_API_KEY');
+  if (hasAIKey) {
     try {
-      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          messages: [{ role: 'user', content: prompt }],
-          response_format: { type: 'json_object' },
-        }),
+      const result = await chatCompletion({
+        model: 'gemini-2.5-flash',
+        messages: [{ role: 'user', content: prompt }],
+        jsonMode: true,
       });
-
-      if (!response.ok) {
-        const error = await response.text();
-        console.error('[performStaffingOptimization] API error:', error);
-        throw new Error(`AI API error: ${error}`);
-      }
-
-      const result = await response.json();
       const aiContent = result.choices[0]?.message?.content || '{}';
 
       // JSON 파싱

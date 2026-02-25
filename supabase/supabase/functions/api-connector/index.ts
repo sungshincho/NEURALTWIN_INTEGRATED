@@ -8,13 +8,9 @@
 // 4. 매핑 템플릿 적용 (apply-template)
 // ============================================================================
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "@supabase/supabase-js";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { createSupabaseAdmin } from "../_shared/supabase-client.ts";
+import { errorResponse } from "../_shared/error.ts";
 
 // 변환 함수 정의
 const transformFunctions: Record<string, (value: any, config?: any) => any> = {
@@ -131,15 +127,12 @@ function buildAuthHeaders(authType: string, authConfig: any): Record<string, str
   return headers;
 }
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const corsResponse = handleCorsOptions(req);
+  if (corsResponse) return corsResponse;
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = createSupabaseAdmin();
 
     const body = await req.json();
     const { action, connection_id, connection_config } = body;
@@ -632,24 +625,13 @@ serve(async (req) => {
       // 알 수 없는 액션
       // ======================================================================
       default:
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: `Unknown action: ${action}`,
-            available_actions: ['test', 'sync', 'preview', 'apply-template'],
-          }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return errorResponse(`Unknown action: ${action}`, 400, {
+          available_actions: ['test', 'sync', 'preview', 'apply-template'],
+        });
     }
 
   } catch (error: any) {
     console.error('API Connector Error:', error);
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: error.message,
-      }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return errorResponse(error.message, 500);
   }
 });

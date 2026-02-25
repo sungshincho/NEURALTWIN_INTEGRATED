@@ -1,19 +1,16 @@
-import { createClient } from "@supabase/supabase-js";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { requireEnv } from "../_shared/env.ts";
+import { errorResponse } from "../_shared/error.ts";
+import { createSupabaseAdmin } from "../_shared/supabase-client.ts";
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCorsOptions(req);
+  if (corsResponse) return corsResponse;
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabaseUrl = requireEnv('SUPABASE_URL');
+    const supabaseServiceKey = requireEnv('SUPABASE_SERVICE_ROLE_KEY');
+    const supabase = createSupabaseAdmin();
 
     console.log('[ETL Scheduler] Starting scheduled ETL pipeline...');
 
@@ -69,11 +66,6 @@ Deno.serve(async (req) => {
   } catch (error: unknown) {
     console.error('[ETL Scheduler] Error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Scheduler failed';
-    return new Response(JSON.stringify({
-      error: errorMessage,
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return errorResponse(errorMessage, 500);
   }
 });

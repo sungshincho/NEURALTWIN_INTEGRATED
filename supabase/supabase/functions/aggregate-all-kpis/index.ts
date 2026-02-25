@@ -1,25 +1,13 @@
-import { createClient } from "@supabase/supabase-js";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { errorResponse } from "../_shared/error.ts";
+import { createSupabaseWithAuth } from "../_shared/supabase-client.ts";
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCorsOptions(req);
+  if (corsResponse) return corsResponse;
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
-        },
-      }
-    );
+    const supabaseClient = createSupabaseWithAuth(req.headers.get('Authorization')!);
 
     const {
       data: { user },
@@ -75,7 +63,7 @@ Deno.serve(async (req) => {
           dateMap.set(dateStr, { visits: [], purchases: [] });
         }
         const entry = dateMap.get(dateStr)!;
-        
+
         // visit인지 purchase인지 구분
         if (props?.visit_date) {
           entry.visits.push(entity);
@@ -104,7 +92,7 @@ Deno.serve(async (req) => {
       // 날짜 범위 필터 적용
       if (start_date && date < start_date) continue;
       if (end_date && date > end_date) continue;
-      
+
       const totalVisits = data.visits.length;
       const totalPurchases = data.purchases.length;
       const totalRevenue = data.purchases.reduce((sum, p) => {
@@ -180,12 +168,6 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('❌ Error aggregating all KPIs:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
-      }
-    );
+    return errorResponse(errorMessage, 400);
   }
 });

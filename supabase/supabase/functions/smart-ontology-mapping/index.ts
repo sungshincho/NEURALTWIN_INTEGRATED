@@ -1,9 +1,7 @@
-import { createClient } from "@supabase/supabase-js";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { createSupabaseAdmin } from "../_shared/supabase-client.ts";
+import { errorResponse } from "../_shared/error.ts";
+import { chatCompletion } from "../_shared/ai/gateway.ts";
 
 interface SmartMappingRequest {
   import_id: string;
@@ -13,15 +11,11 @@ interface SmartMappingRequest {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCorsOptions(req);
+  if (corsResponse) return corsResponse;
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    const supabase = createSupabaseAdmin();
 
     const { import_id, id_columns, foreign_key_columns, user_id } = await req.json() as SmartMappingRequest;
 
@@ -70,12 +64,6 @@ Deno.serve(async (req) => {
       .eq('user_id', userId);
 
     console.log(`📋 Existing: ${entityTypes?.length || 0} entity types, ${relationTypes?.length || 0} relation types`);
-
-    // AI 기반 정교한 매핑
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY not configured');
-    }
 
     const mappingPrompt = `당신은 온톨로지 설계 전문가입니다. 다음 데이터를 분석하고 완벽한 온톨로지 매핑을 생성하세요.
 
@@ -138,116 +126,101 @@ ${relationTypes?.map(rt => `- ${rt.name}: ${rt.source_entity_type} -> ${rt.targe
 
 **중요: column_mappings를 빈 객체 {}로 반환하지 마세요! 모든 컬럼을 매핑하세요!**`;
 
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-pro',
-        messages: [
-          {
-            role: 'system',
-            content: '온톨로지 설계 전문가로서 정확하고 완전한 매핑을 생성하세요. 모든 ID 컬럼과 외래 키를 properties에 반드시 포함시키세요.'
-          },
-          {
-            role: 'user',
-            content: mappingPrompt
-          }
-        ],
-        tools: [
-          {
-            type: 'function',
-            function: {
-              name: 'create_ontology_mapping',
-              description: '온톨로지 매핑을 생성합니다',
-              parameters: {
-                type: 'object',
-                properties: {
-                  entity_mappings: {
-                    type: 'array',
-                    items: {
-                      type: 'object',
-                      properties: {
-                        entity_type_id: {
-                          type: 'string',
-                          description: '기존 엔티티 타입 ID 또는 "NEW"'
-                        },
-                        entity_type_name: { type: 'string' },
-                        entity_type_label: { type: 'string' },
-                        create_new: {
-                          type: 'boolean',
-                          description: '새 엔티티 타입 생성 여부'
-                        },
-                        properties_definition: {
-                          type: 'array',
-                          items: {
-                            type: 'object',
-                            properties: {
-                              name: { type: 'string' },
-                              type: { type: 'string' },
-                              required: { type: 'boolean' }
-                            }
-                          },
-                          description: '새 엔티티 타입의 속성 정의'
-                        },
-                        column_mappings: {
+    const aiData = await chatCompletion({
+      model: 'gemini-2.5-pro',
+      messages: [
+        {
+          role: 'system',
+          content: '온톨로지 설계 전문가로서 정확하고 완전한 매핑을 생성하세요. 모든 ID 컬럼과 외래 키를 properties에 반드시 포함시키세요.'
+        },
+        {
+          role: 'user',
+          content: mappingPrompt
+        }
+      ],
+      tools: [
+        {
+          type: 'function',
+          function: {
+            name: 'create_ontology_mapping',
+            description: '온톨로지 매핑을 생성합니다',
+            parameters: {
+              type: 'object',
+              properties: {
+                entity_mappings: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      entity_type_id: {
+                        type: 'string',
+                        description: '기존 엔티티 타입 ID 또는 "NEW"'
+                      },
+                      entity_type_name: { type: 'string' },
+                      entity_type_label: { type: 'string' },
+                      create_new: {
+                        type: 'boolean',
+                        description: '새 엔티티 타입 생성 여부'
+                      },
+                      properties_definition: {
+                        type: 'array',
+                        items: {
                           type: 'object',
-                          description: 'REQUIRED! 모든 컬럼을 매핑. 형식: {"prop_name": "column_name"}. 예: {"store_id": "store_id", "product_id": "product_id", "quantity": "quantity"}. 빈 객체 금지!',
-                          additionalProperties: { type: 'string' }
+                          properties: {
+                            name: { type: 'string' },
+                            type: { type: 'string' },
+                            required: { type: 'boolean' }
+                          }
                         },
-                        label_template: { type: 'string' },
-                        confidence: { type: 'number' }
+                        description: '새 엔티티 타입의 속성 정의'
                       },
-                      required: ['entity_type_id', 'entity_type_name', 'column_mappings', 'label_template']
-                    }
-                  },
-                  relation_mappings: {
-                    type: 'array',
-                    items: {
-                      type: 'object',
-                      properties: {
-                        relation_type_id: {
-                          type: 'string',
-                          description: '기존 관계 타입 ID 또는 "NEW"'
-                        },
-                        relation_type_name: { type: 'string' },
-                        relation_type_label: { type: 'string' },
-                        create_new: { type: 'boolean' },
-                        source_entity_type_id: { type: 'string' },
-                        target_entity_type_id: { type: 'string' },
-                        source_key: {
-                          type: 'string',
-                          description: '소스 엔티티의 ID 컬럼명'
-                        },
-                        target_key: {
-                          type: 'string',
-                          description: '타겟 엔티티를 참조하는 외래 키 컬럼명'
-                        },
-                        directionality: { type: 'string' },
-                        confidence: { type: 'number' }
+                      column_mappings: {
+                        type: 'object',
+                        description: 'REQUIRED! 모든 컬럼을 매핑. 형식: {"prop_name": "column_name"}. 예: {"store_id": "store_id", "product_id": "product_id", "quantity": "quantity"}. 빈 객체 금지!',
+                        additionalProperties: { type: 'string' }
                       },
-                      required: ['relation_type_id', 'source_entity_type_id', 'target_entity_type_id', 'source_key', 'target_key']
-                    }
+                      label_template: { type: 'string' },
+                      confidence: { type: 'number' }
+                    },
+                    required: ['entity_type_id', 'entity_type_name', 'column_mappings', 'label_template']
                   }
                 },
-                required: ['entity_mappings', 'relation_mappings']
-              }
+                relation_mappings: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      relation_type_id: {
+                        type: 'string',
+                        description: '기존 관계 타입 ID 또는 "NEW"'
+                      },
+                      relation_type_name: { type: 'string' },
+                      relation_type_label: { type: 'string' },
+                      create_new: { type: 'boolean' },
+                      source_entity_type_id: { type: 'string' },
+                      target_entity_type_id: { type: 'string' },
+                      source_key: {
+                        type: 'string',
+                        description: '소스 엔티티의 ID 컬럼명'
+                      },
+                      target_key: {
+                        type: 'string',
+                        description: '타겟 엔티티를 참조하는 외래 키 컬럼명'
+                      },
+                      directionality: { type: 'string' },
+                      confidence: { type: 'number' }
+                    },
+                    required: ['relation_type_id', 'source_entity_type_id', 'target_entity_type_id', 'source_key', 'target_key']
+                  }
+                }
+              },
+              required: ['entity_mappings', 'relation_mappings']
             }
           }
-        ],
-        tool_choice: { type: 'function', function: { name: 'create_ontology_mapping' } }
-      }),
+        }
+      ],
+      toolChoice: 'required',
     });
-
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error('❌ AI mapping error:', errorText);
-      throw new Error(`AI mapping failed: ${aiResponse.status}`);
-    }
-
-    const aiData = await aiResponse.json();
     
     // AI 응답 상세 로깅
     console.log('📝 AI Response structure:', {
@@ -393,12 +366,6 @@ ${relationTypes?.map(rt => `- ${rt.name}: ${rt.source_entity_type} -> ${rt.targe
 
   } catch (error: any) {
     console.error('❌ Smart mapping error:', error);
-    return new Response(
-      JSON.stringify({ error: error.message, success: false }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
+    return errorResponse(error.message, 500, { success: false });
   }
 });

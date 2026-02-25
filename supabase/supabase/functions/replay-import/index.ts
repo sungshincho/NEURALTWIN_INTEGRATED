@@ -4,13 +4,10 @@
 // 작성일: 2026-01-13
 // ============================================================================
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from "@supabase/supabase-js";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { requireEnv } from "../_shared/env.ts";
+import { errorResponse } from "../_shared/error.ts";
+import { createSupabaseAdmin } from "../_shared/supabase-client.ts";
 
 interface ReplayRequest {
   raw_import_id: string;
@@ -35,35 +32,24 @@ interface ReplayResult {
   };
 }
 
-serve(async (req: Request): Promise<Response> => {
-  // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+Deno.serve(async (req: Request): Promise<Response> => {
+  const corsResponse = handleCorsOptions(req);
+  if (corsResponse) return corsResponse;
 
   const startTime = Date.now();
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-
-    if (!supabaseUrl || !supabaseServiceKey) {
-      throw new Error('Missing Supabase environment variables');
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabaseUrl = requireEnv('SUPABASE_URL');
+    const supabaseServiceKey = requireEnv('SUPABASE_SERVICE_ROLE_KEY');
+    const supabase = createSupabaseAdmin();
 
     const { raw_import_id, force = false, options = {} }: ReplayRequest = await req.json();
 
     if (!raw_import_id) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          raw_import_id: '',
-          error: 'raw_import_id is required',
-        } as ReplayResult),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('raw_import_id is required', 400, {
+        success: false,
+        raw_import_id: '',
+      });
     }
 
     console.log(`[replay-import] Starting replay for: ${raw_import_id}`);
@@ -78,39 +64,27 @@ serve(async (req: Request): Promise<Response> => {
       .single();
 
     if (fetchError || !rawImport) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          raw_import_id,
-          error: 'raw_import not found',
-        } as ReplayResult),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('raw_import not found', 404, {
+        success: false,
+        raw_import_id,
+      });
     }
 
     // ========================================
     // 2. 상태 검증
     // ========================================
     if (rawImport.status === 'processing') {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          raw_import_id,
-          error: 'Import is currently being processed. Please wait.',
-        } as ReplayResult),
-        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('Import is currently being processed. Please wait.', 409, {
+        success: false,
+        raw_import_id,
+      });
     }
 
     if (rawImport.status === 'completed' && !force) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          raw_import_id,
-          error: 'Import already completed. Use force=true to reprocess.',
-        } as ReplayResult),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('Import already completed. Use force=true to reprocess.', 400, {
+        success: false,
+        raw_import_id,
+      });
     }
 
     // ========================================
@@ -118,14 +92,10 @@ serve(async (req: Request): Promise<Response> => {
     // ========================================
     if (!rawImport.raw_data ||
         (Array.isArray(rawImport.raw_data) && rawImport.raw_data.length === 0)) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          raw_import_id,
-          error: 'No raw_data available for replay. Original data was not preserved.',
-        } as ReplayResult),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('No raw_data available for replay. Original data was not preserved.', 400, {
+        success: false,
+        raw_import_id,
+      });
     }
 
     // Dry run 모드
@@ -328,14 +298,10 @@ serve(async (req: Request): Promise<Response> => {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('[replay-import] Error:', errorMessage);
 
-    return new Response(
-      JSON.stringify({
-        success: false,
-        raw_import_id: '',
-        error: errorMessage,
-      } as ReplayResult),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return errorResponse(errorMessage, 500, {
+      success: false,
+      raw_import_id: '',
+    });
   }
 });
 

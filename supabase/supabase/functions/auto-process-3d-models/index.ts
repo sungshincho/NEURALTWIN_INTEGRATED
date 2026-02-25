@@ -1,20 +1,16 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "@supabase/supabase-js";
+import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { createSupabaseAdmin } from "../_shared/supabase-client.ts";
+import { errorResponse } from "../_shared/error.ts";
+import { chatCompletion } from "../_shared/ai/gateway.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const corsResponse = handleCorsOptions(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const { files, storeId } = await req.json();
-    
+
     if (!files || !Array.isArray(files) || files.length === 0) {
       throw new Error('files array is required');
     }
@@ -27,29 +23,22 @@ serve(async (req) => {
     if (!authHeader) {
       throw new Error('Authorization header is required');
     }
-    
+
     const token = authHeader.replace('Bearer ', '');
     const parts = token.split('.');
     if (parts.length !== 3) {
       throw new Error('Invalid JWT token');
     }
-    
+
     const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
     const userId = payload.sub;
-    
+
     if (!userId) {
       throw new Error('User ID not found in token');
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createSupabaseAdmin();
     
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
-    }
-
     console.log(`Processing ${files.length} files for user ${userId}, store ${storeId}`);
 
     // 1. 기존 엔티티 타입 가져오기
@@ -112,28 +101,15 @@ Important Type Guidelines:
 - Use "product" for: Individual sellable items
 - Use "other" only if none of the above apply`;
 
-      const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          messages: [
-            { role: 'system', content: 'You analyze 3D models for retail stores. Always return valid JSON.' },
-            { role: 'user', content: prompt }
-          ],
-          response_format: { type: 'json_object' }
-        }),
+      const aiData = await chatCompletion({
+        model: 'gemini-2.5-flash',
+        messages: [
+          { role: 'system', content: 'You analyze 3D models for retail stores. Always return valid JSON.' },
+          { role: 'user', content: prompt }
+        ],
+        jsonMode: true,
       });
 
-      if (!aiResponse.ok) {
-        console.error('AI analysis failed:', await aiResponse.text());
-        throw new Error('AI analysis failed');
-      }
-
-      const aiData = await aiResponse.json();
       const analysis = JSON.parse(aiData.choices[0].message.content);
       console.log('AI Analysis:', analysis);
 
@@ -282,50 +258,42 @@ Placement Guidelines:
 
 Return optimal position using tool call.`;
 
-            const placementResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                model: 'google/gemini-2.5-flash',
-                messages: [
-                  { role: 'system', content: 'You optimize furniture placement in retail stores.' },
-                  { role: 'user', content: placementPrompt }
-                ],
-                tools: [{
-                  type: "function",
-                  function: {
-                    name: "suggest_placement",
-                    description: "Suggest optimal 3D position for furniture placement",
-                    parameters: {
-                      type: "object",
-                      properties: {
-                        position: {
-                          type: "object",
-                          properties: {
-                            x: { type: "number", description: "X coordinate in meters" },
-                            y: { type: "number", description: "Y coordinate in meters (usually 0)" },
-                            z: { type: "number", description: "Z coordinate in meters" }
-                          },
-                          required: ["x", "y", "z"]
+            const placementData = await chatCompletion({
+              model: 'gemini-2.5-flash',
+              messages: [
+                { role: 'system', content: 'You optimize furniture placement in retail stores.' },
+                { role: 'user', content: placementPrompt }
+              ],
+              tools: [{
+                type: "function",
+                function: {
+                  name: "suggest_placement",
+                  description: "Suggest optimal 3D position for furniture placement",
+                  parameters: {
+                    type: "object",
+                    properties: {
+                      position: {
+                        type: "object",
+                        properties: {
+                          x: { type: "number", description: "X coordinate in meters" },
+                          y: { type: "number", description: "Y coordinate in meters (usually 0)" },
+                          z: { type: "number", description: "Z coordinate in meters" }
                         },
-                        reasoning: {
-                          type: "string",
-                          description: "Explanation for this placement decision"
-                        }
+                        required: ["x", "y", "z"]
                       },
-                      required: ["position", "reasoning"]
-                    }
+                      reasoning: {
+                        type: "string",
+                        description: "Explanation for this placement decision"
+                      }
+                    },
+                    required: ["position", "reasoning"]
                   }
-                }],
-                tool_choice: { type: "function", function: { name: "suggest_placement" } }
-              }),
+                }
+              }],
+              toolChoice: 'required',
             });
 
-            if (placementResponse.ok) {
-              const placementData = await placementResponse.json();
+            if (placementData) {
               const toolCall = placementData.choices[0].message.tool_calls?.[0];
               if (toolCall) {
                 const args = JSON.parse(toolCall.function.arguments);
@@ -406,15 +374,10 @@ Return optimal position using tool call.`;
 
   } catch (error) {
     console.error('Auto-process error:', error);
-    return new Response(
-      JSON.stringify({ 
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error' 
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500
-      }
+    return errorResponse(
+      error instanceof Error ? error.message : 'Unknown error',
+      500,
+      { success: false }
     );
   }
 });

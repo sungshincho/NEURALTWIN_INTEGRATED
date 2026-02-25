@@ -1,9 +1,6 @@
-import { createClient } from "@supabase/supabase-js";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { createSupabaseWithAuth } from "../_shared/supabase-client.ts";
+import { errorResponse } from "../_shared/error.ts";
 
 interface SyncHolidaysPayload {
   orgId: string;
@@ -22,9 +19,8 @@ interface HolidayRecord {
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCorsOptions(req);
+  if (corsResponse) return corsResponse;
 
   try {
     // Get authorization header
@@ -34,13 +30,7 @@ Deno.serve(async (req) => {
     }
 
     // Create Supabase client with user's JWT
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      global: {
-        headers: { Authorization: authHeader },
-      },
-    });
+    const supabase = createSupabaseWithAuth(authHeader);
 
     // Verify user authentication and get user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -124,16 +114,7 @@ Deno.serve(async (req) => {
   } catch (error: any) {
     console.error('Sync error:', error);
     const errorMessage = error instanceof Error ? error.message : String(error);
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: errorMessage,
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
-      }
-    );
+    return errorResponse(errorMessage, 400);
   }
 });
 

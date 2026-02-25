@@ -10,19 +10,14 @@
  * 인증: SUPABASE_SERVICE_ROLE_KEY 필수 (관리자 전용)
  */
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from "@supabase/supabase-js";
+import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { createSupabaseAdmin } from "../_shared/supabase-client.ts";
+import { errorResponse } from "../_shared/error.ts";
 import { migrateStaticKnowledge } from './knowledge/migrateFromStatic.ts';
 import { seedAllCuratedKnowledge } from './knowledge/seedCuratedKnowledge.ts';
 
 // deno-lint-ignore no-explicit-any
 type SupabaseClient = any;
-
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
 
 /**
  * 지식 DB 통계 조회
@@ -110,17 +105,13 @@ async function validateEmbeddings(supabase: SupabaseClient) {
   };
 }
 
-serve(async (request: Request) => {
+Deno.serve(async (request: Request) => {
   // CORS Preflight
-  if (request.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: CORS_HEADERS });
-  }
+  const corsResponse = handleCorsOptions(request);
+  if (corsResponse) return corsResponse;
 
   if (request.method !== 'POST') {
-    return new Response(
-      JSON.stringify({ error: 'Method not allowed' }),
-      { status: 405, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
-    );
+    return errorResponse('Method not allowed', 405);
   }
 
   try {
@@ -128,9 +119,7 @@ serve(async (request: Request) => {
     const { action } = body;
 
     // Supabase 클라이언트 (서비스 키 사용)
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createSupabaseAdmin();
 
     let result: unknown;
 
@@ -171,24 +160,17 @@ serve(async (request: Request) => {
       }
 
       default:
-        return new Response(
-          JSON.stringify({
-            error: 'Unknown action',
-            validActions: ['migrate_static', 'seed_curated', 'stats', 'validate'],
-          }),
-          { status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
-        );
+        return errorResponse('Unknown action', 400, {
+          validActions: ['migrate_static', 'seed_curated', 'stats', 'validate'],
+        });
     }
 
     return new Response(
       JSON.stringify({ success: true, action, result }),
-      { status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (err) {
     console.error('[KnowledgeAdmin] Error:', err);
-    return new Response(
-      JSON.stringify({ error: err instanceof Error ? err.message : 'Internal error' }),
-      { status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
-    );
+    return errorResponse(err instanceof Error ? err.message : 'Internal error', 500);
   }
 });

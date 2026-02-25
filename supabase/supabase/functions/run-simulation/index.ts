@@ -1,6 +1,9 @@
-import { createClient } from "@supabase/supabase-js";
+import { createSupabaseAdmin } from "../_shared/supabase-client.ts";
+import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { errorResponse } from "../_shared/error.ts";
 import { logAIResponse, createExecutionTimer, extractParseResultForLogging } from '../_shared/aiResponseLogger.ts';
 import { safeJsonParse, SIMULATION_FALLBACK, logParseResult } from '../_shared/safeJsonParse.ts';
+import { chatCompletion } from "../_shared/ai/gateway.ts";
 
 /**
  * run-simulation Edge Function
@@ -10,11 +13,6 @@ import { safeJsonParse, SIMULATION_FALLBACK, logParseResult } from '../_shared/s
  * - 혼잡도/병목/동선 분석
  * - 진단 이슈 생성
  */
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 // ===== 타입 정의 =====
 
@@ -186,27 +184,23 @@ interface SimulationResult {
 
 // ===== 메인 핸들러 =====
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+  const corsResponse = handleCorsOptions(req);
+  if (corsResponse) return corsResponse;
 
   // 🆕 실행 시간 측정 시작
   const timer = createExecutionTimer();
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const supabaseClient = createSupabaseAdmin();
     const authHeader = req.headers.get('Authorization');
-
-    const supabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
-      global: { headers: authHeader ? { Authorization: authHeader } : {} },
-    });
 
     // 🆕 사용자 인증 확인 (user_id 추출)
     let userId: string | null = null;
     if (authHeader) {
       try {
-        const { data: { user } } = await supabaseClient.auth.getUser();
+        const { data: { user } } = await supabaseClient.auth.getUser(
+          authHeader.replace('Bearer ', '')
+        );
         userId = user?.id || null;
       } catch (authError) {
         console.warn('[Simulation] Auth check failed:', authError);
@@ -304,12 +298,12 @@ Deno.serve(async (req: Request) => {
     // ===== 3. AI 추론 또는 규칙 기반 시뮬레이션 =====
     let simulationResult: SimulationResult;
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    const hasAIKey = !!Deno.env.get('GOOGLE_AI_API_KEY') || !!Deno.env.get('OPENAI_API_KEY');
 
-    if (LOVABLE_API_KEY) {
-      // Gemini 2.5 Flash AI 호출 (Lovable API Gateway)
+    if (hasAIKey) {
+      // Gemini 2.5 Flash AI 호출 (Direct AI Gateway)
       // 🆕 environment_context를 AI 프롬프트에 전달하여 시뮬레이션 정확도 향상
-      const aiResponse = await callGeminiForSimulation(analysisContext, LOVABLE_API_KEY, environment_context);
+      const aiResponse = await callGeminiForSimulation(analysisContext, environment_context);
       simulationResult = parseAndValidateResult(aiResponse, zones || [], options);
     } else {
       // 규칙 기반 시뮬레이션 (API 키 없을 때)
@@ -451,9 +445,9 @@ Deno.serve(async (req: Request) => {
           confidence: simulationResult.confidence_score,
         },
         executionTimeMs: executionTime,
-        modelUsed: LOVABLE_API_KEY ? 'gemini-2.5-flash' : 'rule-based',
+        modelUsed: hasAIKey ? 'gemini-2.5-flash' : 'rule-based',
         contextMetadata: {
-          model_used: LOVABLE_API_KEY ? 'gemini-2.5-flash' : 'rule-based',
+          model_used: hasAIKey ? 'gemini-2.5-flash' : 'rule-based',
           zoneCount: zones?.length || 0,
           issueCount: simulationResult.diagnostic_issues.length,
           criticalIssues: simulationResult.diagnostic_issues.filter((i: any) => i.severity === 'critical').length,
@@ -486,10 +480,7 @@ Deno.serve(async (req: Request) => {
 
     // 🆕 에러 로깅
     try {
-      const supabaseClient = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-      );
+      const supabaseClient = createSupabaseAdmin();
 
       await logAIResponse(supabaseClient, {
         storeId: 'unknown',
@@ -508,10 +499,7 @@ Deno.serve(async (req: Request) => {
       // 로깅 실패 무시
     }
 
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return errorResponse(error.message, 500);
   }
 });
 
@@ -1114,10 +1102,9 @@ function buildAnalysisContext(data: any) {
   };
 }
 
-// ===== Gemini AI 호출 (Lovable API Gateway) =====
+// ===== Gemini AI 호출 (Direct AI Gateway) =====
 async function callGeminiForSimulation(
   context: any,
-  apiKey: string,
   environmentContext?: EnvironmentContext | null
 ): Promise<string> {
   const systemPrompt = `당신은 리테일 매장 시뮬레이션 전문가입니다. 주어진 매장 데이터를 분석하여 고객 행동을 시뮬레이션하고 잠재적 문제점을 진단해주세요.
@@ -1247,34 +1234,15 @@ JSON 형식으로만 응답해주세요.`;
 
   console.log('[Simulation] Gemini API 호출 시작...');
 
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      max_tokens: 4096,
-      temperature: 0.7,
-    }),
+  const result = await chatCompletion({
+    model: 'gemini-2.5-flash',
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    maxTokens: 4096,
+    temperature: 0.7,
   });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('[Simulation] Gemini API 에러:', response.status, errorText);
-    throw new Error(`Gemini API 오류 (${response.status}): ${errorText}`);
-  }
-
-  const result = await response.json();
-
-  if (result.error) {
-    throw new Error(`Gemini API 오류: ${result.error.message || JSON.stringify(result.error)}`);
-  }
 
   const content = result.choices?.[0]?.message?.content;
   if (!content) {

@@ -5,14 +5,10 @@
 // Phase 3: staff, inventory 임포트 강화
 // ============================================================================
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+import { SupabaseClient } from "@supabase/supabase-js";
+import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { errorResponse } from "../_shared/error.ts";
+import { createSupabaseAdmin } from "../_shared/supabase-client.ts";
 
 interface ExecuteRequest {
   session_id: string;
@@ -491,21 +487,12 @@ function transformRow(
   return transformed;
 }
 
-serve(async (req) => {
-  // CORS preflight
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const corsResponse = handleCorsOptions(req);
+  if (corsResponse) return corsResponse;
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-
-    if (!supabaseUrl || !supabaseServiceKey) {
-      throw new Error("Missing Supabase environment variables");
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createSupabaseAdmin();
 
     // 인증 확인
     const authHeader = req.headers.get("Authorization");
@@ -776,14 +763,6 @@ serve(async (req) => {
       error instanceof Error ? error.message : "Unknown error";
     console.error("❌ Execute import error:", errorMessage);
 
-    const response: ExecuteResponse = {
-      success: false,
-      error: errorMessage,
-    };
-
-    return new Response(JSON.stringify(response), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return errorResponse(errorMessage, 400, { success: false });
   }
 });

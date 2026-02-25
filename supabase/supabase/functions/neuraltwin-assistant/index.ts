@@ -1,4 +1,6 @@
-import { createClient } from "@supabase/supabase-js";
+import { createSupabaseAdmin } from "../_shared/supabase-client.ts";
+import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { errorResponse } from "../_shared/error.ts";
 import { checkRateLimit, cleanupExpiredEntries } from '../_shared/rateLimiter.ts';
 import { saveMessage } from '../_shared/chatLogger.ts';
 import { logSessionStart } from '../_shared/chatEventLogger.ts';
@@ -16,11 +18,6 @@ const STUDIO_CONTROL_INTENTS = [
   'set_simulation_params', 'set_optimization_config', 'set_view_mode',
   'toggle_panel', 'save_scene', 'set_environment',
 ];
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 // 요청 인터페이스
 interface OSAssistantRequest {
@@ -58,17 +55,14 @@ interface OSAssistantResponse {
 
 Deno.serve(async (req) => {
   // CORS preflight
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCorsOptions(req);
+  if (corsResponse) return corsResponse;
 
   const startTime = Date.now();
 
   try {
     // 1. Supabase 클라이언트 생성
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = createSupabaseAdmin();
 
     // 2. 인증 확인
     const authHeader = req.headers.get('Authorization');
@@ -95,10 +89,7 @@ Deno.serve(async (req) => {
     const { message, conversationId, context } = body;
 
     if (!message || !message.trim()) {
-      return new Response(
-        JSON.stringify({ error: '메시지를 입력해주세요.' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('메시지를 입력해주세요.', 400);
     }
 
     // 4-1. 사용자-매장 소속 검증 + org_id 확보
@@ -109,10 +100,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (memberError || !membership?.org_id) {
-      return new Response(
-        JSON.stringify({ error: '조직 정보를 확인할 수 없습니다. 관리자에게 문의해주세요.' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('조직 정보를 확인할 수 없습니다. 관리자에게 문의해주세요.', 403);
     }
 
     const orgId = membership.org_id;
@@ -126,10 +114,7 @@ Deno.serve(async (req) => {
         .single();
 
       if (storeError || !storeData || storeData.org_id !== orgId) {
-        return new Response(
-          JSON.stringify({ error: '해당 매장에 접근 권한이 없습니다.' }),
-          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return errorResponse('해당 매장에 접근 권한이 없습니다.', 403);
       }
     }
 

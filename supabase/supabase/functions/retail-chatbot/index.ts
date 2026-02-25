@@ -3,13 +3,12 @@
  *
  * 웹사이트 방문자를 위한 리테일 전문 AI 챗봇
  * - 비회원(session_id) + 회원(user_id via JWT) 모두 지원 (v2.1)
- * - Gemini 2.5 Pro via Lovable Gateway
+ * - Gemini 2.5 Pro via Direct AI Gateway
  * - SSE 스트리밍 응답
  * - 토픽 라우터 기반 도메인 지식 주입
  */
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from "@supabase/supabase-js";
+import { createSupabaseAdmin, createSupabaseWithAuth } from "../_shared/supabase-client.ts";
 import { buildEnrichedPrompt, formatClassification } from './topicRouter.ts';
 import { extractPainPoints, type PainPointResult } from './painPointExtractor.ts';
 import { evaluateSalesBridge, checkExplicitInterest, type SalesBridgeResult } from './salesBridge.ts';
@@ -35,6 +34,8 @@ import { createEmptyProfile } from './memory/types.ts';
 import { assembleContext } from './contextAssembler.ts';
 // Phase 7: 레이아웃 힌트 추출 (검색 결과 → 매장 공간 정보 구조화)
 import { extractLayoutHints, formatLayoutHintForPrompt, validateAndCorrectZones, type LayoutHint } from './search/layoutHintExtractor.ts';
+// Direct AI Gateway
+import { chatCompletionStream, chatCompletion } from "../_shared/ai/gateway.ts";
 
 // ═══════════════════════════════════════════
 //  VizDirective 타입 및 파싱 유틸리티
@@ -647,10 +648,9 @@ const ALLOWED_ORIGINS = [
 function getCorsHeaders(request: Request): Record<string, string> {
   const origin = request.headers.get('Origin') || '';
 
-  // Lovable 프리뷰/배포 URL 패턴 허용
+  // Vercel 프리뷰/배포 URL 패턴 허용
   const isAllowed = ALLOWED_ORIGINS.includes(origin) ||
-                    origin.endsWith('.lovable.app') ||
-                    origin.endsWith('.lovableproject.com');
+                    origin.endsWith('.vercel.app');
 
   const allowedOrigin = isAllowed ? origin : ALLOWED_ORIGINS[0];
 
@@ -682,14 +682,7 @@ async function extractUserFromJWT(request: Request): Promise<AuthResult> {
   const token = authHeader.replace('Bearer ', '');
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: { Authorization: `Bearer ${token}` }
-      }
-    });
+    const supabase = createSupabaseWithAuth(`Bearer ${token}`);
 
     const { data: { user }, error } = await supabase.auth.getUser();
 
@@ -814,46 +807,33 @@ async function logMessage(
 }
 
 // ═══════════════════════════════════════════
-//  Lovable Gateway API 호출
+//  Direct AI Gateway 호출
 // ═══════════════════════════════════════════
 
-const LOVABLE_GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
-
-async function callLovableGateway(
+async function callAIGateway(
   systemPrompt: string,
   messages: ChatMessage[],
   stream: boolean = true
 ): Promise<Response> {
-  const apiKey = Deno.env.get('LOVABLE_API_KEY');
+  const opts = {
+    model: 'gemini-2.5-pro',
+    messages: [
+      { role: 'system', content: systemPrompt },
+      ...messages
+    ],
+    temperature: 0.7,
+    maxTokens: 8192,
+  };
 
-  if (!apiKey) {
-    throw new Error('LOVABLE_API_KEY not configured');
+  if (stream) {
+    return chatCompletionStream(opts);
   }
 
-  const response = await fetch(LOVABLE_GATEWAY_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-pro',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        ...messages
-      ],
-      temperature: 0.7,
-      max_tokens: 8192,
-      stream,
-    }),
+  // Non-streaming: wrap chatCompletion result in a Response
+  const result = await chatCompletion(opts);
+  return new Response(JSON.stringify(result), {
+    headers: { 'Content-Type': 'application/json' },
   });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Lovable Gateway error: ${response.status} - ${errorText}`);
-  }
-
-  return response;
 }
 
 // ═══════════════════════════════════════════
@@ -1256,7 +1236,7 @@ async function handleSessionHandover(
 // ═══════════════════════════════════════════
 
 async function handleLogReaction(
-  supabase: ReturnType<typeof createClient>,
+  supabase: ReturnType<typeof createSupabaseAdmin>,
   body: WebChatRequest,
   corsHeaders: Record<string, string>
 ): Promise<Response> {
@@ -1339,7 +1319,7 @@ async function handleLogReaction(
 //  메인 핸들러
 // ═══════════════════════════════════════════
 
-serve(async (request: Request) => {
+Deno.serve(async (request: Request) => {
   const corsHeaders = getCorsHeaders(request);
 
   // CORS Preflight
@@ -1364,9 +1344,7 @@ serve(async (request: Request) => {
     const auth = await extractUserFromJWT(request);
 
     // 3. Supabase 클라이언트 생성 (action 분기에서도 필요)
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createSupabaseAdmin();
 
     // ═══════════════════════════════════════════
     // TASK 9: Action 분기 처리
@@ -1720,14 +1698,14 @@ serve(async (request: Request) => {
       console.log(`[PainPoint] ${painPointResult.summary}`);
     }
 
-    // 12. Lovable Gateway 호출 — 클라이언트가 stream=false 요청 시 JSON 직행, 아니면 SSE 시도
+    // 12. AI Gateway 호출 — 클라이언트가 stream=false 요청 시 JSON 직행, 아니면 SSE 시도
     const clientWantsStream = body.stream !== false;
     let useStreaming = clientWantsStream;
     let upstreamResponse: Response;
 
     if (clientWantsStream) {
       try {
-        upstreamResponse = await callLovableGateway(systemPrompt, chatMessages, true);
+        upstreamResponse = await callAIGateway(systemPrompt, chatMessages, true);
         // Content-Type 확인 — SSE가 아니면 non-streaming fallback
         const ct = upstreamResponse.headers.get('Content-Type') || '';
         if (!ct.includes('text/event-stream') && !ct.includes('text/plain')) {
@@ -1737,11 +1715,11 @@ serve(async (request: Request) => {
       } catch (streamErr) {
         console.warn('[AI] Streaming call failed, falling back to non-streaming:', streamErr);
         useStreaming = false;
-        upstreamResponse = await callLovableGateway(systemPrompt, chatMessages, false);
+        upstreamResponse = await callAIGateway(systemPrompt, chatMessages, false);
       }
     } else {
       console.log('[AI] Client requested non-streaming (mobile)');
-      upstreamResponse = await callLovableGateway(systemPrompt, chatMessages, false);
+      upstreamResponse = await callAIGateway(systemPrompt, chatMessages, false);
     }
 
     // ═══════════════════════════════════════════

@@ -1,4 +1,7 @@
-import { createClient } from "@supabase/supabase-js";
+import { createSupabaseAdmin } from "../_shared/supabase-client.ts";
+import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { errorResponse } from "../_shared/error.ts";
+import { chatCompletion } from "../_shared/ai/gateway.ts";
 import { safeJsonParse, INFERENCE_FALLBACK, logParseResult } from '../_shared/safeJsonParse.ts';
 
 /**
@@ -17,11 +20,6 @@ import { safeJsonParse, INFERENCE_FALLBACK, logParseResult } from '../_shared/sa
  * - customer_segmentation: 고객 세분화
  * - anomaly_detection: 이상 탐지
  */
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 type InferenceType =
   | 'layout_optimization'
@@ -137,26 +135,18 @@ Classify anomalies by severity and recommend investigation actions.`,
 };
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCorsOptions(req);
+  if (corsResponse) return corsResponse;
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createSupabaseAdmin();
     const authHeader = req.headers.get('Authorization')!;
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
 
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    );
     if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return errorResponse('Unauthorized', 401);
     }
 
     const body: RetailAIRequest = await req.json();
@@ -177,14 +167,7 @@ Deno.serve(async (req) => {
     const prompt = buildPrompt(inference_type, graphData, conceptsData, contextData, parameters);
 
     // 5. AI 추론 실행
-    let aiResult: AIInferenceResult;
-
-    if (lovableApiKey) {
-      aiResult = await callAI(prompt, lovableApiKey);
-    } else {
-      // API 키가 없을 경우 룰 기반 폴백
-      aiResult = generateRuleBasedResult(inference_type, graphData, conceptsData);
-    }
+    const aiResult = await callAI(prompt);
 
     // 6. 결과 저장
     await supabase.from('ai_inference_results').insert({
@@ -212,10 +195,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('[retail-ai-inference] Error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return new Response(JSON.stringify({ error: errorMessage }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return errorResponse(errorMessage, 500);
   }
 });
 
@@ -483,28 +463,15 @@ ${responseFormat}`;
 
 // ============== AI Execution ==============
 
-async function callAI(prompt: string, apiKey: string): Promise<AIInferenceResult> {
+async function callAI(prompt: string): Promise<AIInferenceResult> {
   try {
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [{ role: 'user', content: prompt }],
-        response_format: { type: 'json_object' },
-        max_tokens: 3000,
-      }),
+    const data = await chatCompletion({
+      model: 'gemini-2.5-flash',
+      messages: [{ role: 'user', content: prompt }],
+      jsonMode: true,
+      maxTokens: 3000,
     });
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`AI API error: ${error}`);
-    }
-
-    const data = await response.json();
     const content = data.choices?.[0]?.message?.content || '';
 
     // 🆕 safeJsonParse 사용 (Sprint 0: S0-3)

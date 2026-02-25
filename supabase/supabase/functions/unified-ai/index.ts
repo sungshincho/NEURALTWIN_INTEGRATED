@@ -1,4 +1,7 @@
-import { createClient } from "@supabase/supabase-js";
+import { createSupabaseAdmin } from "../_shared/supabase-client.ts";
+import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { errorResponse } from "../_shared/error.ts";
+import { chatCompletion } from "../_shared/ai/gateway.ts";
 
 /**
  * unified-ai Edge Function
@@ -10,11 +13,6 @@ import { createClient } from "@supabase/supabase-js";
  * - pattern_analysis: Relation pattern analysis
  * - infer_relations: Entity relation inference
  */
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 // ============== Type Definitions ==============
 
@@ -64,26 +62,18 @@ interface GraphData {
 // ============== Main Handler ==============
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCorsOptions(req);
+  if (corsResponse) return corsResponse;
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createSupabaseAdmin();
     const authHeader = req.headers.get('Authorization')!;
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
 
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    );
     if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return errorResponse('Unauthorized', 401);
     }
 
     const body: UnifiedAIRequest = await req.json();
@@ -99,23 +89,19 @@ Deno.serve(async (req) => {
         break;
 
       case 'ontology_recommendation':
-        if (!lovableApiKey) throw new Error('LOVABLE_API_KEY is not configured');
-        result = await handleOntologyRecommendation(supabase, user.id, store_id, entity_id, parameters, lovableApiKey);
+        result = await handleOntologyRecommendation(supabase, user.id, store_id, entity_id, parameters);
         break;
 
       case 'anomaly_detection':
-        if (!lovableApiKey) throw new Error('LOVABLE_API_KEY is not configured');
-        result = await handleAnomalyDetection(supabase, user.id, store_id, parameters, lovableApiKey);
+        result = await handleAnomalyDetection(supabase, user.id, store_id, parameters);
         break;
 
       case 'pattern_analysis':
-        if (!lovableApiKey) throw new Error('LOVABLE_API_KEY is not configured');
-        result = await handlePatternAnalysis(supabase, user.id, store_id, parameters, lovableApiKey);
+        result = await handlePatternAnalysis(supabase, user.id, store_id, parameters);
         break;
 
       case 'infer_relations':
-        if (!lovableApiKey) throw new Error('LOVABLE_API_KEY is not configured');
-        result = await handleInferRelations(supabase, user.id, store_id, entity_id, parameters, lovableApiKey);
+        result = await handleInferRelations(supabase, user.id, store_id, entity_id, parameters);
         break;
 
       default:
@@ -129,10 +115,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('[unified-ai] Error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return new Response(JSON.stringify({ error: errorMessage }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return errorResponse(errorMessage, 500);
   }
 });
 
@@ -219,7 +202,6 @@ async function handleOntologyRecommendation(
   storeId: string,
   entityId: string | undefined,
   parameters: Record<string, any>,
-  apiKey: string
 ) {
   const graphData = await loadOntologyGraph(supabase, storeId, userId);
   const recommendationType = parameters.recommendation_type || 'product';
@@ -235,7 +217,7 @@ async function handleOntologyRecommendation(
   );
 
   const prompt = buildRecommendationPrompt(graphData, contextEntity, relationPatterns, purchaseRelations, recommendationType);
-  const analysis = await callAIGateway(prompt, apiKey);
+  const analysis = await callAIGateway(prompt);
 
   // Save recommendations to database
   await saveRecommendationsToDatabase(supabase, userId, storeId, analysis.recommendations);
@@ -259,14 +241,13 @@ async function handleAnomalyDetection(
   userId: string,
   storeId: string,
   parameters: Record<string, any>,
-  apiKey: string
 ) {
   const graphData = await loadOntologyGraph(supabase, storeId, userId);
   const structuralAnomalies = detectStructuralAnomalies(graphData);
   const valueAnomalies = detectValueAnomalies(graphData);
 
   const prompt = buildAnomalyDetectionPrompt(graphData, structuralAnomalies, valueAnomalies);
-  const analysis = await callAIGateway(prompt, apiKey);
+  const analysis = await callAIGateway(prompt);
 
   return {
     success: true,
@@ -290,7 +271,6 @@ async function handlePatternAnalysis(
   userId: string,
   storeId: string,
   parameters: Record<string, any>,
-  apiKey: string
 ) {
   const graphData = await loadOntologyGraph(supabase, storeId, userId);
   const analysisType = parameters.analysis_type || 'all';
@@ -298,7 +278,7 @@ async function handlePatternAnalysis(
   const coOccurrencePatterns = extractCoOccurrencePatterns(graphData);
 
   const prompt = buildPatternAnalysisPrompt(graphData, frequencyPatterns, coOccurrencePatterns, analysisType);
-  const analysis = await callAIGateway(prompt, apiKey);
+  const analysis = await callAIGateway(prompt);
 
   return {
     success: true,
@@ -324,7 +304,6 @@ async function handleInferRelations(
   storeId: string,
   entityId: string | undefined,
   parameters: Record<string, any>,
-  apiKey: string
 ) {
   const graphData = await loadOntologyGraph(supabase, storeId, userId);
 
@@ -334,7 +313,7 @@ async function handleInferRelations(
   }
 
   const prompt = buildRelationInferencePrompt(graphData, targetEntity, parameters);
-  const analysis = await callAIGateway(prompt, apiKey);
+  const analysis = await callAIGateway(prompt);
 
   // Optionally save inferred relations
   if (parameters.auto_save && analysis.inferred_relations) {
@@ -499,26 +478,12 @@ function generateRuleBasedRecommendations(kpi: KPI, inventory: any[]): Recommend
 
 // ============== AI Gateway Helper ==============
 
-async function callAIGateway(prompt: string, apiKey: string): Promise<any> {
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
-      messages: [{ role: 'user', content: prompt }],
-      response_format: { type: 'json_object' },
-    }),
+async function callAIGateway(prompt: string): Promise<any> {
+  const result = await chatCompletion({
+    model: 'gemini-2.5-flash',
+    messages: [{ role: 'user', content: prompt }],
+    jsonMode: true,
   });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`AI API error: ${error}`);
-  }
-
-  const result = await response.json();
   return JSON.parse(result.choices[0].message.content);
 }
 
