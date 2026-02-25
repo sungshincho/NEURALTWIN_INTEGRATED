@@ -568,7 +568,6 @@ const Chat = () => {
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
-          "apikey": SUPABASE_ANON_KEY,
         },
         body: JSON.stringify({
           message: userMessage.content,
@@ -764,7 +763,6 @@ const Chat = () => {
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
-          "apikey": SUPABASE_ANON_KEY,
         },
         body: JSON.stringify({
           action: "capture_lead",
@@ -839,7 +837,6 @@ const Chat = () => {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-        'apikey': SUPABASE_ANON_KEY,
       },
       body: JSON.stringify({
         action: 'log_reaction',
