@@ -1,4 +1,6 @@
-import { createClient } from "@supabase/supabase-js";
+import { createSupabaseAdmin } from "../_shared/supabase-client.ts";
+import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { errorResponse } from "../_shared/error.ts";
 import { chatCompletion } from "../_shared/ai/gateway.ts";
 import { safeJsonParse, INFERENCE_FALLBACK, logParseResult } from '../_shared/safeJsonParse.ts';
 
@@ -18,11 +20,6 @@ import { safeJsonParse, INFERENCE_FALLBACK, logParseResult } from '../_shared/sa
  * - customer_segmentation: 고객 세분화
  * - anomaly_detection: 이상 탐지
  */
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 type InferenceType =
   | 'layout_optimization'
@@ -138,24 +135,18 @@ Classify anomalies by severity and recommend investigation actions.`,
 };
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCorsOptions(req);
+  if (corsResponse) return corsResponse;
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createSupabaseAdmin();
     const authHeader = req.headers.get('Authorization')!;
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    );
     if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return errorResponse('Unauthorized', 401);
     }
 
     const body: RetailAIRequest = await req.json();
@@ -204,10 +195,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('[retail-ai-inference] Error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return new Response(JSON.stringify({ error: errorMessage }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return errorResponse(errorMessage, 500);
   }
 });
 

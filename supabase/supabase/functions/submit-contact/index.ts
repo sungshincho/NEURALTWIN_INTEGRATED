@@ -3,18 +3,13 @@
 // Contact Form 제출 처리 및 Zapier Webhook 연동
 // ============================================================================
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "@supabase/supabase-js";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { requireEnv } from "../_shared/env.ts";
+import { createSupabaseAdmin } from "../_shared/supabase-client.ts";
+import { errorResponse } from "../_shared/error.ts";
 
 // Zapier Webhook URL
-const ZAPIER_WEBHOOK_URL =
-  "https://hooks.zapier.com/hooks/catch/26235556/ul2ehrb/";
+const ZAPIER_WEBHOOK_URL = requireEnv('ZAPIER_WEBHOOK_URL');
 
 interface ContactFormData {
   name: string;
@@ -84,34 +79,17 @@ async function callZapierWebhook(data: Record<string, unknown>): Promise<void> {
   }
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   // CORS preflight
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCorsOptions(req);
+  if (corsResponse) return corsResponse;
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-
-    if (!supabaseUrl || !supabaseServiceKey) {
-      throw new Error("Missing Supabase environment variables");
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createSupabaseAdmin();
 
     // POST 요청만 허용
     if (req.method !== "POST") {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "Method not allowed",
-        } as ContactSubmissionResponse),
-        {
-          status: 405,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
+      return errorResponse("Method not allowed", 405);
     }
 
     // 요청 본문 파싱
@@ -122,16 +100,7 @@ serve(async (req) => {
     // 입력값 검증
     const validationError = validateInput(formData);
     if (validationError) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: validationError,
-        } as ContactSubmissionResponse),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
+      return errorResponse(validationError, 400);
     }
 
     // INSERT할 데이터 준비

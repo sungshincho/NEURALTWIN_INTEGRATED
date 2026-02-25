@@ -1,10 +1,7 @@
-import { createClient } from "@supabase/supabase-js";
+import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { createSupabaseAdmin } from "../_shared/supabase-client.ts";
+import { errorResponse } from "../_shared/error.ts";
 import { chatCompletion } from "../_shared/ai/gateway.ts";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 interface SmartMappingRequest {
   import_id: string;
@@ -14,15 +11,11 @@ interface SmartMappingRequest {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCorsOptions(req);
+  if (corsResponse) return corsResponse;
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    const supabase = createSupabaseAdmin();
 
     const { import_id, id_columns, foreign_key_columns, user_id } = await req.json() as SmartMappingRequest;
 
@@ -373,12 +366,6 @@ ${relationTypes?.map(rt => `- ${rt.name}: ${rt.source_entity_type} -> ${rt.targe
 
   } catch (error: any) {
     console.error('❌ Smart mapping error:', error);
-    return new Response(
-      JSON.stringify({ error: error.message, success: false }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
+    return errorResponse(error.message, 500, { success: false });
   }
 });

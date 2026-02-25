@@ -1,10 +1,7 @@
-import { createClient } from "@supabase/supabase-js";
 import { parseCSVFromStorage } from './csv-parser.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { errorResponse } from "../_shared/error.ts";
+import { createSupabaseAdmin } from "../_shared/supabase-client.ts";
 
 interface PipelineRequest {
   import_id: string;
@@ -308,20 +305,15 @@ async function runPipeline(
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCorsOptions(req);
+  if (corsResponse) return corsResponse;
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const authHeader = req.headers.get('Authorization')!;
-    
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
+    const supabase = createSupabaseAdmin();
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const authHeader = req.headers.get('Authorization')!;
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
       throw new Error('Unauthorized');
     }
@@ -435,17 +427,10 @@ Deno.serve(async (req) => {
 
   } catch (error: any) {
     console.error('❌ Pipeline error:', error);
-    
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: error.message,
-        stack: error.stack,
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
+
+    return errorResponse(error.message, 500, {
+      success: false,
+      stack: error.stack,
+    });
   }
 });

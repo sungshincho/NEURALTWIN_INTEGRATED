@@ -1,20 +1,13 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "@supabase/supabase-js";
+import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { createSupabaseAdmin } from "../_shared/supabase-client.ts";
+import { errorResponse } from "../_shared/error.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const corsResponse = handleCorsOptions(req);
+  if (corsResponse) return corsResponse;
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = createSupabaseAdmin();
 
     // Get authenticated user
     const authHeader = req.headers.get('Authorization');
@@ -157,14 +150,6 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in inventory-monitor:', error);
-    return new Response(
-      JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'Unknown error occurred' 
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500 
-      }
-    );
+    return errorResponse(error instanceof Error ? error.message : 'Unknown error occurred', 500);
   }
 });

@@ -1,10 +1,6 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "@supabase/supabase-js";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { createSupabaseAdmin } from "../_shared/supabase-client.ts";
+import { errorResponse } from "../_shared/error.ts";
 
 type WeatherRequest = {
   type: "weather";
@@ -62,7 +58,7 @@ function getEnv(...keys: string[]) {
  * 날씨 데이터를 weather_data 테이블에 저장 (upsert)
  */
 async function saveWeatherToDb(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   storeId: string,
   userId: string | null,
   orgId: string | null,
@@ -125,7 +121,7 @@ async function saveWeatherToDb(
  * 공휴일 데이터를 holidays_events 테이블에 저장
  */
 async function saveHolidaysToDb(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   storeId: string | null,
   userId: string | null,
   orgId: string | null,
@@ -186,18 +182,16 @@ async function saveHolidaysToDb(
   }
 }
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const corsResponse = handleCorsOptions(req);
+  if (corsResponse) return corsResponse;
 
   // Supabase 클라이언트 초기화 (Service Role로 RLS 우회)
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-
-  let supabase: ReturnType<typeof createClient> | null = null;
-  if (supabaseUrl && supabaseServiceKey) {
-    supabase = createClient(supabaseUrl, supabaseServiceKey);
+  let supabase: any = null;
+  try {
+    supabase = createSupabaseAdmin();
+  } catch (_) {
+    // Supabase env vars not available, continue without DB
   }
 
   try {
@@ -209,20 +203,14 @@ serve(async (req) => {
     if (body.type === "weather") {
       const apiKey = getEnv("OPENWEATHERMAP_API_KEY", "VITE_OPENWEATHERMAP_API_KEY");
       if (!apiKey) {
-        return new Response(
-          JSON.stringify({ error: "Missing OPENWEATHERMAP_API_KEY" }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return errorResponse("Missing OPENWEATHERMAP_API_KEY", 500);
       }
 
       const weatherReq = body as WeatherRequest;
       const lat = Number(weatherReq.lat);
       const lon = Number(weatherReq.lon);
       if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-        return new Response(
-          JSON.stringify({ error: "lat/lon are required" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return errorResponse("lat/lon are required", 400);
       }
 
       const url = new URL("https://api.openweathermap.org/data/2.5/weather");
@@ -278,28 +266,19 @@ serve(async (req) => {
     if (body.type === "holidays") {
       const apiKey = getEnv("DATA_GO_KR_API_KEY", "VITE_DATA_GO_KR_API_KEY");
       if (!apiKey) {
-        return new Response(
-          JSON.stringify({ error: "Missing DATA_GO_KR_API_KEY" }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return errorResponse("Missing DATA_GO_KR_API_KEY", 500);
       }
 
       const holidaysReq = body as HolidaysRequest;
       const countryCode = holidaysReq.countryCode ?? "KR";
       if (countryCode !== "KR") {
-        return new Response(
-          JSON.stringify({ error: "Only KR holidays are supported" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return errorResponse("Only KR holidays are supported", 400);
       }
 
       const year = Number(holidaysReq.year);
       const month = Number(holidaysReq.month);
       if (!Number.isFinite(year) || !Number.isFinite(month)) {
-        return new Response(
-          JSON.stringify({ error: "year/month are required" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return errorResponse("year/month are required", 400);
       }
 
       const url = new URL(
@@ -355,15 +334,9 @@ serve(async (req) => {
       });
     }
 
-    return new Response(
-      JSON.stringify({ error: "Invalid request type" }),
-      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return errorResponse("Invalid request type", 400);
   } catch (e) {
     console.error("environment-proxy error:", e);
-    return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return errorResponse(e instanceof Error ? e.message : "Unknown error", 500);
   }
 });

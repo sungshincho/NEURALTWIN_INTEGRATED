@@ -1,10 +1,7 @@
-import { createClient } from "@supabase/supabase-js";
+import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { errorResponse } from "../_shared/error.ts";
+import { createSupabaseWithAuth } from "../_shared/supabase-client.ts";
 import { chatCompletion } from "../_shared/ai/gateway.ts";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 interface AutoMapRequest {
   import_id: string;
@@ -13,20 +10,12 @@ interface AutoMapRequest {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCorsOptions(req);
+  if (corsResponse) return corsResponse;
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
-        },
-      }
-    );
+    const authHeader = req.headers.get('Authorization')!;
+    const supabase = createSupabaseWithAuth(authHeader);
 
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) {
@@ -174,13 +163,13 @@ ${relationTypes?.map(rt => `- ${rt.name} (${rt.label}): ${rt.source_entity_type}
         console.error('❌ No tool call in AI response');
         throw new Error('AI가 구조화된 응답을 반환하지 않았습니다');
       }
-      
+
       mappingResult = JSON.parse(toolCall.function.arguments);
       console.log('✅ Parsed tool call result:', JSON.stringify(mappingResult, null, 2));
     } catch (parseError) {
       console.error('❌ Failed to parse AI tool call:', parseError);
       console.error('Raw AI data:', JSON.stringify(aiResult, null, 2));
-      
+
       // Fallback: 규칙 기반 매핑으로 즉시 전환
       console.log('⚠️ AI parsing failed, using fallback rule-based mapping');
       mappingResult = ruleBasedMapping(columns, data_sample, entityTypes, relationTypes);
@@ -200,13 +189,7 @@ ${relationTypes?.map(rt => `- ${rt.name} (${rt.label}): ${rt.source_entity_type}
     );
   } catch (error: any) {
     console.error('❌ Auto-mapping error:', error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
+    return errorResponse(error.message, 500);
   }
 });
 
@@ -258,10 +241,10 @@ function ruleBasedMapping(
     // 최소 1개 이상 매핑되면 추가
     if (mappedCount > 0) {
       const confidence = mappedCount > 0 ? totalConfidence / mappedCount : 0;
-      
+
       // 라벨 템플릿 추천
-      const idColumn = columns.find(col => 
-        col.toLowerCase().includes('id') && 
+      const idColumn = columns.find(col =>
+        col.toLowerCase().includes('id') &&
         col.toLowerCase().includes(entityType.name.toLowerCase())
       ) || columns.find(col => col.toLowerCase().endsWith('id'));
 

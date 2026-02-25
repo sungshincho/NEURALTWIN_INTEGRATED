@@ -1,25 +1,13 @@
-import { createClient } from "@supabase/supabase-js";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { errorResponse } from "../_shared/error.ts";
+import { createSupabaseWithAuth } from "../_shared/supabase-client.ts";
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCorsOptions(req);
+  if (corsResponse) return corsResponse;
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
-        },
-      }
-    );
+    const supabaseClient = createSupabaseWithAuth(req.headers.get('Authorization')!);
 
     const {
       data: { user },
@@ -55,7 +43,7 @@ Deno.serve(async (req) => {
         .select('properties')
         .eq('user_id', user.id)
         .eq('entity_type_id', visitTypeId);
-      
+
       if (!error && data) {
         visits = data.filter(e => {
           const props = e.properties as any;
@@ -70,7 +58,7 @@ Deno.serve(async (req) => {
         .select('properties')
         .eq('user_id', user.id)
         .eq('entity_type_id', purchaseTypeId);
-      
+
       if (!error && data) {
         purchases = data.filter(e => {
           const props = e.properties as any;
@@ -145,7 +133,7 @@ Deno.serve(async (req) => {
         .eq('id', existingKpi.id)
         .select()
         .single();
-      
+
       if (error) throw error;
       kpiResult = data;
     } else {
@@ -154,7 +142,7 @@ Deno.serve(async (req) => {
         .insert(kpiData)
         .select()
         .single();
-      
+
       if (error) throw error;
       kpiResult = data;
     }
@@ -181,12 +169,6 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('Error aggregating KPIs:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
-      }
-    );
+    return errorResponse(errorMessage, 400);
   }
 });

@@ -1,4 +1,6 @@
-import { createClient } from "@supabase/supabase-js";
+import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { errorResponse } from "../_shared/error.ts";
+import { createSupabaseAdmin } from "../_shared/supabase-client.ts";
 
 /**
  * datasource-mapper Edge Function
@@ -13,11 +15,6 @@ import { createClient } from "@supabase/supabase-js";
  * - get_mappings: 매핑 목록 조회
  * - delete_mapping: 매핑 삭제
  */
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 type ActionType = 'register' | 'sync' | 'infer_schema' | 'create_mapping' | 'get_mappings' | 'delete_mapping' | 'get_sources';
 
@@ -247,25 +244,18 @@ const schemaTemplates: Record<string, any> = {
 };
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCorsOptions(req);
+  if (corsResponse) return corsResponse;
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createSupabaseAdmin();
+
     const authHeader = req.headers.get('Authorization')!;
-
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    );
     if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return errorResponse('Unauthorized', 401);
     }
 
     const body: DataSourceMapperRequest = await req.json();
@@ -315,10 +305,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('[datasource-mapper] Error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return new Response(JSON.stringify({ error: errorMessage }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return errorResponse(errorMessage, 500);
   }
 });
 

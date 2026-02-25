@@ -1,4 +1,6 @@
-import { createClient } from "@supabase/supabase-js";
+import { createSupabaseAdmin } from "../_shared/supabase-client.ts";
+import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { errorResponse } from "../_shared/error.ts";
 import { logAIResponse, createExecutionTimer, extractParseResultForLogging } from '../_shared/aiResponseLogger.ts';
 import { safeJsonParse, SIMULATION_FALLBACK, logParseResult } from '../_shared/safeJsonParse.ts';
 import { chatCompletion } from "../_shared/ai/gateway.ts";
@@ -11,11 +13,6 @@ import { chatCompletion } from "../_shared/ai/gateway.ts";
  * - 혼잡도/병목/동선 분석
  * - 진단 이슈 생성
  */
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 // ===== 타입 정의 =====
 
@@ -187,27 +184,23 @@ interface SimulationResult {
 
 // ===== 메인 핸들러 =====
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+  const corsResponse = handleCorsOptions(req);
+  if (corsResponse) return corsResponse;
 
   // 🆕 실행 시간 측정 시작
   const timer = createExecutionTimer();
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const supabaseClient = createSupabaseAdmin();
     const authHeader = req.headers.get('Authorization');
-
-    const supabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
-      global: { headers: authHeader ? { Authorization: authHeader } : {} },
-    });
 
     // 🆕 사용자 인증 확인 (user_id 추출)
     let userId: string | null = null;
     if (authHeader) {
       try {
-        const { data: { user } } = await supabaseClient.auth.getUser();
+        const { data: { user } } = await supabaseClient.auth.getUser(
+          authHeader.replace('Bearer ', '')
+        );
         userId = user?.id || null;
       } catch (authError) {
         console.warn('[Simulation] Auth check failed:', authError);
@@ -487,10 +480,7 @@ Deno.serve(async (req: Request) => {
 
     // 🆕 에러 로깅
     try {
-      const supabaseClient = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-      );
+      const supabaseClient = createSupabaseAdmin();
 
       await logAIResponse(supabaseClient, {
         storeId: 'unknown',
@@ -509,10 +499,7 @@ Deno.serve(async (req: Request) => {
       // 로깅 실패 무시
     }
 
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return errorResponse(error.message, 500);
   }
 });
 

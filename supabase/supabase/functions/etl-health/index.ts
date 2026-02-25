@@ -5,13 +5,9 @@
 // 작성일: 2026-01-13
 // ============================================================================
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from "@supabase/supabase-js";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { errorResponse } from "../_shared/error.ts";
+import { createSupabaseAdmin } from "../_shared/supabase-client.ts";
 
 interface HealthCheckRequest {
   store_id?: string;
@@ -61,22 +57,14 @@ interface HealthCheckResult {
   duration_ms: number;
 }
 
-serve(async (req: Request): Promise<Response> => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+Deno.serve(async (req: Request): Promise<Response> => {
+  const corsResponse = handleCorsOptions(req);
+  if (corsResponse) return corsResponse;
 
   const startTime = Date.now();
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-
-    if (!supabaseUrl || !supabaseServiceKey) {
-      throw new Error('Missing Supabase environment variables');
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createSupabaseAdmin();
 
     // Parse request
     let params: HealthCheckRequest = {};
@@ -175,17 +163,13 @@ serve(async (req: Request): Promise<Response> => {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('[etl-health] Error:', errorMessage);
 
-    return new Response(
-      JSON.stringify({
-        success: false,
-        overall_status: 'unknown',
-        overall_score: 0,
-        error: errorMessage,
-        checked_at: new Date().toISOString(),
-        duration_ms: Date.now() - startTime,
-      }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return errorResponse(errorMessage, 500, {
+      success: false,
+      overall_status: 'unknown',
+      overall_score: 0,
+      checked_at: new Date().toISOString(),
+      duration_ms: Date.now() - startTime,
+    });
   }
 });
 

@@ -1,47 +1,39 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "@supabase/supabase-js";
+import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { createSupabaseAdmin } from "../_shared/supabase-client.ts";
+import { errorResponse } from "../_shared/error.ts";
 import { chatCompletion } from "../_shared/ai/gateway.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const corsResponse = handleCorsOptions(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const { fileName, fileUrl } = await req.json();
-    
+
     // Get JWT token from Authorization header
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       throw new Error('Authorization header is required');
     }
-    
+
     // Extract user ID from JWT token (Bearer token format)
     const token = authHeader.replace('Bearer ', '');
     const parts = token.split('.');
     if (parts.length !== 3) {
       throw new Error('Invalid JWT token');
     }
-    
+
     // Decode JWT payload (base64url encoded)
     const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
     const userId = payload.sub;
-    
+
     if (!userId) {
       throw new Error('User ID not found in token');
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
     // Use service role key for database operations (bypasses RLS)
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createSupabaseAdmin();
     
     // 1. Get existing entity types from ontology
     const { data: entityTypes, error: entityTypesError } = await supabase
@@ -124,15 +116,10 @@ Respond in JSON format:
 
   } catch (error) {
     console.error('Error in analyze-3d-model:', error);
-    return new Response(
-      JSON.stringify({ 
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error' 
-      }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
+    return errorResponse(
+      error instanceof Error ? error.message : 'Unknown error',
+      500,
+      { success: false }
     );
   }
 });

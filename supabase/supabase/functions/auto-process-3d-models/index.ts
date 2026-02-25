@@ -1,21 +1,16 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "@supabase/supabase-js";
+import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { createSupabaseAdmin } from "../_shared/supabase-client.ts";
+import { errorResponse } from "../_shared/error.ts";
 import { chatCompletion } from "../_shared/ai/gateway.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const corsResponse = handleCorsOptions(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const { files, storeId } = await req.json();
-    
+
     if (!files || !Array.isArray(files) || files.length === 0) {
       throw new Error('files array is required');
     }
@@ -28,23 +23,21 @@ serve(async (req) => {
     if (!authHeader) {
       throw new Error('Authorization header is required');
     }
-    
+
     const token = authHeader.replace('Bearer ', '');
     const parts = token.split('.');
     if (parts.length !== 3) {
       throw new Error('Invalid JWT token');
     }
-    
+
     const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
     const userId = payload.sub;
-    
+
     if (!userId) {
       throw new Error('User ID not found in token');
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createSupabaseAdmin();
     
     console.log(`Processing ${files.length} files for user ${userId}, store ${storeId}`);
 
@@ -381,15 +374,10 @@ Return optimal position using tool call.`;
 
   } catch (error) {
     console.error('Auto-process error:', error);
-    return new Response(
-      JSON.stringify({ 
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error' 
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500
-      }
+    return errorResponse(
+      error instanceof Error ? error.message : 'Unknown error',
+      500,
+      { success: false }
     );
   }
 });
