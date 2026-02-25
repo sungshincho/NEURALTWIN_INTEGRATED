@@ -502,3 +502,135 @@ async function generateEmbeddingOpenAI(text: string, model?: string): Promise<nu
   const result = await response.json();
   return result.data?.[0]?.embedding || [];
 }
+
+// ══════════════════════════════════════════
+//  Fallback Chain — Multi-model retry
+// ══════════════════════════════════════════
+
+export interface FallbackModelConfig {
+  provider: AIProvider;
+  model: string;
+  name: string;
+}
+
+export interface FallbackConfig {
+  models: FallbackModelConfig[];
+  maxRetries?: number;  // 각 모델당 재시도 횟수 (기본: 1)
+  retryDelay?: number;  // 재시도 간 대기 시간 ms (기본: 1000)
+}
+
+export const DEFAULT_FALLBACK_CHAIN: FallbackConfig = {
+  models: [
+    { provider: 'google', model: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
+    { provider: 'openai', model: 'gpt-4o', name: 'GPT-4o' },
+    { provider: 'google', model: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
+  ],
+  maxRetries: 1,
+  retryDelay: 1000,
+};
+
+// Provider별 직접 호출 (getProvider() 우회)
+function chatCompletionDirect(
+  options: ChatCompletionOptions,
+  provider: AIProvider,
+): Promise<any> {
+  if (provider === 'openai') return chatCompletionOpenAI(options);
+  return chatCompletionGoogle(options);
+}
+
+function chatCompletionStreamDirect(
+  options: ChatCompletionOptions,
+  provider: AIProvider,
+): Promise<Response> {
+  if (provider === 'openai') return chatCompletionStreamOpenAI(options);
+  return chatCompletionStreamGoogle(options);
+}
+
+function isRetryableError(errorMsg: string): boolean {
+  return errorMsg.includes('429') || errorMsg.includes('503') || errorMsg.includes('500');
+}
+
+function isAuthError(errorMsg: string): boolean {
+  return errorMsg.includes('401') || errorMsg.includes('403');
+}
+
+/**
+ * Non-streaming fallback chain.
+ * Tries each model in order; retries on 429/5xx, skips on 401/403.
+ */
+export async function chatCompletionWithFallback(
+  options: ChatCompletionOptions,
+  fallbackConfig: FallbackConfig = DEFAULT_FALLBACK_CHAIN,
+): Promise<any & { modelUsed: string }> {
+  const errors: Array<{ model: string; error: string }> = [];
+  const maxRetries = fallbackConfig.maxRetries ?? 1;
+  const retryDelay = fallbackConfig.retryDelay ?? 1000;
+
+  for (const modelConfig of fallbackConfig.models) {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`[AI] Trying ${modelConfig.name} (attempt ${attempt + 1})`);
+
+        const response = await chatCompletionDirect(
+          { ...options, model: modelConfig.model },
+          modelConfig.provider,
+        );
+
+        console.log(`[AI] Success with ${modelConfig.name}`);
+        return { ...response, modelUsed: modelConfig.name };
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        console.error(`[AI] ${modelConfig.name} failed (attempt ${attempt + 1}): ${errorMsg}`);
+        errors.push({ model: modelConfig.name, error: errorMsg });
+
+        if (isAuthError(errorMsg)) break; // 인증 에러 → 이 모델 포기
+
+        if (isRetryableError(errorMsg) && attempt < maxRetries) {
+          await new Promise(r => setTimeout(r, retryDelay));
+          continue;
+        }
+
+        break; // 기타 에러 → 다음 모델로
+      }
+    }
+  }
+
+  console.error('[AI] All models failed:', JSON.stringify(errors));
+  throw new Error(`All AI models failed. Errors: ${JSON.stringify(errors)}`);
+}
+
+/**
+ * Streaming fallback chain.
+ * Tries each model in order; if upstream fetch fails, falls back to next.
+ */
+export async function chatCompletionStreamWithFallback(
+  options: ChatCompletionOptions,
+  fallbackConfig: FallbackConfig = DEFAULT_FALLBACK_CHAIN,
+): Promise<Response & { modelUsed?: string }> {
+  const errors: Array<{ model: string; error: string }> = [];
+
+  for (const modelConfig of fallbackConfig.models) {
+    try {
+      console.log(`[AI Stream] Trying ${modelConfig.name}`);
+
+      const response = await chatCompletionStreamDirect(
+        { ...options, model: modelConfig.model },
+        modelConfig.provider,
+      );
+
+      console.log(`[AI Stream] Success with ${modelConfig.name}`);
+      // 헤더에 사용된 모델 정보 추가
+      const headers = new Headers(response.headers);
+      headers.set('X-AI-Model-Used', modelConfig.name);
+      return new Response(response.body, { status: response.status, headers }) as Response & { modelUsed?: string };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(`[AI Stream] ${modelConfig.name} failed: ${errorMsg}`);
+      errors.push({ model: modelConfig.name, error: errorMsg });
+      continue;
+    }
+  }
+
+  console.error('[AI Stream] All models failed:', JSON.stringify(errors));
+  throw new Error(`All AI models failed for streaming. Errors: ${JSON.stringify(errors)}`);
+}
