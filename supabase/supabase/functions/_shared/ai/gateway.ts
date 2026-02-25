@@ -202,9 +202,16 @@ function convertGoogleAIResponseToOpenAI(googleResponse: any, model: string): an
 
 export async function chatCompletion(options: ChatCompletionOptions): Promise<any> {
   const provider = getProvider();
-  return provider === 'openai'
-    ? chatCompletionOpenAI(options)
-    : chatCompletionGoogle(options);
+  if (provider === 'openai') return chatCompletionOpenAI(options);
+
+  try {
+    return await chatCompletionGoogle(options);
+  } catch (error) {
+    const hasOpenAIKey = !!Deno.env.get('OPENAI_API_KEY');
+    if (!hasOpenAIKey) throw error;
+    console.warn(`[AI Gateway] Google AI failed, falling back to OpenAI: ${error}`);
+    return chatCompletionOpenAI(options);
+  }
 }
 
 async function chatCompletionGoogle(options: ChatCompletionOptions): Promise<any> {
@@ -292,9 +299,16 @@ async function chatCompletionOpenAI(options: ChatCompletionOptions): Promise<any
 
 export async function chatCompletionStream(options: ChatCompletionOptions): Promise<Response> {
   const provider = getProvider();
-  return provider === 'openai'
-    ? chatCompletionStreamOpenAI(options)
-    : chatCompletionStreamGoogle(options);
+  if (provider === 'openai') return chatCompletionStreamOpenAI(options);
+
+  try {
+    return await chatCompletionStreamGoogle(options);
+  } catch (error) {
+    const hasOpenAIKey = !!Deno.env.get('OPENAI_API_KEY');
+    if (!hasOpenAIKey) throw error;
+    console.warn(`[AI Gateway] Google AI Stream failed, falling back to OpenAI: ${error}`);
+    return chatCompletionStreamOpenAI(options);
+  }
 }
 
 async function chatCompletionStreamGoogle(options: ChatCompletionOptions): Promise<Response> {
@@ -429,9 +443,16 @@ async function chatCompletionStreamOpenAI(options: ChatCompletionOptions): Promi
 
 export async function generateEmbedding(text: string, model?: string): Promise<number[]> {
   const provider = getProvider();
-  return provider === 'openai'
-    ? generateEmbeddingOpenAI(text, model)
-    : generateEmbeddingGoogle(text, model);
+  if (provider === 'openai') return generateEmbeddingOpenAI(text, model);
+
+  try {
+    return await generateEmbeddingGoogle(text, model);
+  } catch (error) {
+    const hasOpenAIKey = !!Deno.env.get('OPENAI_API_KEY');
+    if (!hasOpenAIKey) throw error;
+    console.warn(`[AI Gateway] Google Embedding failed, falling back to OpenAI: ${error}`);
+    return generateEmbeddingOpenAI(text, model);
+  }
 }
 
 async function generateEmbeddingGoogle(text: string, model?: string): Promise<number[]> {
