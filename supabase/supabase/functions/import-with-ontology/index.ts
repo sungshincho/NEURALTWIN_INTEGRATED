@@ -1,9 +1,6 @@
-import { createClient } from "@supabase/supabase-js";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { errorResponse } from "../_shared/error.ts";
+import { createSupabaseAdmin } from "../_shared/supabase-client.ts";
 
 interface ImportRequest {
   importId: string; // user_data_imports의 ID
@@ -136,14 +133,11 @@ interface ImportResult {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCorsOptions(req);
+  if (corsResponse) return corsResponse;
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = createSupabaseAdmin();
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
@@ -186,20 +180,13 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('❌ Import error:', error);
     const errorMessage = error instanceof Error ? error.message : String(error);
-    return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: errorMessage,
-        entitiesCreated: 0,
-        relationsCreated: 0,
-        entityTypesLinked: 0,
-        errors: [errorMessage]
-      }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    );
+    return errorResponse(errorMessage, 500, {
+      success: false,
+      entitiesCreated: 0,
+      relationsCreated: 0,
+      entityTypesLinked: 0,
+      errors: [errorMessage]
+    });
   }
 });
 

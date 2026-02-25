@@ -1,9 +1,6 @@
-import { createClient } from "@supabase/supabase-js";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { createSupabaseWithAuth } from "../_shared/supabase-client.ts";
+import { errorResponse } from "../_shared/error.ts";
 
 interface ApiConnection {
   id: string;
@@ -17,9 +14,8 @@ interface ApiConnection {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCorsOptions(req);
+  if (corsResponse) return corsResponse;
 
   try {
     // Get authorization header for user authentication
@@ -29,17 +25,7 @@ Deno.serve(async (req) => {
     }
 
     // Create client with user's JWT for RLS policies
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: {
-            Authorization: authHeader,
-          },
-        },
-      }
-    );
+    const supabase = createSupabaseWithAuth(authHeader);
 
     // Verify user is NEURALTWIN_MASTER
     const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -156,16 +142,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('Sync error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: errorMessage 
-      }),
-      { 
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    );
+    return errorResponse(errorMessage, 400);
   }
 });
 

@@ -7,13 +7,9 @@
 // 3. Phase 7 스키마 호환 (field_mappings, auth_config, raw_imports)
 // ============================================================================
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "@supabase/supabase-js";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { createSupabaseAdmin } from "../_shared/supabase-client.ts";
+import { errorResponse } from "../_shared/error.ts";
 
 // 변환 함수 정의 (Phase 7 field_mappings 지원)
 const transformFunctions: Record<string, (value: any) => any> = {
@@ -114,15 +110,12 @@ function applyFieldMappingsV2(record: any, mappings: any[]): any {
   return result;
 }
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const corsResponse = handleCorsOptions(req);
+  if (corsResponse) return corsResponse;
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = createSupabaseAdmin();
 
     const body = await req.json();
     const { scheduleId, connection_id, manualRun = false, sync_type } = body;
@@ -144,10 +137,7 @@ serve(async (req) => {
       });
 
       if (syncError) {
-        return new Response(
-          JSON.stringify({ success: false, error: syncError.message }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return errorResponse(syncError.message, 500);
       }
 
       return new Response(
@@ -516,16 +506,7 @@ serve(async (req) => {
 
   } catch (error: any) {
     console.error('Error in sync-api-data:', error);
-    return new Response(
-      JSON.stringify({ 
-        success: false,
-        error: error.message 
-      }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    );
+    return errorResponse(error.message, 500);
   }
 });
 

@@ -8,8 +8,7 @@
  * - 토픽 라우터 기반 도메인 지식 주입
  */
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from "@supabase/supabase-js";
+import { createSupabaseAdmin, createSupabaseWithAuth } from "../_shared/supabase-client.ts";
 import { buildEnrichedPrompt, formatClassification } from './topicRouter.ts';
 import { extractPainPoints, type PainPointResult } from './painPointExtractor.ts';
 import { evaluateSalesBridge, checkExplicitInterest, type SalesBridgeResult } from './salesBridge.ts';
@@ -683,14 +682,7 @@ async function extractUserFromJWT(request: Request): Promise<AuthResult> {
   const token = authHeader.replace('Bearer ', '');
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: { Authorization: `Bearer ${token}` }
-      }
-    });
+    const supabase = createSupabaseWithAuth(`Bearer ${token}`);
 
     const { data: { user }, error } = await supabase.auth.getUser();
 
@@ -1244,7 +1236,7 @@ async function handleSessionHandover(
 // ═══════════════════════════════════════════
 
 async function handleLogReaction(
-  supabase: ReturnType<typeof createClient>,
+  supabase: ReturnType<typeof createSupabaseAdmin>,
   body: WebChatRequest,
   corsHeaders: Record<string, string>
 ): Promise<Response> {
@@ -1327,7 +1319,7 @@ async function handleLogReaction(
 //  메인 핸들러
 // ═══════════════════════════════════════════
 
-serve(async (request: Request) => {
+Deno.serve(async (request: Request) => {
   const corsHeaders = getCorsHeaders(request);
 
   // CORS Preflight
@@ -1352,9 +1344,7 @@ serve(async (request: Request) => {
     const auth = await extractUserFromJWT(request);
 
     // 3. Supabase 클라이언트 생성 (action 분기에서도 필요)
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createSupabaseAdmin();
 
     // ═══════════════════════════════════════════
     // TASK 9: Action 분기 처리

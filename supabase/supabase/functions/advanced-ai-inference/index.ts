@@ -1,4 +1,6 @@
-import { createClient } from "@supabase/supabase-js";
+import { createSupabaseAdmin } from "../_shared/supabase-client.ts";
+import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { errorResponse } from "../_shared/error.ts";
 import { chatCompletion } from "../_shared/ai/gateway.ts";
 
 // ============================================================================
@@ -35,10 +37,6 @@ import {
   type PastPerformanceResult,
 } from './learning.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 // Helper function to clean AI response and extract valid JSON
 function cleanJsonResponse(content: string): string {
@@ -1787,29 +1785,22 @@ interface InferenceRequest {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCorsOptions(req);
+  if (corsResponse) return corsResponse;
 
   // 🆕 실행 시간 측정 시작
   const executionTimer = createExecutionTimer();
   executionTimer.start();
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createSupabaseAdmin();
     const authHeader = req.headers.get('Authorization')!;
 
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    );
     if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return errorResponse('Unauthorized', 401);
     }
 
     let body: InferenceRequest;
@@ -1817,10 +1808,7 @@ Deno.serve(async (req) => {
       body = await req.json();
     } catch (parseError) {
       console.error('Request JSON parse error:', parseError);
-      return new Response(JSON.stringify({ error: 'Invalid JSON in request body' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return errorResponse('Invalid JSON in request body', 400);
     }
     const inferenceType = body.inference_type || body.type;
     console.log('Advanced AI inference request:', inferenceType);
@@ -1938,30 +1926,23 @@ Deno.serve(async (req) => {
 
     // 🆕 에러 발생 시에도 로깅 시도
     try {
-      const supabaseUrl = Deno.env.get('SUPABASE_URL');
-      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-      if (supabaseUrl && supabaseKey) {
-        const supabase = createClient(supabaseUrl, supabaseKey);
-        const body = await req.clone().json().catch(() => ({}));
-        await logAIResponse(supabase, {
-          storeId: body.storeId || 'unknown',
-          functionName: 'advanced-ai-inference',
-          simulationType: (body.inference_type || body.type || 'unknown') as SimulationType,
-          inputVariables: body,
-          aiResponse: {},
-          executionTimeMs: executionTimer.getElapsedMs(),
-          hadError: true,
-          errorMessage,
-        });
-      }
+      const supabase = createSupabaseAdmin();
+      const body = await req.clone().json().catch(() => ({}));
+      await logAIResponse(supabase, {
+        storeId: body.storeId || 'unknown',
+        functionName: 'advanced-ai-inference',
+        simulationType: (body.inference_type || body.type || 'unknown') as SimulationType,
+        inputVariables: body,
+        aiResponse: {},
+        executionTimeMs: executionTimer.getElapsedMs(),
+        hadError: true,
+        errorMessage,
+      });
     } catch (logError) {
       console.warn('[advanced-ai-inference] Failed to log error:', logError);
     }
 
-    return new Response(JSON.stringify({ error: errorMessage }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return errorResponse(errorMessage, 500);
   }
 });
 

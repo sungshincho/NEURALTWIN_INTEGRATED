@@ -3,13 +3,7 @@
 // 임포트 타입별 샘플 템플릿 생성 - Phase 4
 // ============================================================================
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
 
 interface TemplateRequest {
   import_type: string;
@@ -472,11 +466,10 @@ function generateJSON(
   return JSON.stringify(template, null, 2);
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   // CORS preflight
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCorsOptions(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const {
