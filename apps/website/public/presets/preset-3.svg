@@ -1,0 +1,52 @@
+<!-- 프리셋 3 썸네일: 업계 평균 비교 — 매장 + KPI 메트릭 오버레이 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" fill="none">
+  <defs>
+    <linearGradient id="bg3" x1="0" y1="0" x2="320" y2="200" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0a0a1a"/>
+      <stop offset="100%" stop-color="#0f2918"/>
+    </linearGradient>
+  </defs>
+  <rect width="320" height="200" fill="url(#bg3)"/>
+  <!-- Store floor (smaller, left side) -->
+  <polygon points="100,80 180,110 100,140 20,110" fill="#1a1a2e" fill-opacity="0.4" stroke="#ffffff" stroke-opacity="0.08" stroke-width="0.5"/>
+  <!-- Store zones (small) -->
+  <polygon points="70,100 100,100 95,115 65,115" fill="#0ea5e9" fill-opacity="0.15" stroke="#0ea5e9" stroke-opacity="0.3" stroke-width="0.5"/>
+  <polygon points="100,90 135,104 125,120 90,106" fill="#22c55e" fill-opacity="0.15" stroke="#22c55e" stroke-opacity="0.3" stroke-width="0.5"/>
+  <polygon points="55,108 75,108 70,125 50,125" fill="#ff6b00" fill-opacity="0.15" stroke="#ff6b00" stroke-opacity="0.3" stroke-width="0.5"/>
+  <!-- KPI Comparison Panel -->
+  <rect x="195" y="30" width="110" height="140" rx="6" fill="#111827" fill-opacity="0.6" stroke="#ffffff" stroke-opacity="0.08" stroke-width="0.5"/>
+  <!-- KPI Header -->
+  <text x="250" y="48" font-family="monospace" font-size="7" fill="#9ca3af" text-anchor="middle" font-weight="500">KPI COMPARE</text>
+  <line x1="205" y1="55" x2="295" y2="55" stroke="#ffffff" stroke-opacity="0.06" stroke-width="0.5"/>
+  <!-- KPI 1: 전환율 -->
+  <text x="210" y="72" font-family="monospace" font-size="6" fill="#9ca3af">전환율</text>
+  <rect x="210" y="76" width="75" height="5" rx="2" fill="#1f2937"/>
+  <rect x="210" y="76" width="52" height="5" rx="2" fill="#22c55e" fill-opacity="0.6"/>
+  <rect x="210" y="76" width="38" height="5" rx="2" fill="none" stroke="#ffffff" stroke-opacity="0.15" stroke-width="0.3" stroke-dasharray="38,37"/>
+  <text x="290" y="81" font-family="monospace" font-size="5.5" fill="#22c55e" fill-opacity="0.8">+14%</text>
+  <!-- KPI 2: UPT -->
+  <text x="210" y="96" font-family="monospace" font-size="6" fill="#9ca3af">UPT</text>
+  <rect x="210" y="100" width="75" height="5" rx="2" fill="#1f2937"/>
+  <rect x="210" y="100" width="45" height="5" rx="2" fill="#0ea5e9" fill-opacity="0.6"/>
+  <rect x="210" y="100" width="50" height="5" rx="2" fill="none" stroke="#ffffff" stroke-opacity="0.15" stroke-width="0.3" stroke-dasharray="50,25"/>
+  <text x="290" y="105" font-family="monospace" font-size="5.5" fill="#f59e0b" fill-opacity="0.8">-3%</text>
+  <!-- KPI 3: 객단가 -->
+  <text x="210" y="120" font-family="monospace" font-size="6" fill="#9ca3af">객단가</text>
+  <rect x="210" y="124" width="75" height="5" rx="2" fill="#1f2937"/>
+  <rect x="210" y="124" width="60" height="5" rx="2" fill="#8b5cf6" fill-opacity="0.6"/>
+  <rect x="210" y="124" width="48" height="5" rx="2" fill="none" stroke="#ffffff" stroke-opacity="0.15" stroke-width="0.3" stroke-dasharray="48,27"/>
+  <text x="290" y="129" font-family="monospace" font-size="5.5" fill="#22c55e" fill-opacity="0.8">+8%</text>
+  <!-- KPI 4: 재방문율 -->
+  <text x="210" y="144" font-family="monospace" font-size="6" fill="#9ca3af">재방문율</text>
+  <rect x="210" y="148" width="75" height="5" rx="2" fill="#1f2937"/>
+  <rect x="210" y="148" width="35" height="5" rx="2" fill="#ef4444" fill-opacity="0.6"/>
+  <rect x="210" y="148" width="55" height="5" rx="2" fill="none" stroke="#ffffff" stroke-opacity="0.15" stroke-width="0.3" stroke-dasharray="55,20"/>
+  <text x="290" y="153" font-family="monospace" font-size="5.5" fill="#ef4444" fill-opacity="0.8">-12%</text>
+  <!-- Legend -->
+  <rect x="210" y="162" width="6" height="3" rx="1" fill="#ffffff" fill-opacity="0.3"/>
+  <text x="220" y="165" font-family="monospace" font-size="4.5" fill="#6b7280">업계평균</text>
+  <rect x="250" y="162" width="6" height="3" rx="1" fill="#22c55e" fill-opacity="0.5"/>
+  <text x="260" y="165" font-family="monospace" font-size="4.5" fill="#6b7280">우리매장</text>
+  <!-- Connection line (store → KPI) -->
+  <line x1="180" y1="110" x2="195" y2="100" stroke="#ffffff" stroke-opacity="0.08" stroke-width="0.5" stroke-dasharray="2,2"/>
+</svg>

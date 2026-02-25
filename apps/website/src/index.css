@@ -1,0 +1,230 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* NEURALTWIN Design System
+   Colors: Dark Navy + Electric Blue + Glassmorphism
+   All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* Core colors - Studio Chrome & Glass Design System */
+    --background: 0 0% 98%;
+    --foreground: 0 0% 8%;
+    
+    --primary: 0 0% 15%;
+    --primary-foreground: 0 0% 98%;
+    --primary-glow: 0 0% 25%;
+    --primary-variant: 0 0% 30%;
+    
+    --secondary: 0 0% 95%;
+    --secondary-foreground: 0 0% 8%;
+    
+    --accent: 0 0% 20%;
+    --accent-foreground: 0 0% 98%;
+    
+    --muted: 0 0% 92%;
+    --muted-foreground: 0 0% 45%;
+    
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 8%;
+    
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 8%;
+    
+    --destructive: 0 60% 45%;
+    --destructive-foreground: 0 0% 98%;
+    
+    --border: 0 0% 88%;
+    --input: 0 0% 90%;
+    --ring: 0 0% 15%;
+    
+    /* Glassmorphism - Chrome & Glass */
+    --glass-bg: 0 0% 100% / 0.7;
+    --glass-border: 0 0% 15% / 0.15;
+    
+    /* Gradients - Studio Chrome */
+    --gradient-primary: linear-gradient(135deg, hsl(0 0% 20%), hsl(0 0% 8%));
+    --gradient-accent: linear-gradient(135deg, hsl(0 0% 85%), hsl(0 0% 95%));
+    --gradient-metallic: linear-gradient(135deg, hsl(0 0% 95%), hsl(0 0% 75%), hsl(0 0% 90%));
+    --gradient-chrome: linear-gradient(180deg, hsl(0 0% 100%), hsl(0 0% 85%), hsl(0 0% 100%));
+    
+    /* Shadows - Sharp & Clean */
+    --shadow-sharp: 0 1px 3px hsl(0 0% 0% / 0.12), 0 1px 2px hsl(0 0% 0% / 0.08);
+    --shadow-chrome: 0 4px 16px hsl(0 0% 0% / 0.1), inset 0 1px 0 hsl(0 0% 100% / 0.5);
+    --shadow-glass: 0 8px 32px hsl(0 0% 0% / 0.08);
+    
+    --radius: 1rem;
+    
+    /* Sidebar (keeping for compatibility) */
+    --sidebar-background: 0 0% 96%;
+    --sidebar-foreground: 0 0% 15%;
+    --sidebar-primary: 245 65% 72%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 92%;
+    --sidebar-accent-foreground: 0 0% 15%;
+    --sidebar-border: 0 0% 88%;
+    --sidebar-ring: 245 65% 72%;
+  }
+  
+  .light {
+    --background: 0 0% 96%;
+    --foreground: 0 0% 15%;
+    
+    --primary: 0 0% 45%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 0 0% 60%;
+    
+    --secondary: 0 0% 90%;
+    --secondary-foreground: 0 0% 15%;
+    
+    --accent: 0 0% 55%;
+    --accent-foreground: 0 0% 100%;
+    
+    --muted: 0 0% 92%;
+    --muted-foreground: 0 0% 40%;
+    
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 15%;
+    
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 15%;
+    
+    --destructive: 0 60% 50%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --border: 0 0% 88%;
+    --input: 0 0% 88%;
+    --ring: 0 0% 45%;
+    
+    --glass-bg: 0 0% 100% / 0.7;
+    --glass-border: 0 0% 55% / 0.3;
+    
+    --gradient-primary: linear-gradient(135deg, hsl(0 0% 60%), hsl(0 0% 45%));
+    --gradient-dark: linear-gradient(180deg, hsl(0 0% 96%), hsl(0 0% 100%));
+    --gradient-metallic: linear-gradient(135deg, hsl(0 0% 75%), hsl(0 0% 50%), hsl(0 0% 65%));
+    
+    --shadow-glow: 0 0 40px hsl(0 0% 50% / 0.25);
+    --shadow-soft: 0 10px 30px -10px hsl(0 0% 0% / 0.08);
+    
+    --sidebar-background: 0 0% 96%;
+    --sidebar-foreground: 0 0% 15%;
+    --sidebar-primary: 245 65% 72%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 92%;
+    --sidebar-accent-foreground: 0 0% 15%;
+    --sidebar-border: 0 0% 88%;
+    --sidebar-ring: 245 65% 72%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Pretendard', 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    position: relative;
+  }
+  
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: url('/images/white-noise-texture.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: repeat;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+    mix-blend-mode: multiply;
+  }
+  
+  body::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at 50% 50%, hsl(0 0% 100%), hsl(0 0% 96%));
+    pointer-events: none;
+    z-index: 1;
+  }
+  
+  body > #root {
+    position: relative;
+    z-index: 2;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Inter', 'Pretendard', sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+}
+
+@layer utilities {
+  /* Glassmorphism utility */
+  .glass {
+    background: linear-gradient(135deg, hsl(var(--glass-bg)), hsl(0 0% 100% / 0.5));
+    backdrop-filter: blur(20px) saturate(120%);
+    border: 1px solid hsl(var(--glass-border));
+    box-shadow: 
+      var(--shadow-glass), 
+      inset 0 1px 0 hsl(0 0% 100% / 0.8),
+      inset 0 -1px 0 hsl(0 0% 0% / 0.05);
+  }
+  
+  /* Chrome effect - Sharp & Clean */
+  .chrome {
+    background: var(--gradient-chrome);
+    border: 1px solid hsl(0 0% 15% / 0.2);
+    box-shadow: var(--shadow-chrome);
+  }
+  
+  /* Metallic text effect */
+  .metallic {
+    background: linear-gradient(135deg, 
+      hsl(0 0% 95%), 
+      hsl(0 0% 70%) 25%, 
+      hsl(0 0% 85%) 50%, 
+      hsl(0 0% 65%) 75%, 
+      hsl(0 0% 90%)
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 1px 2px hsl(0 0% 0% / 0.1));
+  }
+  
+  /* Sharp shadow */
+  .sharp-shadow {
+    box-shadow: var(--shadow-sharp);
+  }
+  
+  /* Gradient text */
+  .gradient-text {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 1px 2px hsl(0 0% 0% / 0.15));
+  }
+  
+  /* Smooth transitions */
+  .transition-smooth {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
