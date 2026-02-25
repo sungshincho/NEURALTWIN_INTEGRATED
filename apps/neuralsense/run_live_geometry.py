@@ -1,3 +1,4 @@
+# run_live_no_hyst.py (rx-time + normalized matching + per-pi freshness, NO hysteresis)
 import os
 import json
 import time
@@ -8,14 +9,9 @@ from statistics import median
 from datetime import datetime, timezone, timedelta
 import paho.mqtt.client as mqtt
 
-from config import (
-    MQTT_BROKER_IP, MQTT_BROKER_PORT, MQTT_TOPIC_PREFIX,
-    WINDOW_SEC, MIN_SOURCES, OUTPUT_DIR,
-)
-
-MQTT_HOST = MQTT_BROKER_IP
-MQTT_PORT = MQTT_BROKER_PORT
-MQTT_TOPIC = MQTT_TOPIC_PREFIX + "/rssi"
+MQTT_HOST = "100.87.27.7"
+MQTT_PORT = 1883
+MQTT_TOPIC = "neuralsense/rssi"
 
 ZONES_CSV = "zones.csv"
 CAL_JSONL = os.path.join("output", "calibration.jsonl")
@@ -27,7 +23,12 @@ OUT_TRANS = os.path.join(OUT_DIR, "transitions.jsonl")
 OUT_DWELL = os.path.join(OUT_DIR, "dwells.jsonl")
 OUT_ERR = os.path.join(OUT_DIR, "run_live_errors.jsonl")
 
+WINDOW_SEC = 5
+MIN_SOURCES = 8
 MATCH_DIFF_DBM = 7.0
+
+# Per-Pi freshness gating
+PER_PI_FRESH_SEC = 3.0
 
 KST = timezone(timedelta(hours=9))
 
@@ -43,7 +44,8 @@ def safe_append_jsonl(path, obj):
         sys.stderr.flush()
 
 def log_error(where, exc, extra=None):
-    payload = {"ts": time.time(), "ts_kst": ts_kst(time.time()), "where": where, "error": str(exc)}
+    now = time.time()
+    payload = {"ts": now, "ts_kst": ts_kst(now), "where": where, "error": str(exc)}
     if extra is not None:
         payload["extra"] = extra
     safe_append_jsonl(OUT_ERR, payload)
@@ -82,11 +84,52 @@ def load_calibration():
         log_error("load_calibration", e)
     return latest
 
-def avg_diff(live_vec, cal_vec):
-    common = [p for p in live_vec if p in cal_vec]
+def median_list(nums):
+    s = sorted(nums)
+    n = len(s)
+    mid = n // 2
+    return float(s[mid]) if n % 2 else (s[mid - 1] + s[mid]) / 2.0
+
+def normalize_live_vector(vec):
+    m = median_list([int(v) for v in vec.values()])
+    return {pi: round(int(rssi) - m, 1) for pi, rssi in vec.items()}
+
+def avg_diff_norm(live_norm, cal_norm):
+    common = [p for p in live_norm if p in cal_norm]
     if not common:
         return float("inf")
-    return sum(abs(int(live_vec[p]) - int(cal_vec[p])) for p in common) / float(len(common))
+    return sum(abs(float(live_norm[p]) - float(cal_norm[p])) for p in common) / float(len(common))
+
+def score_best_zone(live_norm, cal):
+    best_zone = None
+    best_conf = -1.0
+    for zid, rec in cal.items():
+        vectors = rec.get("vectors", [])
+        if not vectors:
+            continue
+        matches = 0
+        for v in vectors:
+            if avg_diff_norm(live_norm, v) <= MATCH_DIFF_DBM:
+                matches += 1
+        conf = matches / float(len(vectors))
+        if conf > best_conf:
+            best_conf = conf
+            best_zone = int(zid)
+    return best_zone, float(best_conf)
+
+def build_fresh_vector(events_deque, now_ts):
+    # latest_by_pi[pi] = (ts, rssi)
+    latest_by_pi = {}
+    for ts, pi, rssi in events_deque:
+        prev = latest_by_pi.get(pi)
+        if prev is None or ts > prev[0]:
+            latest_by_pi[pi] = (ts, rssi)
+
+    vec = {}
+    for pi, (ts, rssi) in latest_by_pi.items():
+        if (now_ts - ts) <= PER_PI_FRESH_SEC:
+            vec[pi] = int(rssi)
+    return vec
 
 def main():
     os.makedirs(OUT_DIR, exist_ok=True)
@@ -96,14 +139,16 @@ def main():
         print("ERROR: output/calibration.jsonl missing or has no vectors. Run calibration first.")
         return
 
-    print("LIVE MODE STARTED")
+    print("LIVE MODE STARTED (rx-time, normalized matching, NO hysteresis)")
     print("MIN_SOURCES =", MIN_SOURCES)
+    print("WINDOW_SEC  =", WINDOW_SEC)
+    print("PER_PI_FRESH_SEC =", PER_PI_FRESH_SEC)
+    print("MATCH_DIFF_DBM (normalized) =", MATCH_DIFF_DBM)
     print("Broker:", MQTT_HOST, "Topic:", MQTT_TOPIC)
     print("Zones loaded:", len(zones), "| Cal zones:", len(cal))
-    print("Writing:", OUT_RAW)
 
     buf = defaultdict(lambda: deque())
-    state = {}
+    state = {}  # for dwell/transitions only: state[phone] = (zone_id, enter_ts)
 
     def on_connect(client, userdata, flags, rc):
         print("[MQTT] Connected rc=", rc)
@@ -114,94 +159,94 @@ def main():
             log_error("on_connect/subscribe", e)
 
     def on_message(client, userdata, msg):
+        rx_ts = time.time()
+
         try:
             evt = json.loads(msg.payload.decode("utf-8"))
         except Exception as e:
             log_error("json_decode", e)
             return
 
-        try:
-            ts = float(evt.get("ts", time.time()))
-        except Exception:
-            ts = time.time()
-
         phone = str(evt.get("mac", "")).lower().strip()
-        rpi_id = str(evt.get("rpi_id", "")).strip().lower()  # FIX: normalize
+        rpi_id = str(evt.get("rpi_id", "")).strip().lower()
         try:
             rssi = int(evt.get("rssi"))
         except Exception as e:
             log_error("parse_rssi", e, extra={"evt": evt})
             return
 
-        # raw log
-        safe_append_jsonl(OUT_RAW, {"ts": ts, "ts_kst": ts_kst(ts), "phone_id": phone, "rpi_id": rpi_id, "rssi": rssi})
+        safe_append_jsonl(OUT_RAW, {
+            "ts": rx_ts, "ts_kst": ts_kst(rx_ts),
+            "phone_id": phone, "rpi_id": rpi_id, "rssi": rssi
+        })
 
-        # rolling window
         d = buf[phone]
-        d.append((ts, rpi_id, rssi))
-        cutoff = ts - WINDOW_SEC
+        d.append((rx_ts, rpi_id, rssi))
+        cutoff = rx_ts - WINDOW_SEC
         while d and d[0][0] < cutoff:
             d.popleft()
 
-        # live vector
-        by_pi = defaultdict(list)
-        for _, pi, rs in d:
-            by_pi[pi].append(rs)
-        live_vec = {pi: int(median(vals)) for pi, vals in by_pi.items() if vals}
-
-        sources = sorted(list(live_vec.keys()))
+        raw_vec = build_fresh_vector(d, rx_ts)
+        sources = sorted(raw_vec.keys())
         if len(sources) < MIN_SOURCES:
-            return  # HARD ENFORCEMENT
+            return
 
-        # score zones
-        best_zone = None
-        best_conf = -1.0
-        for zid, rec in cal.items():
-            vectors = rec.get("vectors", [])
-            if not vectors:
-                continue
-            matches = 0
-            for v in vectors:
-                if avg_diff(live_vec, v) <= MATCH_DIFF_DBM:
-                    matches += 1
-            conf = matches / float(len(vectors))
-            if conf > best_conf:
-                best_conf = conf
-                best_zone = int(zid)
-
+        live_norm = normalize_live_vector(raw_vec)
+        best_zone, best_conf = score_best_zone(live_norm, cal)
         if best_zone is None:
             return
 
         x, y = zones.get(best_zone, (None, None))
 
-        # assignment (uses sources computed above)
+        # Log assignment every time we get a valid best_zone
         safe_append_jsonl(OUT_ASSIGN, {
-            "ts": ts,
-            "ts_kst": ts_kst(ts),
+            "ts": rx_ts,
+            "ts_kst": ts_kst(rx_ts),
             "phone_id": phone,
-            "zone_id": best_zone,
+            "zone_id": int(best_zone),
             "x": x,
             "y": y,
             "confidence": float(best_conf),
             "sources": sources,
-            "vector": live_vec
+            "vector": raw_vec,
+            "timebase": "rx_time_laptop"
         })
 
-        # transitions/dwells
+        # transitions/dwells (no hysteresis, but we still track movement)
         if phone not in state:
-            state[phone] = (best_zone, ts)
-            safe_append_jsonl(OUT_TRANS, {"ts": ts, "ts_kst": ts_kst(ts), "phone_id": phone, "from_zone": None, "to_zone": best_zone, "confidence": float(best_conf)})
+            state[phone] = (int(best_zone), rx_ts)
+            safe_append_jsonl(OUT_TRANS, {
+                "ts": rx_ts, "ts_kst": ts_kst(rx_ts),
+                "phone_id": phone,
+                "from_zone": None,
+                "to_zone": int(best_zone),
+                "confidence": float(best_conf)
+            })
             return
 
         prev_zone, enter_ts = state[phone]
-        if prev_zone == best_zone:
+        if prev_zone == int(best_zone):
             return
 
-        safe_append_jsonl(OUT_DWELL, {"phone_id": phone, "zone_id": prev_zone, "enter_ts": float(enter_ts), "enter_ts_kst": ts_kst(float(enter_ts)), "exit_ts": ts, "exit_ts_kst": ts_kst(ts), "dwell_sec": ts - float(enter_ts)})
-        safe_append_jsonl(OUT_TRANS, {"ts": ts, "ts_kst": ts_kst(ts), "phone_id": phone, "from_zone": prev_zone, "to_zone": best_zone, "confidence": float(best_conf)})
-        state[phone] = (best_zone, ts)
+        safe_append_jsonl(OUT_DWELL, {
+            "phone_id": phone,
+            "zone_id": int(prev_zone),
+            "enter_ts": float(enter_ts),
+            "enter_ts_kst": ts_kst(float(enter_ts)),
+            "exit_ts": rx_ts,
+            "exit_ts_kst": ts_kst(rx_ts),
+            "dwell_sec": rx_ts - float(enter_ts)
+        })
+        safe_append_jsonl(OUT_TRANS, {
+            "ts": rx_ts, "ts_kst": ts_kst(rx_ts),
+            "phone_id": phone,
+            "from_zone": int(prev_zone),
+            "to_zone": int(best_zone),
+            "confidence": float(best_conf)
+        })
+        state[phone] = (int(best_zone), rx_ts)
 
-    client = mqtt.Client(client_id="laptop-live")
+    client = mqtt.Client(client_id="laptop-live-nohyst")
     client.on_connect = on_connect
     client.on_message = on_message
     client.reconnect_delay_set(min_delay=1, max_delay=10)
