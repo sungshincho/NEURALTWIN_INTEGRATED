@@ -1,7 +1,6 @@
 /**
  * AI Gateway — Direct API Integration
  *
- * Replaces the deprecated Lovable AI Gateway (ai.gateway.lovable.dev).
  * Supports Google AI (Gemini) as primary and OpenAI as fallback.
  * Returns OpenAI-compatible response format for backward compatibility.
  */
@@ -55,7 +54,7 @@ const GOOGLE_MODEL_MAP: Record<string, string> = {
   'gemini-2.5-flash': 'gemini-2.5-flash',
   'gemini-2.5-pro': 'gemini-2.5-pro',
   'gemini-2.0-flash': 'gemini-2.0-flash',
-  // Legacy Lovable gateway model names
+  // Legacy gateway model names (google/ prefix)
   'google/gemini-2.5-flash-preview-04-17': 'gemini-2.5-flash',
   'google/gemini-2.5-flash': 'gemini-2.5-flash',
   'google/gemini-2.5-pro': 'gemini-2.5-pro',
