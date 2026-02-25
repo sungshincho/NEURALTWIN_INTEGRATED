@@ -1,0 +1,50 @@
+<!-- 프리셋 4 썸네일: VMD 트렌드 — 매장 VMD 존 포커스 + 트렌드 라인 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" fill="none">
+  <defs>
+    <linearGradient id="bg4" x1="0" y1="0" x2="320" y2="200" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0a0a1a"/>
+      <stop offset="100%" stop-color="#291a0f"/>
+    </linearGradient>
+    <linearGradient id="vmd-glow" x1="100" y1="60" x2="220" y2="140" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#ef4444" stop-opacity="0.05"/>
+    </linearGradient>
+  </defs>
+  <rect width="320" height="200" fill="url(#bg4)"/>
+  <!-- Store floor -->
+  <polygon points="140,65 260,115 140,165 20,115" fill="#1a1a2e" fill-opacity="0.4" stroke="#ffffff" stroke-opacity="0.08" stroke-width="0.5"/>
+  <!-- VMD focal zones (highlighted) -->
+  <polygon points="100,85 160,85 170,115 110,115" fill="url(#vmd-glow)" stroke="#f59e0b" stroke-opacity="0.5" stroke-width="1"/>
+  <polygon points="160,85 210,100 200,125 150,110" fill="#f59e0b" fill-opacity="0.08" stroke="#f59e0b" stroke-opacity="0.3" stroke-width="0.8"/>
+  <!-- VMD Display fixtures -->
+  <rect x="115" y="90" width="15" height="5" rx="1" fill="#f59e0b" fill-opacity="0.25" transform="skewX(-8)"/>
+  <rect x="135" y="92" width="10" height="4" rx="1" fill="#ef4444" fill-opacity="0.2" transform="skewX(-8)"/>
+  <rect x="115" y="100" width="20" height="3" rx="1" fill="#f59e0b" fill-opacity="0.15" transform="skewX(-8)"/>
+  <!-- Mannequin dots -->
+  <circle cx="125" cy="95" r="2" fill="#f59e0b" fill-opacity="0.4" stroke="#f59e0b" stroke-opacity="0.6" stroke-width="0.5"/>
+  <circle cx="145" cy="97" r="2" fill="#ef4444" fill-opacity="0.4" stroke="#ef4444" stroke-opacity="0.6" stroke-width="0.5"/>
+  <circle cx="175" cy="105" r="1.5" fill="#f59e0b" fill-opacity="0.3"/>
+  <!-- Other zones (dimmed) -->
+  <polygon points="55,105 90,105 85,130 50,130" fill="#0ea5e9" fill-opacity="0.06" stroke="#0ea5e9" stroke-opacity="0.1" stroke-width="0.5"/>
+  <polygon points="200,100 240,115 230,140 190,125" fill="#22c55e" fill-opacity="0.06" stroke="#22c55e" stroke-opacity="0.1" stroke-width="0.5"/>
+  <!-- Trend line chart (top right) -->
+  <rect x="230" y="25" width="80" height="55" rx="4" fill="#111827" fill-opacity="0.5" stroke="#ffffff" stroke-opacity="0.06" stroke-width="0.5"/>
+  <text x="270" y="38" font-family="monospace" font-size="6" fill="#9ca3af" text-anchor="middle">VMD TREND</text>
+  <!-- Trend line -->
+  <polyline points="240,65 248,60 256,62 264,55 272,50 280,52 288,45 296,40 304,42" stroke="#f59e0b" stroke-opacity="0.7" stroke-width="1.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Trend fill -->
+  <polygon points="240,65 248,60 256,62 264,55 272,50 280,52 288,45 296,40 304,42 304,70 240,70" fill="#f59e0b" fill-opacity="0.08"/>
+  <!-- Trend baseline -->
+  <line x1="240" y1="70" x2="304" y2="70" stroke="#ffffff" stroke-opacity="0.08" stroke-width="0.5"/>
+  <!-- Trend peak marker -->
+  <circle cx="304" cy="42" r="2" fill="#f59e0b" fill-opacity="0.8">
+    <animate attributeName="r" values="2;3;2" dur="2s" repeatCount="indefinite"/>
+  </circle>
+  <!-- Season labels -->
+  <text x="248" y="76" font-family="monospace" font-size="4" fill="#6b7280">S/S</text>
+  <text x="272" y="76" font-family="monospace" font-size="4" fill="#6b7280">F/W</text>
+  <text x="296" y="76" font-family="monospace" font-size="4" fill="#6b7280">NOW</text>
+  <!-- Focus beam lines -->
+  <line x1="130" y1="70" x2="130" y2="85" stroke="#f59e0b" stroke-opacity="0.15" stroke-width="0.5" stroke-dasharray="2,2"/>
+  <line x1="160" y1="70" x2="160" y2="85" stroke="#f59e0b" stroke-opacity="0.15" stroke-width="0.5" stroke-dasharray="2,2"/>
+</svg>
