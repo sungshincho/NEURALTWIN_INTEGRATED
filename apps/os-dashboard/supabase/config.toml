@@ -1,0 +1,105 @@
+project_id = "bdrvowacecxnraaivlhr"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[auth]
+enabled = true
+site_url = "http://localhost:5173"
+
+[functions.advanced-ai-inference]
+verify_jwt = true
+
+[functions.aggregate-all-kpis]
+verify_jwt = true
+
+[functions.aggregate-dashboard-kpis]
+verify_jwt = true
+
+[functions.analyze-3d-model]
+verify_jwt = true
+
+[functions.analyze-retail-data]
+verify_jwt = true
+
+[functions.analyze-store-data]
+verify_jwt = true
+
+[functions.auto-fix-data]
+verify_jwt = true
+
+[functions.auto-map-etl]
+verify_jwt = true
+
+[functions.auto-process-3d-models]
+verify_jwt = true
+
+[functions.cleanup-integrated-data]
+verify_jwt = true
+
+[functions.etl-l1-to-l2]
+verify_jwt = true
+
+[functions.etl-l2-to-l3]
+verify_jwt = true
+
+[functions.etl-scheduler]
+verify_jwt = false
+
+[functions.fetch-db-schema]
+verify_jwt = true
+
+[functions.generate-ai-recommendations]
+verify_jwt = true
+
+[functions.graph-query]
+verify_jwt = true
+
+[functions.import-with-ontology]
+verify_jwt = true
+
+[functions.infer-entity-relations]
+verify_jwt = false
+
+[functions.integrated-data-pipeline]
+verify_jwt = true
+
+[functions.inventory-monitor]
+verify_jwt = true
+
+[functions.ontology-ai-inference]
+verify_jwt = true
+
+[functions.ontology-inference-scheduler]
+verify_jwt = false
+
+[functions.process-wifi-data]
+verify_jwt = true
+
+[functions.schedule-runner]
+verify_jwt = false
+
+[functions.schema-etl]
+verify_jwt = true
+
+[functions.smart-ontology-mapping]
+verify_jwt = true
+
+[functions.sync-api-data]
+verify_jwt = false
+
+[functions.test-api-connection]
+verify_jwt = true
+
+[functions.validate-and-fix-csv]
+verify_jwt = true
+
+[functions.validate-batch-files]
+verify_jwt = true
+
+[functions.environment-proxy]
+verify_jwt = true

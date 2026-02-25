@@ -1,0 +1,91 @@
+# NEURALTWIN Dual Chatbot - Code Owners
+# 각 영역별 담당자가 PR 시 자동으로 리뷰어로 지정됩니다.
+#
+# 사용법:
+# - 파일 경로 패턴 뒤에 GitHub 사용자명 (@username) 지정
+# - 실제 배포 전 @dev-a, @dev-b, @dev-c를 실제 GitHub ID로 변경 필요
+#
+# 소유권 범례:
+# 🟦 개발자 A (UI/UX)
+# 🟩 개발자 B (Web Bot)
+# 🟧 개발자 C (OS Bot)
+# 🟪 전원 합의
+
+# ============================================
+# 🟪 공유 계약 파일 (전원 승인 필요)
+# ============================================
+src/shared/chat/types/                          @dev-a @dev-b @dev-c
+src/features/website-chatbot/types/             @dev-a @dev-b
+src/features/ai-assistant/types/                @dev-a @dev-c
+supabase/functions/_shared/chatTypes.ts         @dev-b @dev-c
+
+# ============================================
+# 🟦 개발자 A (UI/UX) 영역
+# ============================================
+# 공유 Chat UI Kit
+src/shared/chat/components/                     @dev-a
+src/shared/chat/hooks/                          @dev-a
+
+# 웹사이트 챗봇 UI
+src/features/website-chatbot/*.tsx              @dev-a
+src/features/website-chatbot/components/        @dev-a
+
+# OS 챗봇 UI
+src/features/ai-assistant/*.tsx                 @dev-a
+src/features/ai-assistant/components/           @dev-a
+
+# ============================================
+# 🟩 개발자 B (Web Bot) 영역
+# ============================================
+# 웹사이트 챗봇 Edge Function
+supabase/functions/retail-chatbot/              @dev-b
+
+# 웹사이트 챗봇 hooks
+src/features/website-chatbot/hooks/             @dev-b
+
+# ============================================
+# 🟧 개발자 C (OS Bot) 영역
+# ============================================
+# OS 챗봇 Edge Function
+supabase/functions/neuraltwin-assistant/        @dev-c
+
+# 공유 EF 유틸리티 (챗봇 전용)
+supabase/functions/_shared/chatLogger.ts        @dev-c
+supabase/functions/_shared/streamingResponse.ts @dev-c
+supabase/functions/_shared/rateLimiter.ts       @dev-c
+supabase/functions/_shared/errorHandler.ts      @dev-c
+supabase/functions/_shared/retailGlossary.ts    @dev-c
+
+# OS 챗봇 hooks & providers
+src/features/ai-assistant/hooks/                @dev-c
+src/features/ai-assistant/providers/            @dev-c
+
+# ============================================
+# 🟩🟧 B+C 공동 (DB 스키마)
+# ============================================
+supabase/migrations/*chat*.sql                  @dev-b @dev-c
+
+# ============================================
+# 🟪 프로젝트 설정 파일 (전원 협의)
+# ============================================
+package.json                                    @dev-a @dev-b @dev-c
+package-lock.json                               @dev-a @dev-b @dev-c
+tsconfig.json                                   @dev-a @dev-b @dev-c
+vite.config.ts                                  @dev-a @dev-b @dev-c
+
+# GitHub 설정
+.github/                                        @dev-a @dev-b @dev-c
+
+# Supabase 설정
+supabase/config.toml                            @dev-b @dev-c
+
+# ============================================
+# 기존 코드 (수정 시 주의)
+# ============================================
+# 기존 features - 일반적으로 수정 불필요
+# src/features/studio/                          (읽기 전용 참조)
+# src/features/insights/                        (읽기 전용)
+# src/features/roi/                             (읽기 전용)
+
+# 앱 라우팅 - A가 챗봇 통합 시 수정 가능
+src/App.tsx                                     @dev-a
