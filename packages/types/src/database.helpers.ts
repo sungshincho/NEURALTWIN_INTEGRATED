@@ -1,18 +1,6 @@
 import type { Database } from './database.types';
 
-// Row 타입 축약
-export type Tables<T extends keyof Database['public']['Tables']> =
-  Database['public']['Tables'][T]['Row'];
-
-export type TablesInsert<T extends keyof Database['public']['Tables']> =
-  Database['public']['Tables'][T]['Insert'];
-
-export type TablesUpdate<T extends keyof Database['public']['Tables']> =
-  Database['public']['Tables'][T]['Update'];
-
-// Enum 축약
-export type Enums<T extends keyof Database['public']['Enums']> =
-  Database['public']['Enums'][T];
+// Tables, TablesInsert, TablesUpdate, Enums are already exported from database.types.ts
 
 // View 축약
 export type Views<T extends keyof Database['public']['Views']> =

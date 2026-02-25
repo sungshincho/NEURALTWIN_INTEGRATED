@@ -12,10 +12,9 @@ export function errorResponse(
   req?: Request,
   details?: unknown
 ): Response {
-  const body: ErrorResponse = {
-    success: false,
-    error: { code, message, ...(details && { details }) },
-  };
+  const error: ErrorResponse['error'] = { code, message };
+  if (details !== undefined) error.details = details;
+  const body: ErrorResponse = { success: false, error };
 
   return new Response(JSON.stringify(body), {
     status,
