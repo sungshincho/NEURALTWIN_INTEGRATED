@@ -129,19 +129,19 @@ export async function writeSSEError(
 }
 
 // =============================================
-// Lovable Gateway SSE 스트림 파싱
+// AI Gateway SSE 스트림 파싱
 // =============================================
 
 /**
- * Lovable Gateway SSE 스트림 → 클라이언트 프록시
+ * AI Gateway SSE 스트림 → 클라이언트 프록시
  *
- * 수신 (Lovable Gateway):
+ * 수신 (AI Gateway — OpenAI-compatible SSE):
  *   data: {"choices":[{"delta":{"content":"텍스트"}}]}
  *
  * 전달 (클라이언트):
  *   data: {"type":"delta","content":"텍스트 청크"}
  */
-export async function proxyLovableStream(
+export async function proxyAIStream(
   aiResponse: Response,
   clientWriter: WritableStreamDefaultWriter<Uint8Array>,
   encoder: TextEncoder,
@@ -212,7 +212,7 @@ export async function proxyLovableStream(
 // =============================================
 
 /**
- * Lovable Gateway non-streaming 응답에서 메시지 추출
+ * AI Gateway non-streaming 응답에서 메시지 추출
  */
 export function extractMessageFromResponse(aiData: unknown): string {
   const data = aiData as {

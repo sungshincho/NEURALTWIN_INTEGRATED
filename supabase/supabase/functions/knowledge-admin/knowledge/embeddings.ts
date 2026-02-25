@@ -2,7 +2,7 @@
  * Knowledge Layer 1 — 임베딩 생성
  *
  * Google AI Studio gemini-embedding-001 직접 호출
- * Lovable Gateway 미경유 — 임베딩은 Google AI Studio만 지원
+ * Google AI Studio 직접 호출 — 임베딩 전용
  *
  * 모델: gemini-embedding-001 (네이티브 3072차원 → outputDimensionality: 768로 truncate)
  * 비용: 무료 (분당 1,500건)

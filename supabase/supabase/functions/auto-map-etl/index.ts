@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { chatCompletion } from "../_shared/ai/gateway.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -107,83 +108,68 @@ ${relationTypes?.map(rt => `- ${rt.name} (${rt.label}): ${rt.source_entity_type}
 **중요:** 반드시 유효한 JSON만 반환하세요. 설명은 제외하고 JSON만 출력하세요.
 `;
 
-    // Lovable AI 호출 (Tool Calling으로 구조화된 출력 보장)
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${Deno.env.get('LOVABLE_API_KEY')}`,
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          {
-            role: 'user',
-            content: mappingPrompt,
-          },
-        ],
-        tools: [
-          {
-            type: 'function',
-            function: {
-              name: 'create_etl_mapping',
-              description: 'ETL 매핑 결과를 반환합니다',
-              parameters: {
-                type: 'object',
-                properties: {
-                  entity_mappings: {
-                    type: 'array',
-                    items: {
-                      type: 'object',
-                      properties: {
-                        entity_type_id: { type: 'string' },
-                        entity_type_name: { type: 'string' },
-                        column_mappings: { type: 'object' },
-                        label_template: { type: 'string' },
-                        confidence: { type: 'number' }
-                      },
-                      required: ['entity_type_id', 'entity_type_name', 'column_mappings', 'label_template']
-                    }
-                  },
-                  relation_mappings: {
-                    type: 'array',
-                    items: {
-                      type: 'object',
-                      properties: {
-                        relation_type_id: { type: 'string' },
-                        relation_type_name: { type: 'string' },
-                        source_entity_type_id: { type: 'string' },
-                        target_entity_type_id: { type: 'string' },
-                        source_key: { type: 'string' },
-                        target_key: { type: 'string' },
-                        confidence: { type: 'number' }
-                      },
-                      required: ['relation_type_id', 'source_entity_type_id', 'target_entity_type_id', 'source_key', 'target_key']
-                    }
+    // AI 호출 (Tool Calling으로 구조화된 출력 보장)
+    const aiResult = await chatCompletion({
+      model: 'gemini-2.5-flash',
+      messages: [
+        {
+          role: 'user',
+          content: mappingPrompt,
+        },
+      ],
+      tools: [
+        {
+          type: 'function',
+          function: {
+            name: 'create_etl_mapping',
+            description: 'ETL 매핑 결과를 반환합니다',
+            parameters: {
+              type: 'object',
+              properties: {
+                entity_mappings: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      entity_type_id: { type: 'string' },
+                      entity_type_name: { type: 'string' },
+                      column_mappings: { type: 'object' },
+                      label_template: { type: 'string' },
+                      confidence: { type: 'number' }
+                    },
+                    required: ['entity_type_id', 'entity_type_name', 'column_mappings', 'label_template']
                   }
                 },
-                required: ['entity_mappings', 'relation_mappings']
-              }
+                relation_mappings: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      relation_type_id: { type: 'string' },
+                      relation_type_name: { type: 'string' },
+                      source_entity_type_id: { type: 'string' },
+                      target_entity_type_id: { type: 'string' },
+                      source_key: { type: 'string' },
+                      target_key: { type: 'string' },
+                      confidence: { type: 'number' }
+                    },
+                    required: ['relation_type_id', 'source_entity_type_id', 'target_entity_type_id', 'source_key', 'target_key']
+                  }
+                }
+              },
+              required: ['entity_mappings', 'relation_mappings']
             }
           }
-        ],
-        tool_choice: { type: 'function', function: { name: 'create_etl_mapping' } }
-      }),
+        }
+      ],
+      toolChoice: 'required',
     });
-
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error('❌ AI API error:', aiResponse.status, errorText);
-      throw new Error(`AI API error: ${aiResponse.status} - ${errorText}`);
-    }
-
-    const aiData = await aiResponse.json();
-    console.log('🤖 AI Response:', JSON.stringify(aiData, null, 2));
+    console.log('🤖 AI Response:', JSON.stringify(aiResult, null, 2));
 
     // Tool calling 응답에서 매핑 결과 추출
     let mappingResult;
     try {
-      const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+      const toolCall = aiResult.choices?.[0]?.message?.tool_calls?.[0];
       if (!toolCall || toolCall.type !== 'function') {
         console.error('❌ No tool call in AI response');
         throw new Error('AI가 구조화된 응답을 반환하지 않았습니다');
@@ -193,7 +179,7 @@ ${relationTypes?.map(rt => `- ${rt.name} (${rt.label}): ${rt.source_entity_type}
       console.log('✅ Parsed tool call result:', JSON.stringify(mappingResult, null, 2));
     } catch (parseError) {
       console.error('❌ Failed to parse AI tool call:', parseError);
-      console.error('Raw AI data:', JSON.stringify(aiData, null, 2));
+      console.error('Raw AI data:', JSON.stringify(aiResult, null, 2));
       
       // Fallback: 규칙 기반 매핑으로 즉시 전환
       console.log('⚠️ AI parsing failed, using fallback rule-based mapping');

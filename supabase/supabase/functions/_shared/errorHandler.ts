@@ -168,7 +168,8 @@ export function handleEdgeFunctionError(
   // AI API 실패 감지
   if (
     errorMessage.includes('fetch') ||
-    errorMessage.includes('LOVABLE') ||
+    errorMessage.includes('Google AI') ||
+    errorMessage.includes('GOOGLE_AI') ||
     errorMessage.includes('timeout') ||
     errorMessage.includes('network')
   ) {

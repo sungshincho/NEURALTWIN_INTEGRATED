@@ -6,7 +6,7 @@
  * 자연스럽게 사용하여 "이 챗봇은 리테일을 진짜 아는구나" 느낌을 줌
  *
  * 이 프롬프트는 Gemini 2.5 Pro API 호출 시 system message로 전달됩니다.
- * (Lovable Gateway 경유)
+ * (Direct Google AI API)
  */
 
 export const SYSTEM_PROMPT = `당신은 NEURAL — NEURALTWIN의 리테일 인텔리전스 어드바이저입니다.

@@ -27,12 +27,9 @@ NEURALTWIN 웹사이트 + OS에 탑재되는 듀얼 AI 챗봇 시스템.
 ```typescript
 const LOVABLE_GATEWAY_URL = 'https://lovable-api.anthropic.com/v1/chat/completions';
 
-const response = await fetch(LOVABLE_GATEWAY_URL, {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${Deno.env.get('LOVABLE_API_KEY')}`,
-  },
+// AI Gateway 사용 예시 (chatCompletion 함수 사용 권장)
+import { chatCompletion } from "../_shared/ai/gateway.ts";
+const result = await chatCompletion({
   body: JSON.stringify({
     model: 'gemini-2.5-pro',  // 웹 챗봇
     // model: 'gemini-2.5-flash',  // OS 챗봇
@@ -125,14 +122,15 @@ supabase/functions/
 ```
 
 ## 핵심 규칙
-1. AI 모델은 Lovable Gateway 경유 Gemini만 사용 (Claude API 직접 호출 금지)
+1. AI 모델은 Google AI (Gemini) 직접 연결 사용 (Claude API 직접 호출 금지)
 2. 웹사이트 챗봇은 비인증+인증 모두 지원 → --no-verify-jwt로 배포하되, JWT가 있으면 user_id 추출
 3. OS 챗봇은 인증 필수 → Supabase Auth 연동
 4. DB는 통합 스키마 (chat_channel ENUM으로 구분)
 5. 기존 Edge Functions (run-simulation, generate-optimization) 인터페이스 절대 변경 금지
-6. AI API 키는 LOVABLE_API_KEY만 사용 (Deno.env.get('LOVABLE_API_KEY'))
+6. AI API 키는 GOOGLE_AI_API_KEY 사용 (AI_PROVIDER 환경변수로 제공자 선택)
 7. 웹사이트 로그인 전환 시 세션 인계 (비회원 대화 → 회원 계정에 자동 연결)
 
 ## 환경변수
-- LOVABLE_API_KEY: Gemini 2.5 Pro/Flash 중계 (기존 설정 그대로)
+- GOOGLE_AI_API_KEY: Gemini 2.5 Pro/Flash 직접 연결 (chat completion + embedding)
+- AI_PROVIDER: 기본 AI 제공자 ("google" 또는 "openai")
 - SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY: 기존 설정
