@@ -1,136 +1,132 @@
-# NEURALTWIN Dual Chatbot System
+# NEURALTWIN INTEGRATED — CLAUDE.md (CDTO 전용)
+
+> 모노레포 루트용 | 담당: E (CDTO)
+> 최종 수정: 2026-02-26
+
+---
 
 ## 프로젝트 개요
-NEURALTWIN 웹사이트 + OS에 탑재되는 듀얼 AI 챗봇 시스템.
-- 웹사이트 챗봇 (NEURAL): 리테일 전문가 페르소나, Gemini 2.5 Pro, 리드 전환 목적
-- OS 챗봇 (Assistant): 운영 오퍼레이터 페르소나, Gemini 2.5 Flash, 기능 실행 목적
-- AI 모델은 전부 Lovable API Gateway를 경유. 직접 API 호출 하지 않음.
+
+NeuralTwin은 오프라인 리테일 매장의 고객 행동을 IoT 센서(WiFi Probe)로 수집하고, AI(Gemini 2.5)로 분석해서 매장 운영을 최적화하는 SaaS 플랫폼이다.
+
+## 담당 영역 (CDTO = E)
+
+| 영역 | 경로 | 설명 |
+|------|------|------|
+| **Website** | `apps/website/` | 마케팅 웹사이트 전체 (랜딩, 대시보드, Chat UI) |
+| **OS 프론트엔드** | `apps/os-dashboard/` | D(DT Lead)와 공동 담당 |
+| **공유 UI** | `packages/@neuraltwin/ui/` | 컴포넌트 추출 및 관리 |
+| **디자인 시스템** | `packages/@neuraltwin/tailwind-preset/` | 디자인 토큰 |
+
+## 절대 건드리지 마
+
+- `supabase/functions/` — C(Backend) 영역
+- `apps/neuralsense/` — B(IoT) 영역
+- 다른 팀원의 `REPO_ANALYSIS_*.md` 파일
+
+## 모노레포 구조
+
+```
+NEURALTWIN_INTEGRATED/
+├── apps/
+│   ├── website/           ← 내 메인 담당
+│   ├── os-dashboard/      ← D와 공동 담당
+│   └── neuralsense/       ← B 담당 (Python IoT)
+├── supabase/
+│   └── functions/         ← C 담당 (Edge Functions)
+├── packages/
+│   ├── @neuraltwin/ui/    ← 공유 UI (내 담당)
+│   └── @neuraltwin/tailwind-preset/ ← 디자인 토큰 (내 담당)
+├── turbo.json
+├── pnpm-workspace.yaml
+└── CLAUDE.md              ← 이 파일
+```
 
 ## 기술 스택
-- Frontend: React 18 + TypeScript + Tailwind CSS + shadcn/ui
-- Backend: Supabase Edge Functions (Deno)
-- DB: Supabase PostgreSQL (기존 121 테이블 + 챗봇 7 테이블)
-- AI: Gemini 2.5 Pro (웹 챗봇), Gemini 2.5 Flash (OS 챗봇) — 모두 Lovable Gateway 경유
-- 3D: Three.js + React Three Fiber (기존)
-- 상태관리: Zustand (기존), TanStack Query (기존)
 
-## 사용자 시나리오 (4가지 — 반드시 이해)
+- **프레임워크**: React 18 + TypeScript + Vite 5
+- **스타일링**: Tailwind CSS + shadcn/ui (48개 컴포넌트)
+- **3D**: Three.js + @react-three/fiber
+- **다국어**: react-i18next (ko/en, ja 미구현)
+- **백엔드**: Supabase Auth + DB + Edge Functions
+- **검증**: Zod (스키마 검증)
+- **빌드**: pnpm + Turborepo
+
+## Website 핵심 정보
+
+### 디렉토리 구조
+
 ```
-① 웹사이트 비회원 → session_id로 대화 기록 (user_id = NULL)
-② 웹사이트 회원 → session_id + user_id 둘 다 기록
-③ 비회원→로그인 전환 → 기존 대화의 user_id를 자동 업데이트 (세션 인계)
-④ OS 접속 → user_id로 웹 대화 기록 자동 조회 (Context Bridge)
-```
-
-## AI API 호출 패턴 (필독)
-모든 AI 호출은 기존 run-simulation, generate-optimization 에서 사용하는 동일한 패턴을 따른다.
-```typescript
-const LOVABLE_GATEWAY_URL = 'https://lovable-api.anthropic.com/v1/chat/completions';
-
-// AI Gateway 사용 예시 (chatCompletion 함수 사용 권장)
-import { chatCompletion } from "../_shared/ai/gateway.ts";
-const result = await chatCompletion({
-  body: JSON.stringify({
-    model: 'gemini-2.5-pro',  // 웹 챗봇
-    // model: 'gemini-2.5-flash',  // OS 챗봇
-    messages: [
-      { role: 'system', content: systemPrompt },
-      ...historyMessages,
-      { role: 'user', content: userMessage }
-    ],
-    temperature: 0.7,
-    max_tokens: 1024,
-    stream: true,  // SSE 스트리밍 시
-  }),
-});
-```
-⚠️ 절대로 Anthropic API 직접 호출하지 말 것. ANTHROPIC_API_KEY 사용 안 함.
-
-## 핵심 파일 — 리테일 전문가 시스템 (이미 작성 완료)
-아래 3개 파일은 웹 챗봇의 두뇌에 해당. TASK 5에서 Deno 변환하여 사용.
-- systemPrompt.ts: 리테일 전문가 페르소나, 답변 규칙, 도메인 프레임워크
-- retailKnowledge.ts: 12개 토픽별 심화 도메인 지식 DB (토큰 절약용 분리 설계)
-- topicRouter.ts: 사용자 질문 → 토픽 분류 → 해당 지식 주입 엔진
-
-## 3개 파일의 연결 흐름 (반드시 이해 후 구현)
-```
-사용자 메시지 도착
-  │
-  ├─ topicRouter.buildEnrichedPrompt(message, conversationHistory)
-  │    │
-  │    ├─ classifyTopic(message, history)
-  │    │    └─ scoreTopics() → RETAIL_KNOWLEDGE의 keywords/keywordsKo와 매칭
-  │    │    └─ primaryTopic + secondaryTopic + confidence 결정
-  │    │
-  │    ├─ retailKnowledge.combineKnowledgeContexts([primaryId, secondaryId])
-  │    │    └─ 해당 토픽의 context 필드만 추출 (토큰 절약)
-  │    │
-  │    └─ SYSTEM_PROMPT + TOPIC_INJECTION_PREFIX + topicContext 조립
-  │
-  └─ 반환: { systemPrompt: 최종조립결과, classification: 토픽분류정보 }
-  │
-  ▼
-  AI API 호출:
-    system = enrichedPrompt.systemPrompt  ← 여기에 주입
-    messages = [...history, { role: 'user', content: message }]
-  │
-  ▼
-  응답의 meta.topicCategory = classification.primaryTopic
-  응답의 meta.confidence = classification.confidence
+apps/website/src/
+├── components/        → UI 컴포넌트 (94개)
+│   ├── ui/            → shadcn/ui (48개)
+│   ├── landing/       → 랜딩 페이지 섹션
+│   └── ...
+├── shared/
+│   └── chat/          → AI 챗봇 UI (13개 파일) ★ 추출 대상
+│       ├── components/ → ChatBubble, ChatInput, ChatScrollArea,
+│       │                 FeedbackButtons, SuggestionChips,
+│       │                 TypingIndicator, WelcomeMessage (7개)
+│       ├── hooks/      → useChatSession, useStreaming (2개)
+│       ├── types/      → chat.types.ts
+│       ├── utils/      → exportConversation.ts, fileUpload.ts
+│       └── index.ts
+├── pages/             → 라우트 페이지 (15개)
+├── hooks/             → 커스텀 훅
+├── lib/               → 유틸리티
+├── integrations/      → Supabase 연동
+└── i18n/
+    ├── config.ts      → i18next 설정
+    └── locales/
+        ├── ko.ts      → 한국어 (777줄, 기본 언어)
+        └── en.ts      → 영어 (682줄)
 ```
 
-## 디렉토리 구조
-```
-src/
-├── shared/chat/              # 공유 Chat UI Kit
-│   ├── components/           # ChatBubble, ChatInput, TypingIndicator 등
-│   ├── hooks/                # useStreaming, useChatSession
-│   ├── utils/                # streaming.ts, messageFormatter.ts
-│   └── types/                # chat.types.ts
-├── components/
-│   ├── chatbot/              # 웹사이트 챗봇 위젯
-│   │   ├── ChatbotWidget.tsx
-│   │   ├── ChatbotPanel.tsx
-│   │   ├── LeadCaptureForm.tsx
-│   │   └── useChatbot.ts
-│   └── assistant/            # OS 챗봇 패널
-│       ├── AssistantPanel.tsx
-│       ├── AssistantProvider.tsx
-│       └── useAssistant.ts
-supabase/functions/
-├── retail-chatbot/           # 웹사이트 챗봇 EF
-│   ├── index.ts              # 메인 핸들러
-│   ├── systemPrompt.ts       # ← Deno 변환된 버전
-│   ├── retailKnowledge.ts    # ← Deno 변환된 버전
-│   ├── topicRouter.ts        # ← Deno 변환된 버전
-│   ├── salesBridge.ts        # 세일즈 브릿지 로직
-│   ├── painPointExtractor.ts # Pain Point 자동 추출
-│   └── suggestionGenerator.ts # 후속 질문 생성
-├── neuraltwin-assistant/     # OS 챗봇 EF
-│   ├── index.ts
-│   ├── systemPrompt.ts       # ← OS 전용 시스템 프롬프트 (신규 작성)
-│   ├── intent/
-│   ├── actions/
-│   ├── orchestrator/
-│   └── response/
-└── _shared/                  # 공유 유틸리티
-    ├── chatLogger.ts
-    ├── streamingResponse.ts
-    ├── rateLimiter.ts
-    ├── errorHandler.ts
-    └── chatTypes.ts
-```
+### 현재 문제점 (해결 대상)
 
-## 핵심 규칙
-1. AI 모델은 Google AI (Gemini) 직접 연결 사용 (Claude API 직접 호출 금지)
-2. 웹사이트 챗봇은 비인증+인증 모두 지원 → --no-verify-jwt로 배포하되, JWT가 있으면 user_id 추출
-3. OS 챗봇은 인증 필수 → Supabase Auth 연동
-4. DB는 통합 스키마 (chat_channel ENUM으로 구분)
-5. 기존 Edge Functions (run-simulation, generate-optimization) 인터페이스 절대 변경 금지
-6. AI API 키는 GOOGLE_AI_API_KEY 사용 (AI_PROVIDER 환경변수로 제공자 선택)
-7. 웹사이트 로그인 전환 시 세션 인계 (비회원 대화 → 회원 계정에 자동 연결)
+| 문제 | 심각도 | 설명 |
+|------|--------|------|
+| Supabase URL/Key 하드코딩 + Git 커밋 | 🔴 긴급 | `.env`로 이동 + `.gitignore` 추가 + Git 히스토리 제거 |
+| @ts-ignore 92개 | 🔴 높음 | 점진적 타입 정의 추가로 제거 |
+| strict: false | 🟡 중간 | strict: true 전환 준비 |
+| 테스트 0% | 🟡 중간 | Vitest 설정 필요 |
+| OS Dashboard와 Chat UI 중복 (~2,500 LOC) | 🟡 중간 | packages/@neuraltwin/ui로 추출 |
+| shadcn/ui 중복 (48개 vs OS 49개) | 🟡 중간 | 공유 컴포넌트 통합 |
+| three.js 버전 불일치 (@0.160 vs @0.169) | 🟢 낮음 | 버전 통일 |
 
-## 환경변수
-- GOOGLE_AI_API_KEY: Gemini 2.5 Pro/Flash 직접 연결 (chat completion + embedding)
-- AI_PROVIDER: 기본 AI 제공자 ("google" 또는 "openai")
-- SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY: 기존 설정
+## 규칙
+
+1. 공유 UI 변경 시 → D에게 알리고 함께 리뷰
+2. 컴포넌트 추출 시 → variant 시스템 ("website" | "os") 유지
+3. Tailwind 커스텀 색상 → `tailwind-preset`에만 정의
+4. i18n 키 → 네이밍 컨벤션 준수 (camelCase, 3단계 이내)
+5. PR 필수, CODEOWNERS 리뷰 필수
+6. 번역 키 추가 시 → ko, en 양쪽 모두 추가
+
+## 에이전트 팀 구성
+
+이 프로젝트는 3개의 서브 에이전트로 운영된다:
+
+| 에이전트 | 가이드 파일 | 역할 |
+|----------|-----------|------|
+| **React Dev Agent** | `CLAUDE_REACT_DEV.md` | 웹사이트 컴포넌트 개발, 버그 수정, 성능 최적화 |
+| **UI Kit Agent** | `CLAUDE_UI_KIT.md` | 공유 UI 컴포넌트 추출, variant 시스템, Storybook |
+| **i18n/Content Agent** | `CLAUDE_I18N_CONTENT.md` | 다국어, 마케팅 콘텐츠, SEO |
+
+각 에이전트는 해당 가이드 파일을 CLAUDE.md로 사용한다.
+
+## 명령어
+
+```bash
+# 웹사이트
+pnpm --filter website dev           # 개발 서버
+pnpm --filter website build         # 프로덕션 빌드
+pnpm --filter website typecheck     # 타입 체크
+
+# UI 패키지
+pnpm --filter @neuraltwin/ui build  # UI 패키지 빌드
+
+# 전체
+turbo run build                     # 전체 빌드
+turbo run typecheck                 # 전체 타입 체크
+```
