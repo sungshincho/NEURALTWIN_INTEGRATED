@@ -99,10 +99,21 @@ export function useOnboardingProgress() {
         .eq('user_id', user.id)
         .maybeSingle() as any);
 
-      if (error && error.code !== 'PGRST116') throw error;
+      // Gracefully handle 404 (table not found) and permission errors
+      if (error) {
+        const isTableMissing = error.code === 'PGRST204' || error.code === '42P01' ||
+          error.message?.includes('relation') || (error as any).status === 404;
+        const isPermError = error.code === '42501' || (error as any).status === 403;
+        if (isTableMissing || isPermError || error.code === 'PGRST116') {
+          console.warn('onboarding_progress table not accessible:', error.message);
+          return null;
+        }
+        throw error;
+      }
       return data as OnboardingProgress | null;
     },
     enabled: !!user?.id,
+    retry: false,
   });
 }
 
@@ -301,9 +312,20 @@ export function useSampleDataTemplates() {
         .eq('is_active', true)
         .order('sort_order', { ascending: true }) as any);
 
-      if (error) throw error;
+      // Gracefully handle 404 (table not found) and permission errors
+      if (error) {
+        const isTableMissing = error.code === 'PGRST204' || error.code === '42P01' ||
+          error.message?.includes('relation') || (error as any).status === 404;
+        const isPermError = error.code === '42501' || (error as any).status === 403;
+        if (isTableMissing || isPermError) {
+          console.warn('sample_data_templates table not accessible:', error.message);
+          return [] as SampleDataTemplate[];
+        }
+        throw error;
+      }
       return data as SampleDataTemplate[];
     },
+    retry: false,
   });
 }
 
