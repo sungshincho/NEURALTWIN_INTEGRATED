@@ -232,8 +232,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    let redirectTimeout: NodeJS.Timeout;
-    
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
@@ -249,24 +247,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // (이중 호출 시 두 번째 호출이 실패하면 signOut이 호출되어 세션이 초기화되는 버그 방지)
           if (orgContextFetchedRef.current) {
             orgContextFetchedRef.current = false;
+            setLoading(false);
             // signIn() 경로: AuthPage에서 직접 navigate("/") 호출하므로 여기서는 스킵
           } else {
             // OAuth 또는 세션 복원 경로: onAuthStateChange에서 org context 로드 필요
             setTimeout(async () => {
               try {
                 await fetchOrganizationContext(session.user.id);
-
-                // OAuth 로그인 시 /auth에서 대시보드로 리다이렉트
-                if (event === "SIGNED_IN") {
-                  const currentPath = window.location.pathname;
-                  if (currentPath === "/auth") {
-                    redirectTimeout = setTimeout(() => {
-                      navigate("/");
-                    }, 500);
-                  }
-                }
               } catch (error) {
                 console.error('Failed to load organization context:', error);
+              } finally {
+                setLoading(false);
+              }
+
+              // OAuth 로그인 시 /auth에서 대시보드로 리다이렉트
+              if (event === "SIGNED_IN") {
+                const currentPath = window.location.pathname;
+                if (currentPath === "/auth") {
+                  navigate("/");
+                }
               }
             }, 0);
           }
@@ -303,9 +302,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       subscription.unsubscribe();
-      if (redirectTimeout) {
-        clearTimeout(redirectTimeout);
-      }
     };
   }, [navigate]);
 
