@@ -946,6 +946,276 @@ const url = `${supabase.supabaseUrl}/functions/v1/retail-chatbot`;
 
 ---
 
+## 12. 다국어 (i18n) 상세 분석
+
+### 12-1. 현재 구조
+
+**프레임워크**: i18next v25.6.3 + react-i18next v16.3.5
+
+**설정** (`src/i18n/config.ts`):
+```typescript
+i18n.use(initReactI18next).init({
+  resources: {
+    en: { translation: en },
+    ko: { translation: ko },
+  },
+  lng: 'ko',           // 기본 언어: 한국어
+  fallbackLng: 'ko',   // 폴백 언어: 한국어
+  interpolation: { escapeValue: false },
+});
+```
+
+**언어 전환**: `LanguageToggle.tsx` — ko/en 토글 (URL 변경 없음, localStorage 미저장)
+
+**번역 파일**:
+
+| 파일 | LOC | 리프 키 수 | 상태 |
+|------|-----|-----------|------|
+| `locales/ko.ts` | 777 | ~486 | 기준 (마스터) |
+| `locales/en.ts` | 683 | ~411 | **~75개 키 누락** |
+| `locales/ja.ts` | — | — | **미구현** |
+
+> **구조적 한계**: 단일 `translation` 네임스페이스에 모든 키를 flat object로 관리. 네임스페이스 분리 (lazy loading) 미적용.
+
+### 12-2. 네임스페이스별 번역 키 비교 (ko vs en)
+
+| 네임스페이스 | ko 키 | en 키 | 차이 | 누락 상세 |
+|-------------|-------|-------|------|-----------|
+| `nav` | 5 | 5 | 0 | — |
+| `hero` | 16 | 16 | 0 | — |
+| `benefits` | 8 | 8 | 0 | — |
+| `valueProps` | 8 | 8 | 0 | — |
+| `vision` | 7 | 7 | 0 | — |
+| `finalCta` | 3 | 3 | 0 | — |
+| `features` | 30 | 30 | 0 | — |
+| `useCases` | 10 | 10 | 0 | — |
+| `cta` | 5 | 5 | 0 | — |
+| `footer` | 17 | 17 | 0 | copyright 연도 불일치 |
+| `product` | **84** | **79** | **-5** | `hero.benefits` 구조 상이 |
+| `pricing` | 57 | 57 | 0 | — |
+| `contact` | **~116** | **~47** | **-69** | `consent` 섹션 전체 누락 |
+| `auth` | 20 | 20 | 0 | — |
+| `subscribe` | 10 | 10 | 0 | — |
+| `welcome` | **1** | **0** | **-1** | 최상위 키 누락 |
+| `profile` | 8 | 8 | 0 | — |
+| `settings` | 4 | 4 | 0 | — |
+| `dashboardFeatures` | 77 | 77 | 0 | — |
+| **합계** | **~486** | **~411** | **~-75** | |
+
+### 12-3. 누락 번역 키 상세 (en에 없는 키)
+
+#### A. `contact.consent` — **65개 키 전체 누락** (🔴 Critical)
+
+개인정보처리방침 및 마케팅 동의 전체 섹션이 영문 미번역:
+
+```
+contact.consent.required, optional, privacy, marketing, view, close,
+  privacyRequired, privacyTitle
+contact.consent.privacyDoc.intro, section1Title, section1Desc, service,
+  serviceItems, servicePurpose, marketing, marketingItems, marketingPurpose,
+  section2Title~section10Title, section2Desc~section10Desc,
+  retention1~4, thirdParty1~2, rights1~4, rightsNote,
+  destroy1~2, safety1~3, officer, contact,
+  remedy1~4, effectiveDate, implementDate           (~50개)
+contact.consent.marketingTitle
+contact.consent.marketingDoc.intro, items, purpose, method, period, note  (6개)
+```
+
+> 법률 문서이므로 전문 법률 번역가 검토 필요.
+
+#### B. `product.hero` — **5개 키 구조 차이** (🟡 Medium)
+
+| ko 키 | en 대응 |
+|--------|---------|
+| `product.hero.description2` | ❌ 없음 |
+| `product.hero.description3` | ❌ 없음 |
+| `product.hero.benefits.sales.value/title/description` | `product.benefits.timeReduction/timeDesc` (구조 다름) |
+| `product.hero.benefits.realtime.value/title/description` | `product.benefits.revenueIncrease/revenueDesc` (구조 다름) |
+| `product.hero.benefits.visibility.value/title/description` | `product.benefits.costReduction/costDesc` (구조 다름) |
+
+> en은 `product.benefits`에 flat 구조 (6키)로 대응, ko는 `product.hero.benefits` 내 중첩 구조 (9키 + value 포함).
+> ⚠️ **런타임 오류 위험**: 같은 컴포넌트가 `t('product.hero.benefits.sales.value')` 호출 시 en에서 undefined 반환.
+
+#### C. `contact` 구조 불일치 — **키 이름 자체가 다름** (🟡 Medium)
+
+| ko 키 | en 키 | 비고 |
+|--------|-------|------|
+| `subtitlePart1~4, subtitleHighlight1~3` (7키) | `subtitleBefore, subtitleHighlight, subtitleAfter` (3키) | 구조 자체가 다름 |
+| `successTitle` | `success` | 키명 불일치 |
+| `successMessage` | `successDesc` | 키명 불일치 |
+
+> ⚠️ **런타임 오류 위험**: Contact.tsx에서 `t('contact.successTitle')` 호출 시 en에서 undefined.
+
+#### D. `welcome` — **1개 키 누락** (🟢 Low)
+
+| ko | en |
+|----|----|
+| `welcome: "환영합니다"` | ❌ 없음 |
+
+### 12-4. 번역 품질 검토
+
+#### A. 의도적 현지화 (Localization ≠ Translation) — 양호
+
+다음 항목은 직역이 아닌 의도적 현지화로 판단:
+
+| 키 | ko | en | 판정 |
+|----|----|----|------|
+| `hero.headline1` | "궁극의 AI 리테일 인텔리전스" | "The Fastest Growing Store Operations Analytics Tool" | ✅ 현지화 |
+| `hero.subheadline1` | "가장 진보한 스마트 리테일의 미래." | "3x Operational Efficiency with Store Digital Twin" | ✅ 현지화 |
+| `valueProps.title2` | "강력한 데이터 통합 관리" | "Fast Decision Making" | ✅ 현지화 |
+| `valueProps.title3` | "실시간 매장 현황 분석" | "Customer-Centric Operations" | ✅ 현지화 |
+
+> ko = 기술 중심 메시지, en = 비즈니스 성과 중심 메시지. 마케팅 전략상 의도적 현지화로 보임.
+
+#### B. 일관성 문제 — ⚠️ 수정 필요
+
+| 항목 | ko | en | 문제 |
+|------|----|----|------|
+| `footer.copyright` | `"© 2025 NEURALTWIN..."` | `"© 2024 NEURALTWIN..."` | **연도 불일치** (2024 → 2025 통일 필요) |
+| `contact.info.email` | `neuraltwin.hq@neuraltwin.io` | `contact@neuraltwin.com` | **이메일 주소 다름** (의도적일 수 있으나 확인 필요) |
+| `subscribe.store.price` | `₩500,000/월` | `₩500,000/month` | **통화 미현지화** (en에서 USD 표기 필요?) |
+| `subscribe.enterprise.price` | `₩3,000,000/월` | `₩3,000,000/month` | **통화 미현지화** (동일 이슈) |
+
+#### C. 기계 번역 의심 항목 — 해당 없음
+
+전반적으로 영문 번역은 자연스럽고 문맥에 맞는 표현 사용. 기계 번역 의심 항목 없음.
+특히 `pricing.faq`, `contact.form` 등의 비즈니스 용어가 적절하게 현지화되어 있음.
+
+#### D. 문맥상 부적절한 번역
+
+| 키 | ko | en | 문제 |
+|----|----|----|------|
+| `pricing.viewer.feature4` | "초대로만 가입 가능" | "Invitation only" | en이 과도하게 축약됨 (UX상 무방) |
+| `product.hero.subtitle` | "은 AI와 IoT 인프라를 기반으로..." | "Transformation for Physical Stores" | ko는 "NEURALTWIN" 뒤에 붙는 조사 시작 — en은 완전히 다른 문장 |
+
+### 12-5. SEO 다국어 설정 분석
+
+#### A. 현재 상태 요약
+
+| 항목 | 상태 | 심각도 |
+|------|------|--------|
+| `<html lang>` 속성 | `lang="en"` 하드코딩 (동적 변경 없음) | 🟡 Medium |
+| hreflang 태그 | ❌ 없음 | 🔴 Critical |
+| `og:locale` 메타 태그 | ❌ 없음 | 🟡 High |
+| `og:url` / canonical 태그 | ❌ 없음 | 🟡 High |
+| sitemap.xml | ❌ 없음 | 🟡 High |
+| robots.txt | ✅ 기본 설정 (sitemap 참조 없음) | 🟢 Low |
+| React Helmet (동적 메타) | ❌ 미설치 | 🟡 High |
+| URL 기반 언어 라우팅 | ❌ 없음 (`/en/*`, `/ko/*` 미지원) | 🟡 High |
+| 언어 선택 저장 (localStorage) | ❌ 없음 | 🟢 Low |
+| `document.documentElement.lang` 동적 변경 | ❌ 없음 | 🟡 Medium |
+
+#### B. `index.html` 현재 상태
+
+```html
+<html lang="en">                    <!-- ❌ 기본 언어가 ko인데 en으로 설정됨 -->
+<head>
+  <meta name="description" content="Create accurate digital twins...">  <!-- 영문 고정 -->
+  <meta property="og:title" content="NEURALTWIN" />
+  <meta property="og:description" content="Create accurate digital twins..." />
+  <!-- ❌ hreflang 없음 -->
+  <!-- ❌ og:locale 없음 -->
+  <!-- ❌ canonical 없음 -->
+  <!-- ❌ og:url 없음 -->
+</head>
+```
+
+> **주요 문제**: `<html lang="en">`이지만 기본 언어는 `ko`. 검색엔진이 콘텐츠를 잘못 인덱싱할 위험.
+
+#### C. LanguageToggle 제한사항
+
+```typescript
+// LanguageToggle.tsx — 현재 구현
+const toggleLanguage = () => {
+  const newLang = i18n.language === 'ko' ? 'en' : 'ko';
+  i18n.changeLanguage(newLang);
+  // ❌ document.documentElement.lang 미변경
+  // ❌ localStorage 미저장 (새로고침 시 ko로 리셋)
+  // ❌ URL 경로 미변경 (/en, /ko 미지원)
+};
+```
+
+#### D. Vercel 배포 설정
+
+```json
+// vercel.json — 단순 SPA rewrite만 설정
+{ "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }] }
+// ❌ 언어별 라우팅 없음
+// ❌ Accept-Language 헤더 기반 리다이렉트 없음
+// ❌ Content-Language 응답 헤더 없음
+```
+
+#### E. SEO 개선 로드맵
+
+| 우선순위 | 작업 | 효과 | 예상 공수 |
+|---------|------|------|----------|
+| P0 | `<html lang="ko">` 기본값 수정 + 동적 변경 | 검색엔진 정확도 | 0.25d |
+| P0 | hreflang 태그 추가 (`<link rel="alternate" hreflang="ko" />`) | 다국어 SEO | 0.5d |
+| P1 | `react-helmet-async` 설치 + 페이지별 메타 태그 | 페이지별 SEO | 1d |
+| P1 | sitemap.xml 생성 (언어별 alternate 포함) | 크롤링 효율 | 0.5d |
+| P1 | canonical 태그 + og:url + og:locale 추가 | 중복 콘텐츠 방지 | 0.5d |
+| P2 | URL 기반 언어 라우팅 (`/ko/*`, `/en/*`) | SEO + UX | 2d |
+| P2 | 언어 선택 localStorage 저장 + 브라우저 감지 | UX 개선 | 0.5d |
+| P3 | Vercel i18n 설정 (Accept-Language 리다이렉트) | 자동 언어 감지 | 0.5d |
+
+### 12-6. 마케팅 콘텐츠 번역 우선순위
+
+전환율(Conversion Rate) 영향도 기준으로 우선순위 분류:
+
+#### 🔴 P0 — 전환 직결 (즉시 수정)
+
+| 키 경로 | 유형 | 이슈 | 영향 |
+|---------|------|------|------|
+| `contact.consent.*` (65키) | 법률 문서 | en 전체 누락 | 영문 사용자 개인정보 동의 불가 → **문의 폼 제출 불가** |
+| `contact.successTitle` / `successMessage` | CTA 결과 | 키명 불일치 (en: success/successDesc) | **런타임 에러 위험** |
+| `contact.subtitlePart1~4` | CTA 부제 | 구조 불일치 (en: subtitleBefore/After) | **런타임 에러 위험** |
+
+#### 🟡 P1 — 고 영향 마케팅 콘텐츠
+
+| 키 경로 | 유형 | 이슈 | 영향 |
+|---------|------|------|------|
+| `hero.headline1` / `subheadline1` | 랜딩 헤드라인 | 현지화 완료 (양호) | — |
+| `hero.cta1` / `cta2` | CTA 버튼 | 번역 완료 (양호) | — |
+| `product.hero.benefits.*` (9키) | 제품 성과 지표 | en 구조 상이 → 런타임 위험 | 제품 페이지 KPI 미표시 |
+| `product.hero.description2/3` | 제품 설명 | en 누락 | 제품 설명 불완전 |
+| `pricing.*` | 가격 정보 | ₩ 통화 미현지화 | 해외 사용자 혼란 |
+
+#### 🟢 P2 — 중 영향
+
+| 키 경로 | 유형 | 이슈 | 영향 |
+|---------|------|------|------|
+| `welcome` | 환영 메시지 | en 누락 (1키) | 대시보드 진입 시 fallback |
+| `footer.copyright` | 저작권 | 연도 불일치 (2024 vs 2025) | 사소하지만 신뢰도 |
+| `subscribe.*.price` | 구독 가격 | ₩ 통화 표기 | 해외 사용자 혼란 |
+
+#### 🔵 P3 — 낮은 영향
+
+| 키 경로 | 유형 | 이슈 | 영향 |
+|---------|------|------|------|
+| `dashboardFeatures.*` | 데모 피쳐 | 번역 완료 (양호) | — |
+| `auth.*` | 인증 | 번역 완료 (양호) | — |
+| `profile.*` / `settings.*` | 사용자 설정 | 번역 완료 (양호) | — |
+
+### 12-7. 종합 액션 아이템
+
+| # | 작업 | 우선순위 | 예상 공수 | 담당 |
+|---|------|---------|----------|------|
+| 1 | `contact.consent.*` 영문 번역 추가 (65키) | P0 | 1d | E + 법률 |
+| 2 | `contact` 키 구조 통일 (subtitle, success 키명) | P0 | 0.5d | E |
+| 3 | `product.hero.benefits` 구조 통일 (ko/en 동일 구조) | P0 | 0.5d | E |
+| 4 | `welcome` 키 en 추가 | P0 | 0.1d | E |
+| 5 | `<html lang="ko">` 수정 + 동적 변경 | P0 | 0.25d | E |
+| 6 | hreflang 태그 추가 | P1 | 0.5d | E |
+| 7 | react-helmet-async 설치 + 페이지별 메타 | P1 | 1d | E |
+| 8 | sitemap.xml 생성 | P1 | 0.5d | E |
+| 9 | `footer.copyright` 연도 통일 | P2 | 0.1d | E |
+| 10 | 가격 통화 현지화 ($USD for en) | P2 | 0.5d | E + 비즈니스 |
+| 11 | URL 기반 언어 라우팅 (`/ko/*`, `/en/*`) | P2 | 2d | E |
+| 12 | ja (일본어) 번역 파일 신규 생성 (~486키) | P3 | 3d | E + 번역 |
+| | **합계** | | **~10d** | |
+
+---
+
 ## 부록: 라우팅 맵
 
 ```
