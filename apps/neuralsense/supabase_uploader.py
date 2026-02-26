@@ -244,7 +244,7 @@ class SupabaseUploader:
                 result = resp.json()
                 stats = result.get("stats", {})
                 logger.info(
-                    "Upload OK — readings=%d, zone_events=%d, duration=%dms",
+                    "Upload OK - readings=%d, zone_events=%d, duration=%dms",
                     stats.get("total_readings", 0),
                     stats.get("zone_events_created", 0),
                     stats.get("duration_ms", 0),

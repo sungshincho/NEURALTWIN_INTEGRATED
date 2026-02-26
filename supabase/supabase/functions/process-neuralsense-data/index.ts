@@ -113,7 +113,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         id: rawImportId,
         org_id: org_id || null,
         store_id,
-        user_id: 'system',  // 시스템 사용자
+        user_id: '00000000-0000-0000-0000-000000000000',  // 시스템 사용자 (SYSTEM_USER_ID)
         source_type: 'neuralsense',
         source_name: `${node_id}_${data_type}`,
         data_type: data_type,
