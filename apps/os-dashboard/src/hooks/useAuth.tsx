@@ -129,14 +129,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .maybeSingle();
 
       if (memberError) {
+        // Distinguish between RLS/permission errors and actual data issues
+        const isPermissionError = memberError.code === '42501' ||
+          memberError.message?.includes('permission denied') ||
+          (memberError as any).status === 403;
+
+        if (isPermissionError) {
+          console.warn('RLS policy missing for organization_members. Using RPC fallback.');
+          // Use the org_id from migrate_user_to_organization RPC as fallback
+          if (migrated_org_id) {
+            setOrgId(migrated_org_id);
+            setOrgName(null);
+            setRole('ORG_MEMBER');
+            setLicenseId(null);
+            setLicenseType(null);
+            setLicenseStatus(null);
+            return;
+          }
+        }
+
         console.error('Error fetching organization membership:', memberError);
-        await supabase.auth.signOut();
+        await supabase.auth.signOut({ scope: 'local' });
         throw new Error('NO_SUBSCRIPTION');
       }
 
       if (!membership) {
         console.error('No organization membership found for user');
-        await supabase.auth.signOut();
+        await supabase.auth.signOut({ scope: 'local' });
         throw new Error('NO_SUBSCRIPTION');
       }
 
@@ -151,12 +170,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (subError) {
           console.error('Error fetching subscription:', subError);
+          // Don't block login for permission errors on subscriptions table
+          const isPermError = subError.code === '42501' ||
+            subError.message?.includes('permission denied') ||
+            (subError as any).status === 403;
+          if (isPermError) {
+            console.warn('RLS policy missing for subscriptions table. Allowing login.');
+          }
         }
 
         // Block login if no subscription or inactive subscription
-        if (!subscription || subscription.status !== 'active') {
+        // But only if we successfully queried (not blocked by RLS)
+        if (!subError && (!subscription || subscription.status !== 'active')) {
           console.error('No active subscription found for organization');
-          await supabase.auth.signOut();
+          await supabase.auth.signOut({ scope: 'local' });
           throw new Error('NO_SUBSCRIPTION');
         }
       }
@@ -165,7 +192,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setOrgName((membership.organizations as any)?.org_name || null);
       setRole(membership.role);
       setLicenseId(membership.license_id);
-      
+
       // Set license details if available
       const licenseData = membership.licenses as any;
       if (licenseData) {

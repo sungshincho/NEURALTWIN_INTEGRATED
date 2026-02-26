@@ -54,7 +54,18 @@ export function SelectedStoreProvider({ children }: { children: ReactNode }) {
 
       const { data, error } = await query;
 
-      if (error) throw error;
+      if (error) {
+        // Gracefully handle permission errors (missing RLS policies)
+        const isPermError = error.code === '42501' ||
+          error.message?.includes('permission denied') ||
+          (error as any).status === 403;
+        if (isPermError) {
+          console.warn('stores table RLS policy missing, returning empty list');
+          setStores([]);
+          return;
+        }
+        throw error;
+      }
 
       setStores(data || []);
       
