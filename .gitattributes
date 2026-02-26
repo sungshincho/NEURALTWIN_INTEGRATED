@@ -1,3 +1,6 @@
 apps/neuralsense/output/*.jsonl filter=lfs diff=lfs merge=lfs -text
+apps/neuralsense/output_*/**/*.jsonl filter=lfs diff=lfs merge=lfs -text
 apps/neuralsense/accuracy_tests/*.jsonl filter=lfs diff=lfs merge=lfs -text
+apps/neuralsense/accuracy_tests_*/**/*.jsonl filter=lfs diff=lfs merge=lfs -text
 apps/neuralsense/output/*.csv filter=lfs diff=lfs merge=lfs -text
+apps/neuralsense/output_*/**/*.csv filter=lfs diff=lfs merge=lfs -text

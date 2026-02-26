@@ -1,0 +1,9 @@
+zone_id: 1, 955 measurements for phone_id: a8:76:50:e9:28:20, Accuracy: 931/955, 97%
+zone_id: 1, 624 measurements for phone_id: b0:54:76:5c:99:d5, Accuracy: 612/624, 98%
+zone_id: 1, 656 measurements for phone_id: 24:24:b7:19:30:0a, Accuracy: 644/656, 98%
+zone_id: 12, 645 measurements for phone_id: a8:76:50:e9:28:20, Accuracy: 581/645, 90%
+zone_id: 12, 495 measurements for phone_id: b0:54:76:5c:99:d5, Accuracy: 425/495, 86%
+zone_id: 12, 620 measurements for phone_id: 24:24:b7:19:30:0a, Accuracy: 578/620, 93%
+zone_id: 18, 730 measurements for phone_id: a8:76:50:e9:28:20, Accuracy: 358/730, 49%
+zone_id: 18, 748 measurements for phone_id: b0:54:76:5c:99:d5, Accuracy: 395/748, 53%
+zone_id: 18, 501 measurements for phone_id: 24:24:b7:19:30:0a, Accuracy: 459/501, 92%
