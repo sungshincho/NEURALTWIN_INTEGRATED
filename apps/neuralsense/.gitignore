@@ -6,11 +6,11 @@ __pycache__/
 venv/
 *.egg-info/
 
-# 데이터 파일 (로컬 전용)
-data/*.jsonl
-data/*.csv
-!zones.csv
-
-# 환경 설정
+# Environment
 .env
 *.log
+
+# Data files tracked via Git LFS (not ignored):
+#   output/*.jsonl      — raw_rssi, zone_assignments, transitions, dwells, calibration, etc.
+#   output/*.csv        — any exported CSVs
+#   accuracy_tests/*.jsonl — per-phone accuracy test results
