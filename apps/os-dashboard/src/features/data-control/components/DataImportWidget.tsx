@@ -804,70 +804,30 @@ export function DataImportWidget({ onImportComplete, className }: DataImportWidg
   };
 
   // ============================================================================
-  // Sample Download Handler (generate-template Edge Function 사용)
+  // Sample Download Handler (로컬 CSV 템플릿)
   // ============================================================================
 
-  const handleDownloadSample = async (format: 'csv' | 'json') => {
-    try {
-      const { data: { session: authSession } } = await supabase.auth.getSession();
+  const handleDownloadSample = async (_format: 'csv' | 'json') => {
+    const templateCSV: Record<string, string> = {
+      products: '상품명,SKU,카테고리,가격,재고,진열방식\n프리미엄 캐시미어 코트,SKU-OUT-001,아우터,450000,15,hanging',
+      customers: '고객명,이메일,전화번호,고객등급,총구매액\n김철수,kim@example.com,010-1234-5678,VIP,2500000',
+      transactions: '거래일,거래금액,결제수단,고객이메일\n2025-01-10,450000,card,kim@example.com',
+      staff: '직원코드,직원명,역할,부서\nEMP001,매니저,manager,영업팀',
+      inventory: '상품SKU,재고수량,최소재고,최대재고\nSKU-OUT-001,15,5,30',
+    };
 
-      // Edge Function 호출
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-template`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(authSession?.access_token
-              ? { Authorization: `Bearer ${authSession.access_token}` }
-              : {}),
-          },
-          body: JSON.stringify({
-            import_type: importType,
-            format,
-            include_samples: true,
-            language: 'ko',
-          }),
-        }
-      );
+    const blob = new Blob([templateCSV[importType]], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${importType}_template_ko.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
 
-      const data = await response.json();
-
-      if (!data.success || !data.content) {
-        throw new Error(data.error || '템플릿 생성 실패');
-      }
-
-      // 파일 다운로드
-      const blob = new Blob([data.content], { type: data.mime_type });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = data.filename;
-      a.click();
-      URL.revokeObjectURL(url);
-
-      toast({
-        title: '템플릿 다운로드',
-        description: `${data.filename} 파일이 다운로드되었습니다.`,
-      });
-    } catch (err) {
-      // Edge Function 실패 시 fallback
-      const fallbackCSV: Record<string, string> = {
-        products: '상품명,SKU,카테고리,가격,재고,진열방식\n프리미엄 캐시미어 코트,SKU-OUT-001,아우터,450000,15,hanging',
-        customers: '고객명,이메일,전화번호,고객등급,총구매액\n김철수,kim@example.com,010-1234-5678,VIP,2500000',
-        transactions: '거래일,거래금액,결제수단,고객이메일\n2025-01-10,450000,card,kim@example.com',
-        staff: '직원코드,직원명,역할,부서\nEMP001,매니저,manager,영업팀',
-        inventory: '상품SKU,재고수량,최소재고,최대재고\nSKU-OUT-001,15,5,30',
-      };
-
-      const blob = new Blob([fallbackCSV[importType]], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${importType}_template_ko.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
-    }
+    toast({
+      title: '템플릿 다운로드',
+      description: `${importType}_template_ko.csv 파일이 다운로드되었습니다.`,
+    });
   };
 
   // ============================================================================
