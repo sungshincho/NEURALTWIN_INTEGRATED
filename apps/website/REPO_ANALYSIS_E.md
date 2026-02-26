@@ -361,26 +361,7 @@ apps/website/
 
 ## 5. 환경변수 목록 (VITE_ 접두사)
 
-### .env.example 정의
-
-| 변수 | 용도 | 필수 |
-|------|------|------|
-| `VITE_SUPABASE_URL` | Supabase 프로젝트 URL | **Yes** |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | Supabase anon (공개) 키 | **Yes** |
-| `VITE_OPENWEATHERMAP_API_KEY` | 날씨 API 키 | No |
-| `VITE_DATA_GO_KR_API_KEY` | 공공데이터 API 키 | No |
-| `VITE_CALENDARIFIC_API_KEY` | 달력 API 키 | No |
-
-### 사용 위치
-
-| 변수 | 파일 | 사용 방식 |
-|------|------|-----------|
-| `VITE_SUPABASE_URL` | `integrations/supabase/client.ts` | Supabase 클라이언트 초기화 |
-| `VITE_SUPABASE_URL` | `pages/Chat.tsx` (3곳) | Edge Function 직접 호출 URL 구성 |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | `integrations/supabase/client.ts` | Supabase anon 키 |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | `pages/Chat.tsx` (3곳) | EF 호출 인증 헤더 |
-
-> **개선 필요**: `Chat.tsx`에서 `import.meta.env.VITE_SUPABASE_URL`을 3번 직접 참조 중. Supabase 클라이언트를 통한 EF 호출로 통합 필요.
+> 상세 내용은 [Section 14.2](#142-환경변수-목록-vite_-접두사--상세) 참조. 하드코딩 vs `.env` 분류 포함.
 
 ---
 
@@ -397,8 +378,8 @@ apps/website/
 
 | 언어 코드 | 언어명 | 파일 | LOC | 번역 키 수 |
 |-----------|--------|------|-----|-----------|
-| `ko` | 한국어 | `locales/ko.ts` | 777 | ~472개 |
-| `en` | English | `locales/en.ts` | 683 | ~395개 |
+| `ko` | 한국어 | `locales/ko.ts` | 777 | ~486개 |
+| `en` | English | `locales/en.ts` | 683 | ~411개 |
 | `ja` | 日本語 | — | — | **미구현** |
 
 ### 번역 키 카테고리 분포
@@ -426,13 +407,13 @@ apps/website/
 
 | 항목 | ko | en |
 |------|----|----|
-| 번역 키 수 | ~472 | ~395 |
-| 차이 | — | **~77개 키 누락** |
+| 번역 키 수 | ~486 | ~411 |
+| 차이 | — | **~75개 키 누락** |
 | `contact.consent` 섹션 | 있음 (상세 개인정보처리방침) | **없음** |
 | `product.hero.benefits` 섹션 | 있음 | **없음** |
 | `product.technology` 상세 | 있음 | 축약됨 |
 
-> **TODO**: en 번역 77개 키 보충 필요. 특히 `contact.consent.privacyDoc` (개인정보처리방침 영문) 미번역.
+> **TODO**: en 번역 75개 키 보충 필요. 특히 `contact.consent.privacyDoc` (개인정보처리방침 영문) 미번역.
 > **TODO**: ja (일본어) 번역 파일 신규 생성 필요.
 
 ---
@@ -512,10 +493,7 @@ apps/website/
 
 ### 7-4. Edge Function 연결 현황
 
-| Edge Function | 호출 위치 | 방식 |
-|--------------|----------|------|
-| `retail-chatbot` | `pages/Chat.tsx` | SSE 스트리밍 (fetch + ReadableStream) |
-| `submit-contact` | `pages/Contact.tsx` | POST (supabase.functions.invoke) |
+> 상세 내용은 [Section 14.1.3](#1413-edge-function-호출-목록) 참조. 호출 방식, 요청/응답 상세 포함.
 
 ---
 
@@ -1398,10 +1376,10 @@ setSortBy(v as SortKey);
 
 | 테이블 | 쿼리 수 | 사용 파일 | 주요 작업 |
 |--------|---------|-----------|-----------|
-| `organization_members` | 11 | Auth.tsx, useAuth.ts, Profile.tsx, Dashboard.tsx, Subscribe.tsx | SELECT (관계 조인 포함), INSERT |
+| `organization_members` | 9 | Auth.tsx, useAuth.ts, Profile.tsx, Dashboard.tsx, Subscribe.tsx | SELECT (관계 조인 포함), INSERT |
 | `organizations` | 6 | Auth.tsx | SELECT (org_name 검색), INSERT (신규 조직 생성) |
-| `subscriptions` | 6 | Auth.tsx, Profile.tsx, Dashboard.tsx | SELECT (active 상태 필터) |
-| `profiles` | 4 | Profile.tsx, Header.tsx | SELECT (사용자 정보), UPDATE (display_name, avatar_url) |
+| `subscriptions` | 5 | Auth.tsx, Profile.tsx, Dashboard.tsx | SELECT (active 상태 필터) |
+| `profiles` | 3 | Profile.tsx, Header.tsx | SELECT (사용자 정보), UPDATE (display_name, avatar_url) |
 | `licenses` | 1 | Profile.tsx | SELECT (subscription_id 기준, created_at DESC 정렬) |
 | `avatars` (Storage) | 2 | Profile.tsx | UPLOAD, GET_PUBLIC_URL |
 
@@ -1409,8 +1387,8 @@ setSortBy(v as SortKey);
 
 | 유형 | 횟수 | 비고 |
 |------|------|------|
-| SELECT | 17 | `.single()` 4회, `.maybeSingle()` 10회 |
-| INSERT | 7 | 모두 단일 행 삽입 |
+| SELECT | 17 | `.single()` 4회, `.maybeSingle()` 12회, 배열 1회 |
+| INSERT | 6 | 모두 단일 행 삽입 |
 | UPDATE | 1 | profiles 테이블만 |
 | DELETE | 0 | 삭제 쿼리 없음 |
 | UPSERT | 0 | — |
@@ -1519,7 +1497,7 @@ setSortBy(v as SortKey);
   Body: { action: "log_reaction", sessionId, conversationId, reaction: { type, messageId, messageContent? } }
 ```
 
-> **개선점**: `retail-chatbot`은 `fetch()`로 직접 호출하고, `submit-contact`은 `supabase.functions.invoke()`를 사용. 호출 방식 통일 필요 (스트리밍은 fetch 유지).
+> **참고**: `retail-chatbot`은 `fetch()` 직접 호출, `submit-contact`은 `supabase.functions.invoke()` 사용. 관련 보안 개선 사항은 [Section 11-4](#114-chattsx-환경변수-직접-참조--️-개선-필요) 참조.
 
 #### 14.1.4 Auth 사용 패턴
 
