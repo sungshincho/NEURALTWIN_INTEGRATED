@@ -16,6 +16,13 @@ TRACK_MACS = [m.lower() for m in TRACK_MACS]
 
 TEST_DURATION_SEC = 500
 
+# Settling: ignore predictions in first SETTLING_SEC after test start
+# (2x WINDOW_SEC in run_live, allows full buffer refresh)
+SETTLING_SEC = 10
+
+# Require N consecutive identical zone predictions per phone before counting
+STABLE_STREAK_REQUIRED = 3
+
 OUT_DIR = "accuracy_tests"
 MASTER_LOG = os.path.join(OUT_DIR, "neuralsense_accuracy_master_log.txt")
 
@@ -106,11 +113,18 @@ def main():
 
         total = {m: 0 for m in TRACK_MACS}
         correct = {m: 0 for m in TRACK_MACS}
+        settling_skipped = {m: 0 for m in TRACK_MACS}
+
+        # Per-phone streak tracking: streak_zone = last predicted zone, streak_count = consecutive count
+        streak_zone = {m: None for m in TRACK_MACS}
+        streak_count = {m: 0 for m in TRACK_MACS}
+        streak_reached = {m: False for m in TRACK_MACS}
 
         start = time.time()
         end = start + TEST_DURATION_SEC
 
         print("TEST START true_zone={} for {} seconds @ {}".format(true_zone, TEST_DURATION_SEC, ts_kst(start)))
+        print("SETTLING_SEC={}, STABLE_STREAK_REQUIRED={}".format(SETTLING_SEC, STABLE_STREAK_REQUIRED))
         print("Logging per-phone JSONL into:", OUT_DIR)
 
         # Follow zone_assignments.jsonl from "now"
@@ -129,18 +143,43 @@ def main():
             except Exception:
                 continue
 
-            total[phone] += 1
-            is_correct = (pred_zone == true_zone)
-            if is_correct:
-                correct[phone] += 1
-
-            # Write the record (includes correctness)
             ts = evt.get("ts", time.time())
             try:
                 ts = float(ts)
             except Exception:
                 ts = time.time()
 
+            elapsed = time.time() - start
+
+            # Settling period: skip predictions in first SETTLING_SEC
+            in_settling = elapsed < SETTLING_SEC
+
+            # Streak tracking (always updated, even during settling)
+            if pred_zone == streak_zone[phone]:
+                streak_count[phone] += 1
+            else:
+                streak_zone[phone] = pred_zone
+                streak_count[phone] = 1
+
+            cur_streak = streak_count[phone]
+            if cur_streak >= STABLE_STREAK_REQUIRED:
+                streak_reached[phone] = True
+
+            # Decide whether to count this prediction
+            skip_settling = in_settling
+            skip_streak = not streak_reached[phone]
+            should_count = not skip_settling and not skip_streak
+
+            if skip_settling:
+                settling_skipped[phone] += 1
+
+            is_correct = (pred_zone == true_zone)
+            if should_count:
+                total[phone] += 1
+                if is_correct:
+                    correct[phone] += 1
+
+            # Write the record (includes correctness and new fields)
             rec = {
                 "ts": ts,
                 "ts_kst": evt.get("ts_kst", ts_kst(ts)),
@@ -148,6 +187,9 @@ def main():
                 "true_zone_id": true_zone,
                 "pred_zone_id": pred_zone,
                 "is_correct": is_correct,
+                "settling_skipped": skip_settling,
+                "streak_at_pred": cur_streak,
+                "counted": should_count,
                 "x": evt.get("x"),
                 "y": evt.get("y"),
                 "confidence": evt.get("confidence"),
@@ -158,13 +200,14 @@ def main():
 
         print("TEST END true_zone={} @ {}".format(true_zone, ts_kst(time.time())))
 
-        # Print summary per phone + master log
+        # Print enhanced summary per phone + master log
         for mac in TRACK_MACS:
             t = total[mac]
             c = correct[mac]
+            sk = settling_skipped[mac]
             pct = (c / t * 100.0) if t > 0 else 0.0
-            line = "zone_id: {}, {} measurements for phone_id: {}, Accuracy: {}/{}, {:.0f}%".format(
-                true_zone, t, mac, c, t, pct
+            line = "zone_id: {}, phone_id: {}, Accuracy: {}/{} ({:.0f}%), settling_skipped: {}, effective_predictions: {}".format(
+                true_zone, mac, c, t, pct, sk, t
             )
             print(line)
             append_master(line)

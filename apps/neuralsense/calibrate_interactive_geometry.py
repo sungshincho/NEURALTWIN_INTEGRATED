@@ -28,6 +28,9 @@ MAX_VECTORS_PER_ZONE = 2000
 RECENT_WINDOW = 4
 OUTLIER_THRESHOLD = 15
 
+# Improvement C: multipath spike filter
+Z_THRESHOLD = 2.5
+
 ZONES_CSV = "zones.csv"
 OUT_CAL_JSONL = os.path.join("output", "calibration.jsonl")
 
@@ -93,6 +96,44 @@ def drain_queue(q):
 
 def freeze_vec(vec):
     return tuple(sorted((pi, float(v)) for pi, v in vec.items()))
+
+def compute_zone_stats(vectors):
+    """Compute per-Pi mean and std from a list of normalized vectors."""
+    if not vectors:
+        return {}
+    all_pis = set()
+    for v in vectors:
+        all_pis.update(v.keys())
+    stats = {}
+    for pi in sorted(all_pis):
+        vals = [float(v[pi]) for v in vectors if pi in v]
+        if not vals:
+            continue
+        mean = sum(vals) / len(vals)
+        var = sum((x - mean) ** 2 for x in vals) / len(vals) if len(vals) > 1 else 0.0
+        std = var ** 0.5
+        stats[pi] = {"mean": round(mean, 2), "std": round(std, 2), "n": len(vals)}
+    return stats
+
+def filter_multipath_vectors(vectors, z_threshold=Z_THRESHOLD):
+    """Remove vectors where any Pi deviates > z_threshold*sigma from its per-Pi mean."""
+    if len(vectors) < 3:
+        return vectors  # too few to meaningfully filter
+    stats = compute_zone_stats(vectors)
+    filtered = []
+    for v in vectors:
+        keep = True
+        for pi, val in v.items():
+            s = stats.get(pi)
+            if s is None or s["std"] < 0.01:
+                continue  # skip zero-variance Pis
+            z = abs(float(val) - s["mean"]) / s["std"]
+            if z > z_threshold:
+                keep = False
+                break
+        if keep:
+            filtered.append(v)
+    return filtered
 
 def main():
     os.makedirs("output", exist_ok=True)
@@ -186,6 +227,11 @@ def main():
                         seen.add(key)
                         vectors.append(active_norm)
 
+            # Improvement C: filter multipath spikes and compute per-Pi stats
+            vectors_raw = vectors
+            vectors_filtered = filter_multipath_vectors(vectors_raw)
+            pi_stats = compute_zone_stats(vectors_filtered)
+
             record_ts = time.time()
             rec = {
                 "created_ts": record_ts,
@@ -197,15 +243,21 @@ def main():
                 "max_samples_per_pi": MAX_SAMPLES_PER_PI,
                 "sync_window_sec": SYNC_WINDOW_SEC,
                 "min_pis_for_vector": MIN_PIS_FOR_VECTOR,
-                "vectors_collected": len(vectors),
+                "vectors_collected": len(vectors_filtered),
+                "vectors_raw": len(vectors_raw),
+                "vectors_after_filter": len(vectors_filtered),
                 "vector_type": "normalized_rssi_minus_median",
                 "timebase": "rx_time_laptop",
-                "vectors": vectors
+                "pi_stats": pi_stats,
+                "vectors": vectors_filtered
             }
             append_jsonl(OUT_CAL_JSONL, rec)
 
             clear_status_line()
-            print("SAVED calibration for zone", zid, "vectors:", len(vectors))
+            removed = len(vectors_raw) - len(vectors_filtered)
+            print("SAVED calibration for zone", zid,
+                  "vectors:", len(vectors_filtered),
+                  "(filtered {} multipath spikes from {})".format(removed, len(vectors_raw)))
             print("Wrote ->", OUT_CAL_JSONL)
 
             if input("2) Continue calibration? (y/n): ").lower() != "y":

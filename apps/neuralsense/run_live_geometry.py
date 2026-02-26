@@ -22,6 +22,7 @@ OUT_ASSIGN = os.path.join(OUT_DIR, "zone_assignments.jsonl")
 OUT_TRANS = os.path.join(OUT_DIR, "transitions.jsonl")
 OUT_DWELL = os.path.join(OUT_DIR, "dwells.jsonl")
 OUT_ERR = os.path.join(OUT_DIR, "run_live_errors.jsonl")
+OUT_UNCERTAIN = os.path.join(OUT_DIR, "uncertain_assignments.jsonl")
 
 WINDOW_SEC = 5
 MIN_SOURCES = 8
@@ -29,6 +30,24 @@ MATCH_DIFF_DBM = 7.0
 
 # Per-Pi freshness gating
 PER_PI_FRESH_SEC = 3.0
+
+# Improvement A: Top-2 margin gating — skip ambiguous predictions
+MARGIN_GATE = 0.15
+
+# Improvement D: Rank-order composite scoring (device-independent)
+RANK_WEIGHT = 0.4
+L1_WEIGHT = 0.6
+RANK_MATCH_THRESHOLD = 1.5
+
+# Transition debounce — require N consecutive confident predictions for new zone
+# (NOT hysteresis — no stickiness, just confirmation counting)
+TRANSITION_CONFIRM_COUNT = 3
+
+# Session linking — handle randomized MACs in production
+STALE_MAC_SEC = 30.0            # MAC considered gone after 30s of silence
+SESSION_RANK_THRESHOLD = 1.5    # max avg rank distance to link sessions
+SESSION_CLEANUP_INTERVAL = 100  # cleanup old sessions every N assignments
+SESSION_MAX_AGE_SEC = 3600.0    # remove sessions not seen in 1 hour
 
 KST = timezone(timedelta(hours=9))
 
@@ -100,22 +119,114 @@ def avg_diff_norm(live_norm, cal_norm):
         return float("inf")
     return sum(abs(float(live_norm[p]) - float(cal_norm[p])) for p in common) / float(len(common))
 
-def score_best_zone(live_norm, cal):
-    best_zone = None
-    best_conf = -1.0
+# --- Improvement B: Weighted distance metric ---
+
+def compute_pi_weights(cal):
+    """Precompute per-zone, per-Pi reliability weights from calibration variance.
+    Low std -> high weight (reliable), high std -> low weight (noisy).
+    Weights clamped to [0.2, 1.0].
+    """
+    zone_weights = {}
     for zid, rec in cal.items():
         vectors = rec.get("vectors", [])
         if not vectors:
             continue
-        matches = 0
+        # Collect all Pi IDs across vectors
+        all_pis = set()
         for v in vectors:
-            if avg_diff_norm(live_norm, v) <= MATCH_DIFF_DBM:
-                matches += 1
-        conf = matches / float(len(vectors))
-        if conf > best_conf:
-            best_conf = conf
-            best_zone = int(zid)
-    return best_zone, float(best_conf)
+            all_pis.update(v.keys())
+
+        weights = {}
+        for pi in all_pis:
+            vals = [float(v[pi]) for v in vectors if pi in v]
+            if len(vals) < 2:
+                weights[pi] = 0.5
+                continue
+            mean = sum(vals) / len(vals)
+            var = sum((x - mean) ** 2 for x in vals) / len(vals)
+            std = var ** 0.5
+            # Map std to weight: std=0 -> 1.0, std>=10 -> 0.2
+            w = max(0.2, min(1.0, 1.0 - (std / 12.5)))
+            weights[pi] = round(w, 3)
+        zone_weights[zid] = weights
+    return zone_weights
+
+def weighted_avg_diff(live_norm, cal_norm, weights=None):
+    """Weighted L1 distance. Falls back to uniform weights if none provided."""
+    common = [p for p in live_norm if p in cal_norm]
+    if not common:
+        return float("inf")
+    if weights is None:
+        return sum(abs(float(live_norm[p]) - float(cal_norm[p])) for p in common) / float(len(common))
+    total_w = 0.0
+    total_d = 0.0
+    for p in common:
+        w = weights.get(p, 0.5)
+        total_w += w
+        total_d += w * abs(float(live_norm[p]) - float(cal_norm[p]))
+    return total_d / total_w if total_w > 0 else float("inf")
+
+# --- Improvement D: Rank-order composite scoring ---
+
+def rank_vector(norm_vec, pi_order=None):
+    """Convert RSSI vector to rank ordering (rank 0 = strongest Pi)."""
+    if pi_order is None:
+        pi_order = sorted(norm_vec.keys())
+    # Sort by RSSI descending (strongest first)
+    sorted_pis = sorted(norm_vec.keys(), key=lambda p: -float(norm_vec[p]))
+    ranks = {}
+    for rank, pi in enumerate(sorted_pis):
+        ranks[pi] = rank
+    return ranks
+
+def rank_distance(live_ranks, cal_ranks):
+    """Average absolute rank difference over common Pis."""
+    common = [p for p in live_ranks if p in cal_ranks]
+    if not common:
+        return float("inf")
+    return sum(abs(live_ranks[p] - cal_ranks[p]) for p in common) / float(len(common))
+
+def composite_match(live_norm, cal_norm, weights=None):
+    """Blend L1 match with rank-order match.
+    Returns True if the vector is a composite match.
+    """
+    l1 = weighted_avg_diff(live_norm, cal_norm, weights)
+    l1_match = 1.0 if l1 <= MATCH_DIFF_DBM else 0.0
+
+    live_ranks = rank_vector(live_norm)
+    cal_ranks = rank_vector(cal_norm)
+    rd = rank_distance(live_ranks, cal_ranks)
+    rank_match = 1.0 if rd <= RANK_MATCH_THRESHOLD else 0.0
+
+    score = L1_WEIGHT * l1_match + RANK_WEIGHT * rank_match
+    return score
+
+def score_top_two_zones(live_norm, cal, pi_weights=None):
+    """Score all zones and return top-2: (best_zone, best_conf, second_zone, second_conf)."""
+    scores = []
+    for zid, rec in cal.items():
+        vectors = rec.get("vectors", [])
+        if not vectors:
+            continue
+        zid_int = int(zid)
+        w = pi_weights.get(zid_int) if pi_weights else None
+        total_score = 0.0
+        for v in vectors:
+            total_score += composite_match(live_norm, v, w)
+        conf = total_score / float(len(vectors))
+        scores.append((zid_int, conf))
+
+    if not scores:
+        return None, 0.0, None, 0.0
+
+    scores.sort(key=lambda x: -x[1])
+    best_zone, best_conf = scores[0]
+    if len(scores) > 1:
+        second_zone, second_conf = scores[1]
+    else:
+        second_zone, second_conf = None, 0.0
+
+    return best_zone, float(best_conf), second_zone, float(second_conf)
 
 def build_fresh_vector(events_deque, now_ts):
     # latest_by_pi[pi] = (ts, rssi)
@@ -139,16 +250,106 @@ def main():
         print("ERROR: output/calibration.jsonl missing or has no vectors. Run calibration first.")
         return
 
+    # Improvement B: precompute per-zone per-Pi weights from calibration variance
+    pi_weights = compute_pi_weights(cal)
+
     print("LIVE MODE STARTED (rx-time, normalized matching, NO hysteresis)")
     print("MIN_SOURCES =", MIN_SOURCES)
     print("WINDOW_SEC  =", WINDOW_SEC)
     print("PER_PI_FRESH_SEC =", PER_PI_FRESH_SEC)
     print("MATCH_DIFF_DBM (normalized) =", MATCH_DIFF_DBM)
+    print("MARGIN_GATE =", MARGIN_GATE)
+    print("RANK_WEIGHT =", RANK_WEIGHT, "| L1_WEIGHT =", L1_WEIGHT)
+    print("TRANSITION_CONFIRM_COUNT =", TRANSITION_CONFIRM_COUNT)
+    print("STALE_MAC_SEC =", STALE_MAC_SEC)
     print("Broker:", MQTT_HOST, "Topic:", MQTT_TOPIC)
     print("Zones loaded:", len(zones), "| Cal zones:", len(cal))
 
     buf = defaultdict(lambda: deque())
-    state = {}  # for dwell/transitions only: state[phone] = (zone_id, enter_ts)
+
+    # Transition state — keyed by session_id
+    state = {}      # session_id -> (zone_id, enter_ts)
+    pending = {}    # session_id -> (candidate_zone, count, first_ts)
+
+    # Session linking for randomized MACs
+    next_sid = [1]          # mutable counter for closure
+    mac_to_sid = {}         # MAC -> session_id
+    sid_last_seen = {}      # session_id -> (ts, norm_vector)
+    mac_last_seen_ts = {}   # MAC -> last seen timestamp
+    assign_count = [0]      # periodic cleanup counter
+
+    def resolve_session(phone, live_norm, now_ts):
+        """Resolve a MAC address to a stable session_id.
+        If the MAC is new and a recently-stale session has a matching RSSI
+        signature, link them (handles MAC randomization).
+        """
+        mac_last_seen_ts[phone] = now_ts
+
+        # Known MAC — return existing session
+        if phone in mac_to_sid:
+            sid = mac_to_sid[phone]
+            sid_last_seen[sid] = (now_ts, live_norm)
+            return sid
+
+        # New MAC — try to match against stale sessions
+        best_sid = None
+        best_dist = float("inf")
+        stale_cutoff = now_ts - STALE_MAC_SEC
+        checked_sids = set()
+
+        for old_mac, old_sid in mac_to_sid.items():
+            if old_sid in checked_sids:
+                continue
+            old_ts = mac_last_seen_ts.get(old_mac, 0)
+            if old_ts > stale_cutoff:
+                continue  # still active, skip
+            checked_sids.add(old_sid)
+            old_info = sid_last_seen.get(old_sid)
+            if old_info is None:
+                continue
+            old_vec = old_info[1]
+            live_ranks = rank_vector(live_norm)
+            old_ranks = rank_vector(old_vec)
+            dist = rank_distance(live_ranks, old_ranks)
+            if dist < best_dist:
+                best_dist = dist
+                best_sid = old_sid
+
+        if best_sid is not None and best_dist <= SESSION_RANK_THRESHOLD:
+            mac_to_sid[phone] = best_sid
+            sid_last_seen[best_sid] = (now_ts, live_norm)
+            print("[SESSION] Linked MAC {} -> {} (rank_dist={:.2f})".format(
+                phone[:8] + "...", best_sid, best_dist))
+            return best_sid
+
+        # No match — create new session
+        sid = "S{:04d}".format(next_sid[0])
+        next_sid[0] += 1
+        mac_to_sid[phone] = sid
+        sid_last_seen[sid] = (now_ts, live_norm)
+        print("[SESSION] New MAC {} -> {}".format(phone[:8] + "...", sid))
+        return sid
+
+    def cleanup_sessions(now_ts):
+        """Remove sessions not seen in SESSION_MAX_AGE_SEC."""
+        cutoff = now_ts - SESSION_MAX_AGE_SEC
+        stale_sids = set()
+        for sid, (ts, _) in list(sid_last_seen.items()):
+            if ts < cutoff:
+                stale_sids.add(sid)
+        if not stale_sids:
+            return
+        for sid in stale_sids:
+            sid_last_seen.pop(sid, None)
+            state.pop(sid, None)
+            pending.pop(sid, None)
+        stale_macs = [m for m, s in mac_to_sid.items() if s in stale_sids]
+        for m in stale_macs:
+            del mac_to_sid[m]
+            mac_last_seen_ts.pop(m, None)
+            buf.pop(m, None)
+        print("[SESSION] Cleaned up {} stale sessions, {} MACs".format(
+            len(stale_sids), len(stale_macs)))
 
     def on_connect(client, userdata, flags, rc):
         print("[MQTT] Connected rc=", rc)
@@ -192,59 +393,109 @@ def main():
             return
 
         live_norm = normalize_live_vector(raw_vec)
-        best_zone, best_conf = score_best_zone(live_norm, cal)
+        best_zone, best_conf, second_zone, second_conf = score_top_two_zones(live_norm, cal, pi_weights)
         if best_zone is None:
             return
 
+        margin = best_conf - second_conf
         x, y = zones.get(best_zone, (None, None))
 
-        # Log assignment every time we get a valid best_zone
+        # Resolve session (handles randomized MACs)
+        sid = resolve_session(phone, live_norm, rx_ts)
+
+        # Periodic cleanup of old sessions
+        assign_count[0] += 1
+        if assign_count[0] % SESSION_CLEANUP_INTERVAL == 0:
+            cleanup_sessions(rx_ts)
+
+        # Improvement A: Margin gating — skip ambiguous predictions
+        if margin < MARGIN_GATE:
+            safe_append_jsonl(OUT_UNCERTAIN, {
+                "ts": rx_ts,
+                "ts_kst": ts_kst(rx_ts),
+                "phone_id": phone,
+                "session_id": sid,
+                "zone_id": int(best_zone),
+                "confidence": float(best_conf),
+                "second_zone_id": int(second_zone) if second_zone is not None else None,
+                "second_confidence": float(second_conf),
+                "margin": round(margin, 4),
+                "sources": sources,
+                "vector": raw_vec,
+                "timebase": "rx_time_laptop"
+            })
+            return
+
+        # Log assignment (confident prediction)
         safe_append_jsonl(OUT_ASSIGN, {
             "ts": rx_ts,
             "ts_kst": ts_kst(rx_ts),
             "phone_id": phone,
+            "session_id": sid,
             "zone_id": int(best_zone),
             "x": x,
             "y": y,
             "confidence": float(best_conf),
+            "second_zone_id": int(second_zone) if second_zone is not None else None,
+            "second_confidence": float(second_conf),
+            "margin": round(margin, 4),
             "sources": sources,
             "vector": raw_vec,
             "timebase": "rx_time_laptop"
         })
 
-        # transitions/dwells (no hysteresis, but we still track movement)
-        if phone not in state:
-            state[phone] = (int(best_zone), rx_ts)
+        # --- Transitions/dwells with debounce (keyed by session_id) ---
+
+        # First time seeing this session
+        if sid not in state:
+            state[sid] = (int(best_zone), rx_ts)
+            pending.pop(sid, None)
             safe_append_jsonl(OUT_TRANS, {
                 "ts": rx_ts, "ts_kst": ts_kst(rx_ts),
-                "phone_id": phone,
+                "phone_id": phone, "session_id": sid,
                 "from_zone": None,
                 "to_zone": int(best_zone),
                 "confidence": float(best_conf)
             })
             return
 
-        prev_zone, enter_ts = state[phone]
+        prev_zone, enter_ts = state[sid]
+
         if prev_zone == int(best_zone):
+            # Same zone as confirmed — clear any pending transition (spike resolved)
+            pending.pop(sid, None)
             return
 
-        safe_append_jsonl(OUT_DWELL, {
-            "phone_id": phone,
-            "zone_id": int(prev_zone),
-            "enter_ts": float(enter_ts),
-            "enter_ts_kst": ts_kst(float(enter_ts)),
-            "exit_ts": rx_ts,
-            "exit_ts_kst": ts_kst(rx_ts),
-            "dwell_sec": rx_ts - float(enter_ts)
-        })
-        safe_append_jsonl(OUT_TRANS, {
-            "ts": rx_ts, "ts_kst": ts_kst(rx_ts),
-            "phone_id": phone,
-            "from_zone": int(prev_zone),
-            "to_zone": int(best_zone),
-            "confidence": float(best_conf)
-        })
-        state[phone] = (int(best_zone), rx_ts)
+        # Different zone — debounce: require TRANSITION_CONFIRM_COUNT consecutive
+        p = pending.get(sid)
+        if p is not None and p[0] == int(best_zone):
+            # Same candidate as pending — increment
+            count = p[1] + 1
+            if count >= TRANSITION_CONFIRM_COUNT:
+                # Confirmed transition
+                safe_append_jsonl(OUT_DWELL, {
+                    "phone_id": phone, "session_id": sid,
+                    "zone_id": int(prev_zone),
+                    "enter_ts": float(enter_ts),
+                    "enter_ts_kst": ts_kst(float(enter_ts)),
+                    "exit_ts": p[2],
+                    "exit_ts_kst": ts_kst(p[2]),
+                    "dwell_sec": p[2] - float(enter_ts)
+                })
+                safe_append_jsonl(OUT_TRANS, {
+                    "ts": rx_ts, "ts_kst": ts_kst(rx_ts),
+                    "phone_id": phone, "session_id": sid,
+                    "from_zone": int(prev_zone),
+                    "to_zone": int(best_zone),
+                    "confidence": float(best_conf)
+                })
+                state[sid] = (int(best_zone), p[2])
+                del pending[sid]
+            else:
+                pending[sid] = (int(best_zone), count, p[2])
+        else:
+            # New candidate (or different from current pending) — start counting
+            pending[sid] = (int(best_zone), 1, rx_ts)
 
     client = mqtt.Client(client_id="laptop-live-nohyst")
     client.on_connect = on_connect
