@@ -1,91 +1,105 @@
-# NeuralSense → Supabase 데이터 매핑
+# NeuralSense -> Supabase Data Mapping
 
-NeuralSense가 출력하는 JSONL 파일별로 Supabase DB 테이블 컬럼과의 매핑을 정리합니다.
-
----
-
-## 1. raw_rssi.jsonl → wifi_events
-
-| NeuralSense 필드 | Supabase wifi_events 컬럼 | 변환 필요 | 비고 |
-|------------------|--------------------------|-----------|------|
-| phone_id (MAC)   | device_id                | 이름 변환 | phone_id → device_id로 rename |
-| rssi             | signal_strength          | 이름 변환 | rssi → signal_strength로 rename |
-| ts (Unix epoch)  | event_ts                 | 형식 변환 | Unix float → ISO 8601 timestamptz |
-| rpi_id           | metadata.sensor_id       | 구조 변환 | 별도 컬럼 없음, metadata JSONB에 저장 |
-| —                | org_id                   | 필요      | NeuralSense에 없음, 서버에서 주입 필요 |
-| —                | store_id                 | 필요      | NeuralSense에 없음, 서버에서 주입 필요 |
-| —                | zone_id                  | 선택      | raw 단계에서는 zone 미확정 |
-| —                | event_type               | 필요      | 'wifi_probe' 등 서버에서 지정 |
-| —                | dwell_time_seconds       | 선택      | raw 단계에서는 미확정 |
-
-## 2. zone_assignments.jsonl → zone_events
-
-| NeuralSense 필드 | Supabase zone_events 컬럼 | 변환 필요 | 비고 |
-|------------------|--------------------------|-----------|------|
-| zone_id (int)    | zone_id (uuid)           | 타입 변환 | int → zones_dim UUID로 lookup 필요 |
-| phone_id         | visitor_id               | 이름 변환 | phone_id → visitor_id로 rename |
-| ts (Unix epoch)  | event_timestamp          | 형식 변환 | Unix float → ISO 8601 timestamptz |
-| confidence       | confidence_score         | 이름 변환 | confidence → confidence_score |
-| —                | event_type               | 필요      | 'zone_assignment' 등 서버에서 지정 |
-| —                | event_date               | 추출      | event_timestamp에서 date 추출 |
-| —                | event_hour               | 추출      | event_timestamp에서 hour 추출 |
-| —                | org_id                   | 필요      | NeuralSense에 없음, 서버에서 주입 필요 |
-| —                | store_id                 | 필요      | NeuralSense에 없음, 서버에서 주입 필요 |
-| —                | sensor_type              | 필요      | 'wifi' 서버에서 지정 |
-| sources          | metadata.sources         | 구조 변환 | metadata JSONB에 저장 |
-| vector           | metadata.vector          | 구조 변환 | metadata JSONB에 저장 |
-| x, y             | metadata.position        | 구조 변환 | metadata JSONB에 저장 |
-
-## 3. dwells.jsonl → visit_zone_events
-
-| NeuralSense 필드 | Supabase visit_zone_events 컬럼 | 변환 필요 | 비고 |
-|------------------|--------------------------------|-----------|------|
-| zone_id (int)    | zone_id (uuid)                 | 타입 변환 | int → zones_dim UUID로 lookup 필요 |
-| enter_ts (Unix)  | entry_time                     | 형식+이름 | Unix float → ISO 8601, enter_ts → entry_time |
-| exit_ts (Unix)   | exit_time                      | 형식+이름 | Unix float → ISO 8601, exit_ts → exit_time |
-| dwell_sec        | dwell_seconds                  | 이름 변환 | dwell_sec → dwell_seconds |
-| phone_id         | metadata.visitor_id            | 구조 변환 | 직접 매핑 컬럼 없음 |
-| —                | visit_id                       | 필요      | 세션 관리 로직에서 생성 필요 |
-| —                | org_id                         | 필요      | NeuralSense에 없음, 서버에서 주입 필요 |
-| —                | store_id                       | 필요      | NeuralSense에 없음, 서버에서 주입 필요 |
-
-## 4. transitions.jsonl (참조용)
-
-transitions.jsonl은 별도 Supabase 테이블에 직접 매핑되지 않습니다.
-zone_events의 연속 레코드로부터 동선(path)을 재구성하거나,
-visit_zone_events의 path_sequence 필드로 순서를 추적합니다.
-
-| NeuralSense 필드 | 활용 방식 | 비고 |
-|------------------|----------|------|
-| from_zone        | visit_zone_events.path_sequence 계산 | 이전 zone에서 순서 추론 |
-| to_zone          | visit_zone_events.path_sequence 계산 | 다음 zone으로 순서 추론 |
-| phone_id         | visit_id 세션 그룹핑 | 같은 phone의 연속 전환을 하나의 visit로 묶음 |
+NeuralSense outputs JSONL files. This document maps each file's fields to Supabase DB table columns.
 
 ---
 
-## 주요 불일치 요약
+## 1. raw_rssi.jsonl -> wifi_events
 
-| # | 불일치 항목 | 설명 | 해결 방안 |
-|---|-----------|------|----------|
-| 1 | **zone_id 타입** | NeuralSense: int, Supabase: uuid | Edge Function에서 zone_code → uuid lookup |
-| 2 | **timestamp 형식** | NeuralSense: Unix float, Supabase: timestamptz | Edge Function에서 ISO 8601로 변환 |
-| 3 | **필드명 차이** | phone_id↔visitor_id/device_id, rssi↔signal_strength 등 | Edge Function에서 rename |
-| 4 | **org_id/store_id 누락** | NeuralSense 출력에 조직/매장 정보 없음 | Edge Function에서 API 인증 기반으로 주입 |
-| 5 | **visit_id 누락** | NeuralSense는 방문 세션 개념 없음 | 서버 ETL에서 시간 기반 세션 분리 로직 필요 |
+| NeuralSense Field | Supabase Column    | Transform   | Notes                                   |
+|-------------------|--------------------|-------------|-----------------------------------------|
+| phone_id (MAC)    | device_id          | rename      | phone_id -> device_id                   |
+| rssi              | signal_strength    | rename      | rssi -> signal_strength                 |
+| ts (Unix epoch)   | event_ts           | format      | Unix float -> ISO 8601 timestamptz      |
+| rpi_id            | metadata.sensor_id | restructure | stored in metadata JSONB                |
+| --                | org_id             | required    | not in NeuralSense, server injects      |
+| --                | store_id           | required    | not in NeuralSense, server injects      |
+| --                | zone_id            | optional    | not determined at raw stage             |
+| --                | event_type         | required    | 'wifi_probe', server sets               |
+
+## 2. zone_assignments.jsonl -> zone_events
+
+| NeuralSense Field | Supabase Column         | Transform   | Notes                                   |
+|-------------------|-------------------------|-------------|-----------------------------------------|
+| zone_id (int)     | zone_id (uuid)          | type        | int -> zones_dim UUID lookup            |
+| phone_id          | visitor_id              | rename      | phone_id -> visitor_id                  |
+| session_id        | metadata.session_id     | restructure | stable ID across MAC rotations          |
+| ts (Unix epoch)   | event_timestamp         | format      | Unix float -> ISO 8601 timestamptz      |
+| confidence        | confidence_score        | rename      |                                         |
+| second_zone_id    | metadata.second_zone_id | restructure | runner-up zone                          |
+| second_confidence | metadata.second_conf    | restructure | runner-up score                         |
+| margin            | metadata.margin         | restructure | confidence gap (best - second)          |
+| sources           | metadata.sources        | restructure | list of Pi IDs                          |
+| vector            | metadata.vector         | restructure | raw RSSI per Pi                         |
+| x, y              | metadata.position       | restructure | zone center coordinates                 |
+| --                | event_type              | required    | 'zone_assignment', server sets          |
+| --                | event_date              | extract     | from event_timestamp                    |
+| --                | event_hour              | extract     | from event_timestamp                    |
+| --                | org_id                  | required    | server injects                          |
+| --                | store_id                | required    | server injects                          |
+| --                | sensor_type             | required    | 'wifi', server sets                     |
+
+## 3. uncertain_assignments.jsonl (new)
+
+Same schema as zone_assignments.jsonl. These are predictions where the margin between
+the top-2 zones was below `MARGIN_GATE` (0.15). Not uploaded to Supabase — used for
+local debugging and tuning only.
+
+## 4. dwells.jsonl -> visit_zone_events
+
+| NeuralSense Field | Supabase Column     | Transform    | Notes                                  |
+|-------------------|---------------------|--------------|----------------------------------------|
+| zone_id (int)     | zone_id (uuid)      | type         | int -> zones_dim UUID lookup           |
+| phone_id          | metadata.visitor_id | restructure  |                                        |
+| session_id        | visit_id            | rename       | session_id is the stable visit ID      |
+| enter_ts (Unix)   | entry_time          | format+rename| Unix float -> ISO 8601                 |
+| exit_ts (Unix)    | exit_time           | format+rename| Unix float -> ISO 8601                 |
+| dwell_sec         | dwell_seconds       | rename       |                                        |
+| --                | org_id              | required     | server injects                         |
+| --                | store_id            | required     | server injects                         |
+| --                | path_sequence       | compute      | derived from transitions order         |
+
+## 5. transitions.jsonl (reference)
+
+Not directly mapped to a Supabase table. Used to reconstruct visitor paths
+via zone_events or visit_zone_events.path_sequence.
+
+| NeuralSense Field | Usage                     | Notes                             |
+|-------------------|---------------------------|-----------------------------------|
+| from_zone         | path_sequence calculation | previous zone                     |
+| to_zone           | path_sequence calculation | next zone                         |
+| phone_id          | visit grouping            | group by same phone               |
+| session_id        | visit grouping            | stable across MAC rotations       |
+| confidence        | quality filter            | filter low-confidence transitions |
 
 ---
 
-## Edge Function 참고
+## Key Differences Summary
 
-Supabase Edge Function `process-neuralsense-data`가 위 변환을 처리합니다.
-NeuralsenseReading 인터페이스:
+| #   | Issue                        | Description                                             | Resolution                                 |
+|-----|------------------------------|---------------------------------------------------------|--------------------------------------------|
+| 1   | **zone_id type**             | NeuralSense: int, Supabase: uuid                        | Edge Function: zone_code -> uuid lookup    |
+| 2   | **timestamp format**         | NeuralSense: Unix float, Supabase: timestamptz          | Edge Function: convert to ISO 8601         |
+| 3   | **field names**              | phone_id<->visitor_id/device_id, rssi<->signal_strength | Edge Function: rename                      |
+| 4   | **org_id/store_id missing**  | not in NeuralSense output                               | Edge Function: inject from API auth        |
+| 5   | **session_id -> visit_id**   | session_id handles MAC randomization                    | Edge Function: map session_id -> visit_id  |
+
+---
+
+## Edge Function Reference
+
+Supabase Edge Function `process-neuralsense-data` handles the above transforms.
+NeuralsenseReading interface:
 ```typescript
 interface NeuralsenseReading {
   timestamp: string;
   hashed_mac: string;
+  session_id?: string;
   rssi_readings: Record<string, number>;
   estimated_position?: { x: number; y: number; confidence: number };
   zone_id?: string;
+  second_zone_id?: string;
+  margin?: number;
   device_type?: 'smartphone' | 'tablet' | 'wearable' | 'unknown';
 }
 ```
