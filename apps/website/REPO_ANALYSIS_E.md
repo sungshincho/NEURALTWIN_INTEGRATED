@@ -1363,6 +1363,251 @@ setSortBy(v as SortKey);
 
 ---
 
+## 14. 외부 서비스 연결 지점 전수 조사
+
+### 14-1. 전체 외부 연결 요약
+
+| 카테고리 | 서비스 | 연결 수 | 상태 |
+|---------|--------|---------|------|
+| **BaaS** | Supabase (DB + Auth + Storage + EF) | 26+ | 활성 |
+| **분석** | Google Analytics 4 | 7 이벤트 | 활성 (스크립트 태그 누락) |
+| **분석** | Meta Pixel (Facebook) | 5 이벤트 매핑 | 활성 (스크립트 태그 누락) |
+| **인증** | Google OAuth (via Supabase) | 1 | 활성 |
+| **미디어** | Vimeo (비디오 임베드) | 1 | 활성 |
+| **외부 앱** | neuraltwintest.app (대시보드 포털) | 1 | 활성 |
+| **소셜** | LinkedIn (링크) | 1 | 활성 |
+| **날씨 API** | OpenWeatherMap | 0 | 미사용 (env만 정의) |
+| **공공데이터** | data.go.kr | 0 | 미사용 (env만 정의) |
+| **캘린더** | Calendarific | 0 | 미사용 (env만 정의) |
+
+---
+
+### 14-2. Supabase 연결
+
+#### 14-2-1. DB 쿼리 테이블 목록
+
+| # | 테이블 | 파일 | 라인 | 작업 | 용도 |
+|---|--------|------|------|------|------|
+| 1 | `organization_members` | useAuth.ts | 75 | select (join) | 로그인 시 사용자 조직/역할/라이선스 조회 |
+| 2 | `organizations` | useAuth.ts | 80 | select (join) | 조직 메타데이터 (join via org_members) |
+| 3 | `licenses` | useAuth.ts | 84 | select (join) | 라이선스 타입/상태 (join via org_members) |
+| 4 | `profiles` | Profile.tsx | 70 | select | 사용자 프로필 (display_name, avatar_url) |
+| 5 | `organization_members` | Profile.tsx | 86 | select (join) | 프로필 페이지 조직 정보 |
+| 6 | `subscriptions` | Profile.tsx | 106 | select | 구독 정보 조회 (by org_id) |
+| 7 | `licenses` | Profile.tsx | 113 | select (order) | 구독 내 라이선스 목록 |
+| 8 | `profiles` | Profile.tsx | 184 | update | 프로필 수정 (display_name, avatar_url) |
+| 9 | `organization_members` | Auth.tsx | 47 | select | 기존 조직 멤버십 확인 |
+| 10 | `organizations` | Auth.tsx | 61 | select | 조직 이름 중복 확인 |
+| 11 | `organizations` | Auth.tsx | 73 | **insert** | 회원가입 시 조직 생성 |
+| 12 | `organization_members` | Auth.tsx | 94 | **insert** | 조직 멤버 추가 |
+| 13 | `subscriptions` | Auth.tsx | 112 | select | 활성 구독 확인 |
+| 14 | `organizations` | Auth.tsx | 155 | select | ensureOrgNav — 조직 확인 |
+| 15 | `organizations` | Auth.tsx | 177 | **insert** | ensureOrgNav — 조직 생성 |
+| 16 | `organization_members` | Auth.tsx | 196 | **insert** | ensureOrgNav — 멤버 추가 |
+| 17 | `subscriptions` | Auth.tsx | 212 | select | ensureOrgNav — 구독 확인 |
+| 18 | `organizations` | Auth.tsx | 326 | select | handleEmailSignUp — 조직 확인 |
+| 19 | `organizations` | Auth.tsx | 339 | **insert** | handleEmailSignUp — 조직 생성 |
+| 20 | `organization_members` | Auth.tsx | 361 | **insert** | handleEmailSignUp — 멤버 추가 |
+| 21 | `subscriptions` | Auth.tsx | 379 | select | handleEmailSignUp — 구독 확인 |
+| 22 | `organization_members` | Subscribe.tsx | 52 | select | 구독 페이지 — org_id 조회 |
+| 23 | `organization_members` | Dashboard.tsx | 31 | select (join) | 대시보드 — 조직/역할 표시 |
+| 24 | `subscriptions` | Dashboard.tsx | 44 | select | 대시보드 — 구독 상태 확인 |
+| 25 | `profiles` | Header.tsx | 38 | select | 헤더 아바타 표시 |
+
+**사용 테이블 요약**:
+
+| 테이블 | select | insert | update | delete | 합계 |
+|--------|--------|--------|--------|--------|------|
+| `organizations` | 5 | 3 | 0 | 0 | 8 |
+| `organization_members` | 5 | 4 | 0 | 0 | 9 |
+| `subscriptions` | 5 | 0 | 0 | 0 | 5 |
+| `profiles` | 2 | 0 | 1 | 0 | 3 |
+| `licenses` | 2 | 0 | 0 | 0 | 2 |
+| **합계** | **19** | **7** | **1** | **0** | **27** |
+
+> **참고**: Auth.tsx에 동일 로직이 3회 중복 (ensureOrgSetup, ensureOrgNav, handleEmailSignUp) — 리팩토링 필요
+
+#### 14-2-2. Storage 버킷
+
+| 버킷 | 파일 | 작업 | 용도 |
+|------|------|------|------|
+| `avatars` | Profile.tsx:171 | upload | 사용자 아바타 이미지 업로드 |
+| `avatars` | Profile.tsx:179 | getPublicUrl | 아바타 공개 URL 생성 |
+| `chat-attachments` | fileUpload.ts:177 | upload | 채팅 첨부파일 업로드 |
+| `chat-attachments` | fileUpload.ts:189 | getPublicUrl | 첨부파일 공개 URL 생성 |
+
+#### 14-2-3. Edge Function 호출 목록
+
+| # | 함수명 | 파일 | 라인 | 호출 방식 | 용도 |
+|---|--------|------|------|----------|------|
+| 1 | `retail-chatbot` | Chat.tsx | 566 | `fetch()` + SSE 스트리밍 | AI 챗봇 대화 (일반 모드) |
+| 2 | `retail-chatbot` | Chat.tsx | 761 | `fetch()` + SSE 스트리밍 | AI 챗봇 대화 (분석 모드) |
+| 3 | `retail-chatbot` | Chat.tsx | 835 | `fetch()` + SSE 스트리밍 | AI 챗봇 대화 (재시도) |
+| 4 | `submit-contact` | Contact.tsx | 75 | `supabase.functions.invoke()` | 문의 양식 제출 |
+| 5 | `create-checkout` | Subscribe.tsx | 138 | `supabase.functions.invoke()` | Stripe 결제 (**주석 처리됨**) |
+
+> **특이사항**: `retail-chatbot`은 `supabase.functions.invoke()` 대신 `fetch()`로 직접 호출 — SSE 스트리밍 지원을 위해 의도적 선택
+
+#### 14-2-4. Auth 사용 패턴
+
+| # | 메서드 | 파일 | 라인 | 용도 |
+|---|--------|------|------|------|
+| 1 | `auth.onAuthStateChange` | useAuth.ts | 17 | 인증 상태 변경 감지 (SIGNED_IN) |
+| 2 | `auth.getSession` | useAuth.ts | 50 | 초기 로드 시 세션 확인 |
+| 3 | `auth.getUser` | useAuth.ts | 96 | 인증된 사용자 정보 조회 |
+| 4 | `auth.signOut` | useAuth.ts | 139 | 로그아웃 (수동 플래그 설정) |
+| 5 | `auth.getSession` | Auth.tsx | 240 | 이미 로그인 상태인지 확인 |
+| 6 | `auth.onAuthStateChange` | Auth.tsx | 253 | 로그인 완료 시 조직 설정 트리거 |
+| 7 | `auth.signUp` | Auth.tsx | 304 | 이메일/비밀번호 회원가입 (메타데이터 포함) |
+| 8 | `auth.signInWithPassword` | Auth.tsx | 425 | 이메일/비밀번호 로그인 |
+| 9 | `auth.signInWithOAuth` | Auth.tsx | 451 | Google OAuth 로그인 |
+| 10 | `auth.getUser` | Profile.tsx | 59 | 프로필 페이지 사용자 조회 |
+| 11 | `auth.resetPasswordForEmail` | Profile.tsx | 219 | 비밀번호 재설정 이메일 발송 |
+| 12 | `auth.signOut` | Profile.tsx | 235 | 프로필 페이지 로그아웃 |
+| 13 | `auth.getUser` | Subscribe.tsx | 38 | 구독 전 인증 확인 |
+| 14 | `auth.getSession` | Dashboard.tsx | 21 | 대시보드 세션 확인 |
+| 15 | `auth.onAuthStateChange` | Dashboard.tsx | 60 | 대시보드 인증 변경 감지 |
+| 16 | `auth.getSession` | Dashboard.tsx | 75 | 외부 대시보드 토큰 전달 |
+
+**Auth 메서드 사용 빈도**:
+
+| 메서드 | 횟수 | 파일 수 |
+|--------|------|---------|
+| `getSession` | 4 | 3 |
+| `getUser` | 3 | 3 |
+| `onAuthStateChange` | 3 | 3 |
+| `signOut` | 2 | 2 |
+| `signUp` | 1 | 1 |
+| `signInWithPassword` | 1 | 1 |
+| `signInWithOAuth` | 1 | 1 |
+| `resetPasswordForEmail` | 1 | 1 |
+
+---
+
+### 14-3. 환경 변수 목록 (VITE_ 접두사)
+
+| # | 변수명 | 용도 | 사용 파일 | 필수 | 하드코딩 vs .env |
+|---|--------|------|----------|------|-----------------|
+| 1 | `VITE_SUPABASE_URL` | Supabase 프로젝트 URL | client.ts:4, Chat.tsx(3곳) | **필수** | `.env` (런타임 검증) |
+| 2 | `VITE_SUPABASE_PUBLISHABLE_KEY` | Supabase anon 공개 키 | client.ts:5 | **필수** | `.env` (런타임 검증) |
+| 3 | `VITE_OPENWEATHERMAP_API_KEY` | 날씨 API 키 | **.env.example만** | 선택 | `.env` (미사용) |
+| 4 | `VITE_DATA_GO_KR_API_KEY` | 공공데이터 API 키 | **.env.example만** | 선택 | `.env` (미사용) |
+| 5 | `VITE_CALENDARIFIC_API_KEY` | 캘린더 API 키 | **.env.example만** | 선택 | `.env` (미사용) |
+
+**하드코딩 검출**:
+
+| 항목 | 파일 | 상태 | 위험도 |
+|------|------|------|--------|
+| Supabase URL | `.env.example:1` | `.env.example`에 실제 URL 노출 (`bdrvowacecxnraaivlhr.supabase.co`) | 🟡 낮음 (공개 정보) |
+| Supabase Key | `.env.example:2` | 플레이스홀더 (`your_anon_key_here`) | 🟢 안전 |
+| Vimeo 비디오 ID | Index.tsx:139 | 하드코딩 (`1142028485`) | 🟢 무해 |
+| 외부 대시보드 URL | Dashboard.tsx:83 | 하드코딩 (`neuraltwintest.app`) | 🟡 환경별 분리 권장 |
+
+> **권장**: `VITE_DASHBOARD_URL` 환경변수 추가하여 `neuraltwintest.app` 하드코딩 제거
+
+---
+
+### 14-4. 외부 API 및 서비스
+
+#### 14-4-1. 분석 도구
+
+| 서비스 | 연동 방식 | 파일 | 상태 | 비고 |
+|--------|----------|------|------|------|
+| **Google Analytics 4** | `window.gtag()` | lib/analytics.ts | 🟡 부분 활성 | `index.html`에 GA4 스크립트 태그 **누락** |
+| **Meta Pixel** | `window.fbq()` | lib/analytics.ts | 🟡 부분 활성 | `index.html`에 Pixel 스크립트 태그 **누락** |
+
+**추적 이벤트 목록** (analytics.ts):
+
+| 이벤트명 | GA4 이벤트 | Meta 매핑 | 퍼널 단계 | 트리거 |
+|---------|-----------|----------|----------|--------|
+| `page_view` | page_view | CustomEvent | 1~4 | 페이지 진입 |
+| `funnel_progress` | funnel_progress | CustomEvent | 1~4 | 퍼널 단계 이동 |
+| `cta_click` | cta_click | CustomEvent | 1~4 | CTA 버튼 클릭 |
+| `mini_feature_used` | mini_feature_used | ViewContent | 2 | 미니 피쳐 상호작용 |
+| `start_contact` | start_contact | CustomEvent | 3 | 문의 양식 시작 |
+| `submit_contact` | submit_contact | Contact | 3 | 문의 양식 제출 |
+| `meeting_booked` | meeting_booked | Schedule | 4 | 미팅 예약 |
+
+> **이슈**: `index.html`에 GA4/Meta Pixel 초기화 스크립트가 없어 `window.gtag` / `window.fbq`가 항상 `undefined`. 이벤트가 실제로는 전송되지 않음.
+
+#### 14-4-2. 외부 URL 연결
+
+| # | URL | 파일 | 라인 | 유형 | 용도 |
+|---|-----|------|------|------|------|
+| 1 | `https://player.vimeo.com/video/1142028485?...` | Index.tsx | 139 | iframe 임베드 | 제품 데모 비디오 (자동재생/무음/루프) |
+| 2 | `https://neuraltwintest.app?token=...` | Dashboard.tsx | 83 | 리다이렉트 | OS 대시보드 외부 포털 (토큰 전달) |
+| 3 | `https://www.linkedin.com/company/neuraltwin` | Footer.tsx | 56 | 링크 | 회사 LinkedIn 페이지 |
+
+#### 14-4-3. CDN / 외부 리소스
+
+| 항목 | 상태 |
+|------|------|
+| Google Fonts CDN | **미사용** (로컬 폰트 또는 시스템 폰트) |
+| unpkg / cdnjs / jsdelivr | **미사용** |
+| 외부 CSS CDN | **미사용** |
+| Stripe SDK | **미사용** (create-checkout 주석 처리됨) |
+| Sentry / 에러 추적 | **미사용** |
+| Hotjar / 히트맵 | **미사용** |
+
+> 현재 Website 앱은 외부 CDN 의존성이 **0개** — 모든 에셋이 번들링됨
+
+---
+
+### 14-5. 클라이언트 사이드 스토리지
+
+| 키 | 파일 | 타입 | 용도 |
+|----|------|------|------|
+| `neuraltwin_session_id` | Chat.tsx:67, useChatSession.ts:23 | localStorage | AI 채팅 세션 ID 유지 |
+| `neuraltwin_conversation_id` | useChatSession.ts:33 | localStorage | 현재 대화 ID |
+| `neuraltwin_manual_logout` | useAuth.ts:14, Auth.tsx:242 | localStorage | 수동 로그아웃 플래그 |
+
+---
+
+### 14-6. 외부 서비스 연결 아키텍처 다이어그램
+
+```
+┌─────────────────────────────────────────────────────┐
+│                  Website (React)                     │
+│                                                      │
+│  ┌──────────┐  ┌──────────┐  ┌───────────────────┐  │
+│  │ Auth.tsx  │  │ Chat.tsx │  │ analytics.ts      │  │
+│  │ useAuth  │  │          │  │ (GA4 + Meta Pixel)│  │
+│  └────┬─────┘  └────┬─────┘  └────┬──────────────┘  │
+│       │              │             │                  │
+└───────┼──────────────┼─────────────┼──────────────────┘
+        │              │             │
+        ▼              ▼             ▼
+┌───────────────┐ ┌──────────┐ ┌──────────────────┐
+│  Supabase     │ │ EF:      │ │ GA4 서버         │
+│  ├ Auth       │ │ retail-  │ │ (스크립트 누락!) │
+│  ├ DB (5 tbl) │ │ chatbot  │ ├──────────────────┤
+│  ├ Storage    │ │          │ │ Meta Pixel 서버   │
+│  └ EF (2개)   │ │ (SSE)    │ │ (스크립트 누락!) │
+└───────────────┘ └──────────┘ └──────────────────┘
+        │
+        ▼
+┌───────────────┐   ┌──────────────────┐
+│ Google OAuth  │   │ Vimeo (iframe)   │
+│ (via Supabase)│   │ LinkedIn (link)  │
+└───────────────┘   │ neuraltwintest   │
+                    │  .app (redirect) │
+                    └──────────────────┘
+```
+
+### 14-7. 발견된 이슈 및 개선 권장
+
+| # | 이슈 | 심각도 | 권장 조치 | 공수 |
+|---|------|--------|----------|------|
+| 1 | GA4/Meta Pixel 스크립트 `index.html`에 누락 — 이벤트 미전송 | 🔴 높음 | `index.html`에 GA4 `gtag.js` + Meta Pixel 스크립트 추가 | 0.5d |
+| 2 | `neuraltwintest.app` URL 하드코딩 | 🟡 중간 | `VITE_DASHBOARD_URL` 환경변수 분리 | 0.1d |
+| 3 | Auth.tsx 조직 설정 로직 3회 중복 | 🟡 중간 | `ensureOrganization()` 유틸로 통합 | 0.5d |
+| 4 | `create-checkout` EF 주석 처리 상태 | 🟡 중간 | Stripe 결제 연동 완료 또는 제거 결정 | 1d |
+| 5 | `VITE_OPENWEATHERMAP/DATA_GO_KR/CALENDARIFIC` 미사용 | 🟢 낮음 | `.env.example`에서 제거하거나 구현 계획 명시 | 0.1d |
+| 6 | Dashboard.tsx 토큰을 URL 쿼리로 전달 (`?token=...`) | 🟡 보안 | POST redirect 또는 fragment (`#token=`) 방식으로 변경 | 0.5d |
+| 7 | `console.log('[Analytics Event]')` 프로덕션 코드에 존재 | 🟢 낮음 | 환경별 조건부 로깅 또는 제거 | 0.1d |
+
+---
+
 ## 부록: 라우팅 맵
 
 ```
