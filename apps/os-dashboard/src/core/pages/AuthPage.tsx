@@ -80,6 +80,8 @@ const Auth = () => {
           title: "로그인 성공",
           description: "환영합니다!",
         });
+        // 로그인 성공 시 즉시 대시보드로 이동
+        navigate("/");
       }
     } catch (error) {
       if (error instanceof z.ZodError) {

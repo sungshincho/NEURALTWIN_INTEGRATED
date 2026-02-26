@@ -1,5 +1,5 @@
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useRef } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase";
 import { useNavigate } from "react-router-dom";
@@ -41,6 +41,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [licenseStatus, setLicenseStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  // signIn()에서 fetchOrganizationContext를 이미 호출했는지 추적
+  const orgContextFetchedRef = useRef(false);
 
   // Function to migrate user to organization if needed
   const ensureOrganization = async (userId: string) => {
@@ -222,26 +224,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         // Fetch organization context when user signs in
         if (session?.user) {
-          setTimeout(async () => {
-            try {
-              await fetchOrganizationContext(session.user.id);
-              
-              // Only redirect if organization context loaded successfully
-              // 로그인 페이지(/auth)에서만 리다이렉트, 이미 대시보드에 있으면 무시
-              if (event === "SIGNED_IN") {
-                const currentPath = window.location.pathname;
-                if (currentPath === "/auth") {
-                  redirectTimeout = setTimeout(() => {
-                    const defaultPath = getDefaultDashboard();
-                    navigate(defaultPath);
-                  }, 500);
+          // signIn()에서 이미 fetchOrganizationContext를 호출한 경우 스킵
+          // (이중 호출 시 두 번째 호출이 실패하면 signOut이 호출되어 세션이 초기화되는 버그 방지)
+          if (orgContextFetchedRef.current) {
+            orgContextFetchedRef.current = false;
+            // signIn() 경로: AuthPage에서 직접 navigate("/") 호출하므로 여기서는 스킵
+          } else {
+            // OAuth 또는 세션 복원 경로: onAuthStateChange에서 org context 로드 필요
+            setTimeout(async () => {
+              try {
+                await fetchOrganizationContext(session.user.id);
+
+                // OAuth 로그인 시 /auth에서 대시보드로 리다이렉트
+                if (event === "SIGNED_IN") {
+                  const currentPath = window.location.pathname;
+                  if (currentPath === "/auth") {
+                    redirectTimeout = setTimeout(() => {
+                      navigate("/");
+                    }, 500);
+                  }
                 }
+              } catch (error) {
+                console.error('Failed to load organization context:', error);
               }
-            } catch (error) {
-              // Don't redirect if organization context failed (e.g., no subscription)
-              console.error('Failed to load organization context:', error);
-            }
-          }, 0);
+            }, 0);
+          }
         } else {
           setOrgId(null);
           setOrgName(null);
@@ -294,7 +301,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Check subscription status
         try {
           await fetchOrganizationContext(data.user.id);
-          
+          // onAuthStateChange에서 중복 호출 방지 플래그 설정
+          orgContextFetchedRef.current = true;
+
           // 로그인 성공 시 활동 로깅
           setTimeout(async () => {
             try {
