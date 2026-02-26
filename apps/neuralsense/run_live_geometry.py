@@ -9,6 +9,16 @@ from statistics import median
 from datetime import datetime, timezone, timedelta
 import paho.mqtt.client as mqtt
 
+# Supabase upload integration (optional, toggled by ENABLE_UPLOAD)
+_uploader = None
+try:
+    import config as _cfg
+    if _cfg.ENABLE_UPLOAD:
+        from supabase_uploader import SupabaseUploader
+        _uploader = SupabaseUploader()
+except Exception:
+    _uploader = None
+
 MQTT_HOST = "100.87.27.7"
 MQTT_PORT = 1883
 MQTT_TOPIC = "neuralsense/rssi"
@@ -265,6 +275,22 @@ def main():
     print("Broker:", MQTT_HOST, "Topic:", MQTT_TOPIC)
     print("Zones loaded:", len(zones), "| Cal zones:", len(cal))
 
+    # Supabase uploader init
+    global _uploader
+    upload_enabled = False
+    if _uploader is not None:
+        upload_enabled = _uploader.init()
+        if upload_enabled:
+            print("SUPABASE UPLOAD: ENABLED (batch={}, interval={}s)".format(
+                _uploader.batch_size, _uploader.interval_sec))
+        else:
+            print("SUPABASE UPLOAD: DISABLED (init failed or ENABLE_UPLOAD=false)")
+            _uploader = None
+    else:
+        print("SUPABASE UPLOAD: DISABLED")
+
+    last_flush_ts = [time.time()]
+
     buf = defaultdict(lambda: deque())
 
     # Transition state — keyed by session_id
@@ -427,7 +453,7 @@ def main():
             return
 
         # Log assignment (confident prediction)
-        safe_append_jsonl(OUT_ASSIGN, {
+        assignment = {
             "ts": rx_ts,
             "ts_kst": ts_kst(rx_ts),
             "phone_id": phone,
@@ -442,7 +468,20 @@ def main():
             "sources": sources,
             "vector": raw_vec,
             "timebase": "rx_time_laptop"
-        })
+        }
+        safe_append_jsonl(OUT_ASSIGN, assignment)
+
+        # Supabase upload: feed assignment to uploader buffer (non-blocking)
+        if _uploader is not None:
+            try:
+                _uploader.add_reading(assignment)
+                # Periodic flush based on interval
+                now = time.time()
+                if now - last_flush_ts[0] >= _uploader.interval_sec:
+                    _uploader.flush()
+                    last_flush_ts[0] = now
+            except Exception as e:
+                log_error("supabase_upload", e)
 
         # --- Transitions/dwells with debounce (keyed by session_id) ---
 
@@ -503,7 +542,22 @@ def main():
     client.reconnect_delay_set(min_delay=1, max_delay=10)
     client.enable_logger()
     client.connect(MQTT_HOST, MQTT_PORT, keepalive=30)
-    client.loop_forever(retry_first_connection=True)
+
+    try:
+        client.loop_forever(retry_first_connection=True)
+    except KeyboardInterrupt:
+        print("\n[SHUTDOWN] Stopping...")
+    finally:
+        # Flush any remaining upload buffer on exit
+        if _uploader is not None:
+            print("[SHUTDOWN] Flushing upload buffer...")
+            try:
+                _uploader.flush()
+                time.sleep(2)  # allow async uploads to complete
+            except Exception as e:
+                log_error("shutdown_flush", e)
+        client.disconnect()
+        print("[SHUTDOWN] Done.")
 
 if __name__ == "__main__":
     main()
