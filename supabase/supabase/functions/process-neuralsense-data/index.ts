@@ -302,7 +302,24 @@ Deno.serve(async (req: Request): Promise<Response> => {
     // ========================================
     // 5. Visit 세션 관리
     // ========================================
+    // visits 테이블 실제 스키마:
+    //   id (uuid PK), user_id (uuid NOT NULL), org_id, store_id,
+    //   customer_id, visit_date (timestamptz NOT NULL),
+    //   duration_minutes (int), zones_visited (text[]), created_at
+    const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000';
     let visitsUpdated = 0;
+
+    // MAC별 방문 존 ID 수집
+    const macZones = new Map<string, string[]>();
+    for (const event of zoneEvents) {
+      if (event.visitor_id && event.zone_id) {
+        const existing = macZones.get(event.visitor_id) || [];
+        if (!existing.includes(event.zone_id)) {
+          existing.push(event.zone_id);
+        }
+        macZones.set(event.visitor_id, existing);
+      }
+    }
 
     for (const mac of processedMacs) {
       // 최근 30분 내 같은 MAC의 방문 세션 찾기
@@ -310,21 +327,31 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
       const { data: existingVisit } = await supabase
         .from('visits')
-        .select('id, entry_time')
+        .select('id, created_at, zones_visited')
         .eq('store_id', store_id)
-        .eq('visitor_id', mac)
-        .gte('entry_time', sessionCutoff)
-        .order('entry_time', { ascending: false })
+        .eq('user_id', SYSTEM_USER_ID)
+        .is('customer_id', null)
+        .gte('created_at', sessionCutoff)
+        .order('created_at', { ascending: false })
         .limit(1)
         .single();
 
+      const visitedZones = macZones.get(mac) || [];
+
       if (existingVisit) {
-        // 기존 세션 업데이트 (exit_time 갱신)
+        // 기존 세션 업데이트: duration 계산 + zones_visited 병합
+        const createdAt = new Date(existingVisit.created_at).getTime();
+        const durationMinutes = Math.round((Date.now() - createdAt) / 60000);
+
+        // 기존 zones_visited와 새 존 병합 (중복 제거)
+        const prevZones: string[] = existingVisit.zones_visited || [];
+        const mergedZones = [...new Set([...prevZones, ...visitedZones])];
+
         await supabase
           .from('visits')
           .update({
-            exit_time: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
+            duration_minutes: durationMinutes > 0 ? durationMinutes : null,
+            zones_visited: mergedZones.length > 0 ? mergedZones : null,
           })
           .eq('id', existingVisit.id);
 
@@ -334,17 +361,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
         const { error: visitError } = await supabase
           .from('visits')
           .insert({
+            user_id: SYSTEM_USER_ID,
             org_id: org_id || null,
             store_id,
-            visitor_id: mac,
-            visit_date: new Date().toISOString().split('T')[0],
-            entry_time: new Date().toISOString(),
-            source: 'neuralsense',
-            metadata: {
-              node_id,
-              data_type,
-              raw_import_id: rawImportId,
-            },
+            customer_id: null,
+            visit_date: new Date().toISOString(),
+            duration_minutes: null,
+            zones_visited: visitedZones.length > 0 ? visitedZones : null,
           });
 
         if (!visitError) {

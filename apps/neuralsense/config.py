@@ -64,3 +64,13 @@ RSSI_MAX_DBM = int(os.getenv("RSSI_MAX_DBM", "-20"))
 
 # ── Data output ──
 OUTPUT_DIR = os.getenv("OUTPUT_DIR", "output")
+
+# ── Supabase Upload ──
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "")
+STORE_ID = os.getenv("STORE_ID", "")
+ORG_ID = os.getenv("ORG_ID", "")
+ENABLE_UPLOAD = os.getenv("ENABLE_UPLOAD", "false").lower() == "true"
+UPLOAD_BATCH_SIZE = int(os.getenv("UPLOAD_BATCH_SIZE", "50"))
+UPLOAD_INTERVAL_SEC = int(os.getenv("UPLOAD_INTERVAL_SEC", "30"))
+UPLOAD_MAX_RETRIES = int(os.getenv("UPLOAD_MAX_RETRIES", "3"))
