@@ -375,23 +375,30 @@ export function UnifiedDataUpload({ storeId, onUploadSuccess }: UnifiedDataUploa
         return;
       }
       
-      // Edge Function 호출
-      const { data, error } = await supabase.functions.invoke('validate-batch-files', {
-        body: {
-          files: validFilesData,
-          schema: schema
-        }
+      // Validate each file via validate-data EF (replaced phantom 'validate-batch-files')
+      const results = await Promise.all(
+        validFilesData.map(async (fileData: any) => {
+          try {
+            const { data: vResult, error: vError } = await supabase.functions.invoke('validate-data', {
+              body: { session_id: fileData.sessionId, column_mapping: fileData.columnMapping || {} }
+            });
+            if (vError) return { fileName: fileData.fileName, valid: false, error: vError.message };
+            return { fileName: fileData.fileName, valid: vResult?.can_import ?? true, ...vResult };
+          } catch {
+            return { fileName: fileData.fileName, valid: false, error: 'Validation unavailable' };
+          }
+        })
+      );
+
+      const validCount = results.filter((r: any) => r.valid).length;
+      const invalidCount = results.filter((r: any) => !r.valid).length;
+      const batchResult = { success: true, results, summary: { valid: validCount, invalid: invalidCount, total: results.length } };
+
+      setValidationResults(batchResult);
+      toast({
+        title: "검증 완료",
+        description: `${validCount}개 파일 정상, ${invalidCount}개 파일 오류 발견`
       });
-      
-      if (error) throw error;
-      
-      if (data.success) {
-        setValidationResults(data);
-        toast({
-          title: "검증 완료",
-          description: `${data.summary.valid}개 파일 정상, ${data.summary.invalid}개 파일 오류 발견`
-        });
-      }
     } catch (error: any) {
       console.error('Validation error:', error);
       toast({

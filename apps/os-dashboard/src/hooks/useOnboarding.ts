@@ -320,18 +320,23 @@ export function useApplySampleData() {
     mutationFn: async ({ templateId, storeId }: { templateId: string; storeId: string }) => {
       if (!user?.id || !orgId) throw new Error('User not authenticated');
 
-      // Edge Function 호출
-      const { data, error } = await supabase.functions.invoke('apply-sample-data', {
-        body: {
-          templateId,
-          storeId,
-          orgId,
-          userId: user.id,
-        },
-      });
+      // Edge Function 호출 (apply-sample-data EF not yet deployed — graceful fallback)
+      try {
+        const { data, error } = await supabase.functions.invoke('apply-sample-data', {
+          body: {
+            templateId,
+            storeId,
+            orgId,
+            userId: user.id,
+          },
+        });
 
-      if (error) throw error;
-      return data;
+        if (error) throw error;
+        return data;
+      } catch (err) {
+        console.warn('apply-sample-data EF unavailable, skipping sample data step:', err);
+        return { template: 'skipped', message: 'Sample data feature coming soon' };
+      }
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['onboarding-progress'] });

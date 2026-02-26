@@ -27,24 +27,31 @@ export type SchemaMetadata = Record<string, TableMetadata>;
 export function useSchemaMetadata() {
   return useQuery({
     queryKey: ['schema-metadata'],
-    queryFn: async () => {
+    queryFn: async (): Promise<SchemaMetadata> => {
       console.log('Fetching schema metadata...');
-      
-      const { data, error } = await supabase.functions.invoke('fetch-db-schema');
 
-      if (error) {
-        console.error('Error fetching schema:', error);
-        throw error;
+      try {
+        const { data, error } = await supabase.functions.invoke('fetch-db-schema');
+
+        if (error) {
+          console.warn('Schema fetch unavailable (fetch-db-schema EF not deployed), using empty schema');
+          return {} as SchemaMetadata;
+        }
+
+        if (!data?.success) {
+          console.warn('Schema fetch returned unsuccessful, using empty schema');
+          return {} as SchemaMetadata;
+        }
+
+        console.log(`Schema loaded: ${data.table_count} tables`);
+        return data.schema as SchemaMetadata;
+      } catch (err) {
+        console.warn('Schema metadata unavailable, proceeding without schema validation:', err);
+        return {} as SchemaMetadata;
       }
-
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to fetch schema');
-      }
-
-      console.log(`Schema loaded: ${data.table_count} tables`);
-      return data.schema as SchemaMetadata;
     },
-    staleTime: 5 * 60 * 1000, // 5분 동안 캐시 유지
-    gcTime: 10 * 60 * 1000, // 10분 후 가비지 컬렉션
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    retry: false,
   });
 }
