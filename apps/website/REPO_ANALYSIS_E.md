@@ -462,7 +462,7 @@ apps/website/
 | 작업 | 예상 공수 | 설명 |
 |------|----------|------|
 | Chat.tsx 리팩토링 (2,260줄) | 2d | 훅/컴포넌트 분리 |
-| i18n en 번역 보충 (77키) | 1d | `contact.consent` 등 |
+| i18n en 번역 보충 (75키) | 1d | `contact.consent` 등 |
 | i18n ja 번역 추가 | 2d | 일본어 번역 파일 신규 생성 |
 | Three.js 버전 정렬 | 0.5d | 0.160.0 → OS Dashboard와 동일 버전 |
 | 레거시 Footer.tsx 제거 | 0.25d | `components/Footer.tsx` (layout/Footer와 중복) |
@@ -1398,7 +1398,7 @@ setSortBy(v as SortKey);
 **테이블별 상세 쿼리 위치**:
 
 <details>
-<summary>organization_members (11 쿼리)</summary>
+<summary>organization_members (9 쿼리)</summary>
 
 | 파일 | 라인 | 작업 | 패턴 |
 |------|------|------|------|
@@ -1429,7 +1429,7 @@ setSortBy(v as SortKey);
 </details>
 
 <details>
-<summary>subscriptions (6 쿼리)</summary>
+<summary>subscriptions (5 쿼리)</summary>
 
 | 파일 | 라인 | 작업 | 패턴 |
 |------|------|------|------|
@@ -1442,7 +1442,7 @@ setSortBy(v as SortKey);
 </details>
 
 <details>
-<summary>profiles (4 쿼리)</summary>
+<summary>profiles (3 쿼리)</summary>
 
 | 파일 | 라인 | 작업 | 패턴 |
 |------|------|------|------|
