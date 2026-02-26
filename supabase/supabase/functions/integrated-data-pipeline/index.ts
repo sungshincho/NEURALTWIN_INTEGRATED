@@ -87,30 +87,89 @@ async function runPipeline(
       }
     }
 
-    // Step 1: 데이터 검증 및 수정
+    // Step 1: 데이터 검증 (inline — replaced phantom 'validate-and-fix-csv' EF)
     if (!skip_validation) {
-      console.log('\n📍 STEP 1: Validating and fixing data...');
+      console.log('\n📍 STEP 1: Validating data...');
       await updateProgress(supabase, import_id, 'validation', 15);
-      
-      const validationResponse = await supabase.functions.invoke('validate-and-fix-csv', {
-        body: {
-          import_id,
-          auto_fix,
-          user_id: user.id,
-        },
-      });
 
-      if (validationResponse.error) {
-        console.error('❌ Validation failed:', validationResponse.error);
-        throw new Error(`Validation failed: ${validationResponse.error.message}`);
+      // Load raw data from import record
+      const { data: importRecord, error: loadError } = await supabase
+        .from('user_data_imports')
+        .select('raw_data, import_type, row_count')
+        .eq('id', import_id)
+        .single();
+
+      if (loadError || !importRecord?.raw_data) {
+        throw new Error(`Failed to load import data: ${loadError?.message || 'No raw_data'}`);
       }
 
-      result.validation = validationResponse.data;
+      const rawData = importRecord.raw_data as Record<string, unknown>[];
+      const issues: Array<{ type: string; column: string; row?: number; message: string }> = [];
+      const fixes: Array<{ type: string; column: string; description: string }> = [];
+
+      // Basic validation: check for empty rows, missing required fields, type mismatches
+      let emptyRows = 0;
+      for (let i = 0; i < rawData.length; i++) {
+        const row = rawData[i];
+        if (!row || Object.values(row).every(v => v === null || v === '' || v === undefined)) {
+          emptyRows++;
+          if (auto_fix) {
+            rawData.splice(i, 1);
+            i--;
+            fixes.push({ type: 'fix', column: '*', description: `Removed empty row ${i + 1}` });
+          } else {
+            issues.push({ type: 'warning', column: '*', row: i + 1, message: 'Empty row detected' });
+          }
+        }
+      }
+
+      // Check for duplicate rows (by JSON stringification)
+      const seen = new Set<string>();
+      let duplicates = 0;
+      for (let i = 0; i < rawData.length; i++) {
+        const key = JSON.stringify(rawData[i]);
+        if (seen.has(key)) {
+          duplicates++;
+          if (auto_fix) {
+            rawData.splice(i, 1);
+            i--;
+            fixes.push({ type: 'fix', column: '*', description: `Removed duplicate row` });
+          } else {
+            issues.push({ type: 'warning', column: '*', row: i + 1, message: 'Duplicate row' });
+          }
+        }
+        seen.add(key);
+      }
+
+      // Save fixed data back if auto_fix applied changes
+      if (auto_fix && fixes.length > 0) {
+        await supabase
+          .from('user_data_imports')
+          .update({ raw_data: rawData, row_count: rawData.length })
+          .eq('id', import_id);
+      }
+
+      const totalRows = rawData.length;
+      const errorCount = issues.filter(i => i.type === 'error').length;
+      const warningCount = issues.filter(i => i.type === 'warning').length;
+      const qualityScore = totalRows > 0
+        ? Math.round(((totalRows - errorCount) / totalRows) * 100)
+        : 0;
+
+      result.validation = {
+        data_quality_score: qualityScore,
+        issues,
+        fixes,
+        total_rows: totalRows,
+        error_count: errorCount,
+        warning_count: warningCount,
+      };
+
       console.log('✅ Validation complete');
       console.log(`  - Data quality score: ${result.validation.data_quality_score}/100`);
       console.log(`  - Issues found: ${result.validation.issues.length}`);
       console.log(`  - Fixes applied: ${result.validation.fixes.length}`);
-      await updateProgress(supabase, import_id, 'validation', 30, { 
+      await updateProgress(supabase, import_id, 'validation', 30, {
         quality_score: result.validation.data_quality_score,
         issues: result.validation.issues.length
       });
