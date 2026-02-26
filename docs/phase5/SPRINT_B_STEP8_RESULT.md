@@ -11,8 +11,8 @@
 
 | EF Name | EF 디렉토리 | 프론트엔드 참조 | Supabase 삭제 | 조치 |
 |---------|------------|---------------|--------------|------|
-| `generate-template` | 이전 PR에서 삭제됨 | DataImportWidget.tsx:807,816 → **dead 코드 제거 완료** | CLI 필요 (아래 참고) | ✅ 코드 정리 완료 |
-| `upscale-image` | 이전 PR에서 삭제됨 | 참조 없음 | CLI 필요 (아래 참고) | ✅ 참조 없음 확인 |
+| `generate-template` | 이전 PR에서 삭제됨 | DataImportWidget.tsx:807,816 → **dead 코드 제거 완료** | ✅ CLI 삭제 완료 | ✅ 완전 제거 |
+| `upscale-image` | 이전 PR에서 삭제됨 | 참조 없음 | ✅ CLI 삭제 완료 | ✅ 완전 제거 |
 
 ### generate-template 코드 수정 내역
 
@@ -26,13 +26,11 @@
 - EF 호출 제거, 로컬 CSV 템플릿 직접 사용
 - toast 알림 추가
 
-### Supabase 플랫폼에서 EF 삭제 (수동 필요)
+### Supabase 플랫폼에서 EF 삭제 ✅ 완료
 
-> MCP에 Edge Function 삭제 도구가 없으므로, CLI로 수동 삭제 필요:
-
-```bash
-supabase functions delete generate-template --project-ref bdrvowacecxnraaivlhr
-supabase functions delete upscale-image --project-ref bdrvowacecxnraaivlhr
+```
+Deleted Function generate-template from project bdrvowacecxnraaivlhr.
+Deleted Function upscale-image from project bdrvowacecxnraaivlhr.
 ```
 
 ---
@@ -107,14 +105,7 @@ Step 8 — Dead EF/RPC 최종 정리
 
 ---
 
-## 수동 조치 체크리스트
-
-```
-□ supabase functions delete generate-template --project-ref bdrvowacecxnraaivlhr
-□ supabase functions delete upscale-image --project-ref bdrvowacecxnraaivlhr
-```
-
 ---
 
-> 작성일: 2026-02-26
-> 다음 단계: Sprint B 완료 검증 (타입 재생성, 빌드 확인, 프로덕션 확인)
+> 작성일: 2026-02-26 | 최종 업데이트: 2026-02-26
+> 상태: **Step 8 완료** — Dead EF CLI 삭제 포함
