@@ -1381,3 +1381,313 @@ setSortBy(v as SortKey);
 /terms       → Terms.tsx       (이용약관)
 *            → NotFound.tsx    (404)
 ```
+
+---
+
+## 14. 외부 서비스 연결 지점 종합
+
+### 14.1 Supabase 연결
+
+#### 14.1.1 클라이언트 설정
+
+- **파일**: `src/integrations/supabase/client.ts`
+- **타입**: `@neuraltwin/types`의 `Database` 제네릭 사용
+- **설정**: `localStorage` 기반 세션, `autoRefreshToken: true`, `persistSession: true`
+
+#### 14.1.2 DB 쿼리 테이블 목록
+
+| 테이블 | 쿼리 수 | 사용 파일 | 주요 작업 |
+|--------|---------|-----------|-----------|
+| `organization_members` | 11 | Auth.tsx, useAuth.ts, Profile.tsx, Dashboard.tsx, Subscribe.tsx | SELECT (관계 조인 포함), INSERT |
+| `organizations` | 6 | Auth.tsx | SELECT (org_name 검색), INSERT (신규 조직 생성) |
+| `subscriptions` | 6 | Auth.tsx, Profile.tsx, Dashboard.tsx | SELECT (active 상태 필터) |
+| `profiles` | 4 | Profile.tsx, Header.tsx | SELECT (사용자 정보), UPDATE (display_name, avatar_url) |
+| `licenses` | 1 | Profile.tsx | SELECT (subscription_id 기준, created_at DESC 정렬) |
+| `avatars` (Storage) | 2 | Profile.tsx | UPLOAD, GET_PUBLIC_URL |
+
+**쿼리 유형 분포**:
+
+| 유형 | 횟수 | 비고 |
+|------|------|------|
+| SELECT | 17 | `.single()` 4회, `.maybeSingle()` 10회 |
+| INSERT | 7 | 모두 단일 행 삽입 |
+| UPDATE | 1 | profiles 테이블만 |
+| DELETE | 0 | 삭제 쿼리 없음 |
+| UPSERT | 0 | — |
+| RPC | 0 | `search_knowledge_trgm` 계획만 있음 (미구현) |
+| Realtime | 0 | DB 실시간 구독 없음 |
+
+**테이블별 상세 쿼리 위치**:
+
+<details>
+<summary>organization_members (11 쿼리)</summary>
+
+| 파일 | 라인 | 작업 | 패턴 |
+|------|------|------|------|
+| `hooks/useAuth.ts` | 74–91 | SELECT | `.select()` + 관계 (organizations, licenses) → `single()` |
+| `pages/Auth.tsx` | 47 | SELECT | `.select('org_id').eq('user_id', …)` → `maybeSingle()` |
+| `pages/Auth.tsx` | 94 | INSERT | `{ user_id, org_id, role }` |
+| `pages/Auth.tsx` | 155 | SELECT | `.select('org_id').eq('user_id', …)` → `maybeSingle()` |
+| `pages/Auth.tsx` | 196 | INSERT | `{ user_id, org_id, role }` |
+| `pages/Auth.tsx` | 361 | INSERT | `{ user_id, org_id, role }` |
+| `pages/Profile.tsx` | 86–92 | SELECT | `.select()` + 관계 (organizations, licenses) → `maybeSingle()` |
+| `pages/Dashboard.tsx` | 31–35 | SELECT | `.select('org_id, role, organizations(…)')` → `single()` |
+| `pages/Subscribe.tsx` | 52–56 | SELECT | `.select("org_id").eq("user_id", …)` → `maybeSingle()` |
+
+</details>
+
+<details>
+<summary>organizations (6 쿼리)</summary>
+
+| 파일 | 라인 | 작업 | 패턴 |
+|------|------|------|------|
+| `pages/Auth.tsx` | 61 | SELECT | `.select('id').eq('org_name', companyName)` → `maybeSingle()` |
+| `pages/Auth.tsx` | 73–79 | INSERT | `{ org_name, created_by, metadata: { country: 'KR' } }` |
+| `pages/Auth.tsx` | 167 | SELECT | `.select('id').eq('org_name', companyName)` → `maybeSingle()` |
+| `pages/Auth.tsx` | 177–183 | INSERT | `{ org_name, created_by, metadata: { country: 'KR' } }` |
+| `pages/Auth.tsx` | 326 | SELECT | `.select('id').eq('org_name', company)` → `maybeSingle()` |
+| `pages/Auth.tsx` | 339–345 | INSERT | `{ org_name, created_by, metadata: { country: 'KR' } }` → `single()` |
+
+</details>
+
+<details>
+<summary>subscriptions (6 쿼리)</summary>
+
+| 파일 | 라인 | 작업 | 패턴 |
+|------|------|------|------|
+| `pages/Auth.tsx` | 112 | SELECT | `.eq('org_id', …).eq('status', 'active')` → `maybeSingle()` |
+| `pages/Auth.tsx` | 212 | SELECT | `.eq('org_id', …).eq('status', 'active')` → `maybeSingle()` |
+| `pages/Auth.tsx` | 379 | SELECT | `.eq('org_id', …).eq('status', 'active')` → `maybeSingle()` |
+| `pages/Profile.tsx` | 106 | SELECT | `.eq('org_id', …)` → `maybeSingle()` |
+| `pages/Dashboard.tsx` | 44–48 | SELECT | `.eq('org_id', …)` → `single()` |
+
+</details>
+
+<details>
+<summary>profiles (4 쿼리)</summary>
+
+| 파일 | 라인 | 작업 | 패턴 |
+|------|------|------|------|
+| `pages/Profile.tsx` | 70 | SELECT | `.select("*").eq("id", userId)` → `maybeSingle()` |
+| `pages/Profile.tsx` | 184–187 | UPDATE | `{ display_name, avatar_url }` → `.eq("id", userId)` |
+| `components/layout/Header.tsx` | 38 | SELECT | `.select("*").eq("id", userId)` → `single()` |
+
+</details>
+
+<details>
+<summary>licenses (1 쿼리)</summary>
+
+| 파일 | 라인 | 작업 | 패턴 |
+|------|------|------|------|
+| `pages/Profile.tsx` | 113 | SELECT | `.eq('subscription_id', …).order('created_at', { ascending: false })` |
+
+</details>
+
+<details>
+<summary>avatars — Storage (2 작업)</summary>
+
+| 파일 | 라인 | 작업 | 패턴 |
+|------|------|------|------|
+| `pages/Profile.tsx` | 171 | UPLOAD | `supabase.storage.from('avatars').upload(…)` |
+| `pages/Profile.tsx` | 179 | GET URL | `supabase.storage.from('avatars').getPublicUrl(…)` |
+
+</details>
+
+#### 14.1.3 Edge Function 호출 목록
+
+| Function 이름 | 파일 | 호출 방식 | 용도 | 상태 |
+|---------------|------|-----------|------|------|
+| `retail-chatbot` | `pages/Chat.tsx:566` | `fetch()` (SSE 스트리밍) | AI 채팅 메시지 전송 & 응답 스트리밍 | **Active** |
+| `retail-chatbot` | `pages/Chat.tsx:761` | `fetch()` (POST JSON) | 리드(Lead) 정보 캡처 (`action: "capture_lead"`) | **Active** |
+| `retail-chatbot` | `pages/Chat.tsx:835` | `fetch()` (fire-and-forget) | 메시지 반응 로깅 (`action: "log_reaction"`) | **Active** |
+| `submit-contact` | `pages/Contact.tsx:75` | `supabase.functions.invoke()` | 문의 폼 제출 | **Active** |
+| `create-checkout` | `pages/Subscribe.tsx:138` | `supabase.functions.invoke()` | Stripe 결제 연동 | **TODO** (주석 처리) |
+
+**retail-chatbot 호출 상세**:
+
+```
+[Chat 메시지 전송] POST ${SUPABASE_URL}/functions/v1/retail-chatbot
+  Headers: Authorization: Bearer ${VITE_SUPABASE_PUBLISHABLE_KEY}
+  Body: { message, sessionId, conversationId, history, attachments?, stream, currentVizState? }
+  Response: SSE stream (desktop) / JSON (mobile)
+
+[Lead 캡처] POST ${SUPABASE_URL}/functions/v1/retail-chatbot
+  Body: { action: "capture_lead", sessionId, conversationId, lead: { email, company, role } }
+  Response: JSON
+
+[반응 로깅] POST ${SUPABASE_URL}/functions/v1/retail-chatbot  (fire-and-forget)
+  Body: { action: "log_reaction", sessionId, conversationId, reaction: { type, messageId, messageContent? } }
+```
+
+> **개선점**: `retail-chatbot`은 `fetch()`로 직접 호출하고, `submit-contact`은 `supabase.functions.invoke()`를 사용. 호출 방식 통일 필요 (스트리밍은 fetch 유지).
+
+#### 14.1.4 Auth 사용 패턴
+
+| 메서드 | 파일 | 라인 | 용도 |
+|--------|------|------|------|
+| `signUp()` | Auth.tsx | 304 | 이메일/비밀번호 회원가입 + 메타데이터 (name, company, phone, roleType) |
+| `signInWithPassword()` | Auth.tsx | 425 | 이메일/비밀번호 로그인 |
+| `signInWithOAuth({ provider: 'google' })` | Auth.tsx | 451 | Google OAuth 로그인 |
+| `getSession()` | Auth.tsx:240, Dashboard.tsx:75 | — | 현재 세션 확인 |
+| `getUser()` | useAuth.ts:96, Profile.tsx:59, Subscribe.tsx:38 | — | 인증 사용자 객체 조회 |
+| `onAuthStateChange()` | useAuth.ts:17, Auth.tsx:253, Dashboard.tsx:60 | — | 인증 상태 변경 리스너 |
+| `signOut()` | useAuth.ts:139, Profile.tsx:235 | — | 로그아웃 |
+| `resetPasswordForEmail()` | Profile.tsx:219 | — | 비밀번호 재설정 이메일 발송 |
+
+**역할 기반 접근 제어 (RBAC)**:
+
+| 역할 (AppRole) | 권한 |
+|----------------|------|
+| `NEURALTWIN_MASTER` | 전체 관리자 → `/admin` 리디렉트 |
+| `ORG_HQ` | 조직 본사 → `/dashboard` |
+| `ORG_STORE` | 매장 관리자 → `/dashboard` |
+| `ORG_VIEWER` | 조직 뷰어 → `/dashboard` |
+
+**보호 경로**: `ProtectedRoute` 컴포넌트 (`src/components/ProtectedRoute.tsx`)
+- `isAuthenticated` 확인 → 미인증 시 `/auth` 리디렉트
+- `allowedRoles` prop으로 역할별 접근 제어
+
+---
+
+### 14.2 환경변수 목록 (VITE_ 접두사) — 상세
+
+| 변수 | 용도 | 필수 | 사용 파일 | 분류 |
+|------|------|------|-----------|------|
+| `VITE_SUPABASE_URL` | Supabase 프로젝트 URL | **Yes** | `client.ts` (초기화), `Chat.tsx` (EF 호출 3곳) | `.env` 로드 |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Supabase anon 공개 키 | **Yes** | `client.ts` (초기화), `Chat.tsx` (Bearer 토큰 3곳) | `.env` 로드 |
+| `VITE_OPENWEATHERMAP_API_KEY` | OpenWeatherMap 날씨 API 키 | No | `.env.example`에 정의 (website 코드에서 미사용, os-dashboard에서 사용) | `.env` 로드 |
+| `VITE_DATA_GO_KR_API_KEY` | 공공데이터포털 (data.go.kr) API 키 | No | `.env.example`에 정의 (website 코드에서 미사용, os-dashboard에서 사용) | `.env` 로드 |
+| `VITE_CALENDARIFIC_API_KEY` | Calendarific 공휴일 캘린더 API 키 | No | `.env.example`에 정의 (website 코드에서 미사용, os-dashboard에서 사용) | `.env` 로드 |
+
+**하드코딩 vs `.env` 분류**:
+
+| 항목 | 분류 | 위치 | 비고 |
+|------|------|------|------|
+| Supabase URL | `.env` 로드 | `import.meta.env.VITE_SUPABASE_URL` | `.env.example`에 기본값 `https://bdrvowacecxnraaivlhr.supabase.co` |
+| Supabase Key | `.env` 로드 | `import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY` | `.env.example`에 `your_anon_key_here` 플레이스홀더 |
+| OS Dashboard URL | **하드코딩** | `Dashboard.tsx:83` | `https://neuraltwintest.app` 직접 작성 |
+| Vimeo 비디오 URL | **하드코딩** | `Index.tsx:139` | `https://player.vimeo.com/video/1142028485` |
+| LinkedIn URL | **하드코딩** | `Footer.tsx:56` | `https://www.linkedin.com/company/neuraltwin` |
+| Google Fonts URL | **하드코딩** | `index.css:1` | `fonts.googleapis.com/css2?family=Inter:wght@…` |
+| Pretendard Font URL | **하드코딩** | `index.css:2` | `cdn.jsdelivr.net/gh/orioncactus/pretendard/…` |
+
+> **권장**: OS Dashboard URL(`neuraltwintest.app`)은 환경별로 다를 수 있으므로 `VITE_OS_DASHBOARD_URL` 환경변수로 분리 검토.
+
+---
+
+### 14.3 외부 API 및 서비스
+
+#### 14.3.1 분석 도구
+
+| 서비스 | 구현 파일 | 초기화 | 이벤트 추적 |
+|--------|-----------|--------|-------------|
+| **Google Analytics 4 (GA4)** | `lib/analytics.ts` | `index.html`에서 gtag 스크립트 로드 (주입 필요) | `window.gtag('event', …)` |
+| **Meta Pixel (Facebook)** | `lib/analytics.ts` | `index.html`에서 fbq 스크립트 로드 (주입 필요) | `window.fbq('track', …)` |
+
+**GA4 이벤트 매핑**:
+
+| 이벤트 이름 | 트리거 위치 | 퍼널 단계 |
+|-------------|-------------|-----------|
+| `page_view` | Index, Auth, Contact, Product, Pricing | 1–3 |
+| `funnel_progress` | Index, Auth, Contact, Pricing | 1–4 |
+| `cta_click` | Index, Pricing | 1–3 |
+| `mini_feature_used` | Product (미니 피쳐 인터랙션) | 2 |
+| `submit_contact` | Contact (폼 제출) | 3 |
+| `start_contact` | Contact (폼 시작) | 3 |
+| `meeting_booked` | — (예약 완료 시) | 4 |
+
+**Meta Pixel 이벤트 매핑**:
+
+| GA4 이벤트 | Meta Pixel 이벤트 |
+|------------|-------------------|
+| `submit_contact` | `Contact` |
+| `view_pricing` | `ViewContent` |
+| `meeting_booked` | `Schedule` |
+| `click_mini_features` | `ViewContent` |
+| `mini_feature_used` | `ViewContent` |
+| 기타 | `CustomEvent` |
+
+**분석 사용 페이지**:
+
+| 페이지 | 함수 | 퍼널 단계 |
+|--------|------|-----------|
+| `Index.tsx` | `trackPageView`, `trackCTAClick`, `trackFunnelStep` | 1 |
+| `Product.tsx` | `trackPageView`, `trackFunnelStep` | 2 |
+| `Pricing.tsx` | `trackPageView`, `trackCTAClick`, `trackFunnelStep` | 2 |
+| `Contact.tsx` | `trackPageView`, `trackContactForm`, `trackFunnelStep` | 3 |
+| `Auth.tsx` | `trackPageView`, `trackFunnelStep` | 3 |
+
+> **참고**: `index.html`에 현재 GA4/Meta Pixel 초기화 스크립트가 삽입되어 있지 않음. 프로덕션 배포 시 Vercel 환경 또는 GTM을 통해 주입해야 함.
+
+#### 14.3.2 CDN 리소스
+
+| 리소스 | URL | 파일 | 용도 |
+|--------|-----|------|------|
+| Google Fonts (Inter) | `https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap` | `index.css:1` | 영문 기본 폰트 |
+| Pretendard (jsDelivr) | `https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css` | `index.css:2` | 한글 폰트 |
+
+#### 14.3.3 임베디드 외부 콘텐츠
+
+| 서비스 | URL | 파일 | 용도 |
+|--------|-----|------|------|
+| Vimeo | `https://player.vimeo.com/video/1142028485` | `Index.tsx:139` | 랜딩 페이지 배경 비디오 (자동 재생, 루프, 음소거) |
+
+#### 14.3.4 외부 링크
+
+| 서비스 | URL | 파일 | 용도 |
+|--------|-----|------|------|
+| LinkedIn | `https://www.linkedin.com/company/neuraltwin` | `Footer.tsx:56` | 소셜 미디어 링크 |
+| OS Dashboard | `https://neuraltwintest.app` | `Dashboard.tsx:83` | 외부 대시보드 (인증 토큰 전달) |
+
+#### 14.3.5 계획 중 (미구현) 외부 API
+
+| API | URL / 서비스 | 문서 위치 | 상태 |
+|-----|-------------|-----------|------|
+| Stripe | 결제 게이트웨이 | `Subscribe.tsx:138` (주석) | TODO — DB 마이그레이션 후 구현 예정 |
+| Jina Reader API | `https://r.jina.ai/` | `PLAN.md:247` | 계획 단계 |
+| Google Serper API | `https://google.serper.dev/news` | `PLAN.md:276` | 계획 단계 |
+| Google AI Embedding | `generativelanguage.googleapis.com` | `IMPLEMENTATION_PLAN.md:16` | 계획 단계 |
+
+---
+
+### 14.4 외부 서비스 연결 요약 다이어그램
+
+```
+apps/website (브라우저)
+│
+├─── Supabase ──────────────────────────────────────────────
+│    ├── Auth API
+│    │   ├── signUp / signInWithPassword / signInWithOAuth(google)
+│    │   ├── getSession / getUser / onAuthStateChange
+│    │   └── signOut / resetPasswordForEmail
+│    │
+│    ├── Database (PostgREST)
+│    │   ├── organization_members  (SELECT, INSERT)
+│    │   ├── organizations         (SELECT, INSERT)
+│    │   ├── subscriptions         (SELECT)
+│    │   ├── profiles              (SELECT, UPDATE)
+│    │   └── licenses              (SELECT)
+│    │
+│    ├── Storage
+│    │   └── avatars bucket        (UPLOAD, GET_PUBLIC_URL)
+│    │
+│    └── Edge Functions
+│        ├── retail-chatbot        (Chat AI: 스트리밍, 리드 캡처, 반응 로깅)
+│        ├── submit-contact        (문의 폼)
+│        └── create-checkout       (TODO: Stripe)
+│
+├─── 분석 도구 ─────────────────────────────────────────────
+│    ├── Google Analytics 4        (gtag — 퍼널 4단계 추적)
+│    └── Meta Pixel                (fbq — 전환 추적)
+│
+├─── CDN ───────────────────────────────────────────────────
+│    ├── Google Fonts              (Inter 폰트)
+│    └── jsDelivr                  (Pretendard 한글 폰트)
+│
+├─── 임베디드 ──────────────────────────────────────────────
+│    └── Vimeo                     (랜딩 페이지 배경 비디오)
+│
+└─── 외부 링크 ─────────────────────────────────────────────
+     ├── neuraltwintest.app        (OS Dashboard — 토큰 전달)
+     └── linkedin.com/neuraltwin   (소셜 링크)
+```
