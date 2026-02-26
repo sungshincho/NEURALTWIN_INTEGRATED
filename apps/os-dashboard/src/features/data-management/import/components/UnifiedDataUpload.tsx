@@ -843,8 +843,8 @@ export function UnifiedDataUpload({ storeId, onUploadSuccess }: UnifiedDataUploa
                 });
                 
                 console.log('🤖 Background: AI recommendations...');
-                await supabase.functions.invoke('generate-ai-recommendations', {
-                  body: { store_id: storeId },
+                await supabase.functions.invoke('unified-ai', {
+                  body: { action: 'generate_recommendations', store_id: storeId },
                 });
               } catch (bgError) {
                 console.warn('⚠️ Background tasks failed (non-critical):', bgError);
