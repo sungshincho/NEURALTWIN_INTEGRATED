@@ -9,7 +9,6 @@
 #   bash pi_controller.sh status               Check which Pis are reachable + sniffer running
 
 # ── Config ──────────────────────────────────────────────────
-PI_PASSWORD="raspberry"
 CHANNEL="${2:-6}"
 CAL_MAC="a8:76:50:e9:28:20"
 TRACK_MACS="b0:54:76:5c:99:d5,24:24:b7:19:30:0a,a8:76:50:e9:28:20"
@@ -27,13 +26,12 @@ PI_SSH[pi12]="pi@100.96.1.14"
 PI_SSH[pi13]="pi@100.73.179.15"
 
 # ── SSH helper ──────────────────────────────────────────────
+# Uses SSH key auth (ssh-copy-id). Will prompt for key passphrase if needed.
 run_ssh() {
     local target="$1"
     shift
-    sshpass -p "$PI_PASSWORD" ssh \
-        -o ConnectTimeout=10 \
+    ssh -o ConnectTimeout=10 \
         -o StrictHostKeyChecking=no \
-        -o LogLevel=ERROR \
         "$target" "$@"
 }
 
@@ -248,14 +246,8 @@ cmd_help() {
 
 # ── Main ────────────────────────────────────────────────────
 
-# Check sshpass is installed
-if ! command -v sshpass &>/dev/null; then
-    echo "ERROR: sshpass is not installed."
-    echo "Install with: sudo apt install sshpass  (Linux)"
-    echo "           or: brew install hudochenkov/sshpass/sshpass  (Mac)"
-    echo "           or: pacman -S sshpass  (MSYS2/Git Bash)"
-    exit 1
-fi
+# Tip: run "eval $(ssh-agent -s) && ssh-add ~/.ssh/id_ed25519" once per terminal
+# to avoid typing your key passphrase for every Pi connection.
 
 case "${1:-help}" in
     monitor)    cmd_monitor ;;
