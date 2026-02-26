@@ -1216,6 +1216,153 @@ const toggleLanguage = () => {
 
 ---
 
+## 13. `@ts-ignore` / `as any` 전수 조사
+
+### 13-1. 전체 현황 요약
+
+> **참고**: `WORK_GUIDE_C.md`에 기재된 "92개 @ts-ignore"는 과거 상태이며, 현재는 대부분 제거됨. 실제 타입 안전성 이슈는 `as any` 사용에 집중.
+
+| 지시자 | Website | OS Dashboard | Supabase EF | 합계 |
+|--------|---------|-------------|-------------|------|
+| `@ts-ignore` | 0 | 0 | **1** | **1** |
+| `@ts-expect-error` | 0 | **1** | 0 | **1** |
+| `@ts-nocheck` | 0 | 0 | 0 | 0 |
+| `as any` | **4** | **328** | **73** | **405** |
+| **타입 안전성 이슈 합계** | **4** | **329** | **74** | **407** |
+
+### 13-2. `@ts-ignore` / `@ts-expect-error` 상세 (2건)
+
+| # | 파일 | 라인 | 지시자 | 이유 | 수정 방법 |
+|---|------|------|--------|------|----------|
+| 1 | `supabase/.../generate-optimization/index.ts` | 1423 | `@ts-ignore` | `tool_call_id`는 OpenRouter에서 필요하지만 타입 미지원 | OpenRouter 응답 타입에 `tool_call_id` 추가 정의 |
+| 2 | `apps/os-dashboard/.../DataImportWidget.tsx` | 723 | `@ts-expect-error` | Supabase query builder 깊은 타입 인스턴스화 한계 | Supabase 쿼리 래퍼 함수로 분리 |
+
+### 13-3. Website `as any` 상세 (4건) — E 담당 즉시 수정 가능
+
+| # | 파일 | 라인 | 코드 | 이유 | 수정 방법 |
+|---|------|------|------|------|----------|
+| 1 | `pages/Auth.tsx` | 14 | `(location.state as any)?.tab` | `location.state` 타입 미정의 | `location.state as { tab?: string }` |
+| 2 | `pages/Auth.tsx` | 26 | `(location.state as any)?.tab` | 동일 (useEffect 내) | 동일 — 공통 타입 추출 |
+| 3 | `pages/Profile.tsx` | 44 | `(location.state as any)?.tab` | `location.state` 타입 미정의 | `location.state as { tab?: string }` |
+| 4 | `components/features/ProductPerformance.tsx` | 213 | `setSortBy(v as any)` | Select onValueChange 타입 불일치 | `setSortBy(v as SortKey)` + union 타입 정의 |
+
+**수정 계획** (Website 4건):
+
+```typescript
+// 수정 1,2,3: location.state 타입 정의
+// src/types/router.ts (신규)
+interface LocationState {
+  tab?: 'login' | 'signup' | 'account' | 'subscription' | 'notifications' | 'security';
+}
+
+// Auth.tsx, Profile.tsx
+const tabFromState = (location.state as LocationState)?.tab;
+
+// 수정 4: sortBy union 타입 정의
+type SortKey = 'revenue' | 'sales' | 'stock' | 'change';
+setSortBy(v as SortKey);
+```
+
+> **예상 공수**: 0.25d — 즉시 수정 가능
+
+### 13-4. OS Dashboard `as any` 카테고리 분석 (328건)
+
+| # | 카테고리 | 건수 | 비율 | 대표 파일 | 수정 방법 |
+|---|---------|------|------|----------|----------|
+| 1 | **Supabase 쿼리 빌더 타입 우회** | ~115 | 35% | useOnboarding.ts(26), useROITracking.ts(26), usePOSIntegration.ts(19) | 타입드 쿼리 래퍼 함수 생성 |
+| 2 | **JSON/API 응답 미타이핑** | ~95 | 29% | modelLayerLoader.ts(32), useStoreContext.ts(16) | JSONB 필드 인터페이스 정의 (Vector3D, Transform 등) |
+| 3 | **중첩 metadata 프로퍼티 접근** | ~59 | 18% | DigitalTwinStudioPage.tsx(18), sceneStore.ts(9) | 판별 유니언 타입 + 타입 가드 |
+| 4 | **배열 타입 캐스팅** | ~26 | 8% | sceneRecipeGenerator.ts(11), useLayoutSimulation.ts(3) | 제네릭 `Array<T>` 명시 |
+| 5 | **서드파티 라이브러리 타입 불일치** | ~20 | 6% | Canvas3D.tsx(2), UnifiedDataUpload.tsx(6) | 어댑터 인터페이스 생성 |
+| 6 | **불필요한 lazy 타이핑** | ~13 | 4% | buildRetailOntologyGraph.ts(6), EntityTypeManager.tsx(3) | 직접 리팩토링 (즉시 가능) |
+
+**핫스팟 파일 (상위 10)**:
+
+| 파일 | 건수 | 주요 패턴 | 우선순위 |
+|------|------|----------|---------|
+| `modelLayerLoader.ts` | 32 | JSONB 필드 접근 (position, rotation, scale) | 🔴 |
+| `useOnboarding.ts` | 26 | `supabase.from('table' as any)` | 🟡 |
+| `useROITracking.ts` | 26 | Supabase 쿼리 + JSON 응답 | 🟡 |
+| `AIOptimizationTab.tsx` | 21 | metadata 접근 + 진단 데이터 | 🟡 |
+| `usePOSIntegration.ts` | 19 | Supabase 쿼리 빌더 | 🟡 |
+| `DigitalTwinStudioPage.tsx` | 18 | metadata.childProducts 접근 | 🟡 |
+| `useStoreContext.ts` | 16 | 복합 (쿼리 + JSON + 메타) | 🟡 |
+| `sceneRecipeGenerator.ts` | 11 | 배열 캐스팅 + 데이터 변환 | 🟢 |
+| `useSceneSimulation.ts` | 11 | 시뮬레이션 결과 타이핑 | 🟢 |
+| `sceneStore.ts` | 9 | metadata + childProducts | 🟢 |
+
+### 13-5. Supabase Edge Functions `as any` 카테고리 분석 (73건)
+
+| # | 카테고리 | 건수 | 비율 | 대표 파일 | 수정 방법 |
+|---|---------|------|------|----------|----------|
+| 1 | **문자열→숫자 변환** | ~23 | 32% | process-wifi-data(23) | `parseFloatSafe(row.x: unknown)` 래퍼 |
+| 2 | **DB 프로퍼티 접근 (JSONB)** | ~12 | 16% | aggregate-dashboard-kpis(4), import-with-ontology(4) | 엔티티 프로퍼티 타입 정의 |
+| 3 | **RPC 응답 캐스팅** | ~10 | 14% | rpcHelpers.ts(10) | 저장 프로시저별 리턴 타입 정의 |
+| 4 | **프로퍼티 뮤테이션** | ~6 | 8% | generate-optimization(3) | 불변 패턴 (`{ ...obj, newProp }`) |
+| 5 | **배열 타입 변환** | ~5 | 7% | advanced-ai-inference(5) | 제네릭 `Array.from<T>()` |
+| 6 | **Supabase 클라이언트 우회** | ~4 | 5% | retail-chatbot(4) | Supabase 타입 래퍼 |
+| 7 | **열거형/유니언 할당** | ~3 | 4% | generate-optimization(2), run-simulation(1) | 타입 가드 함수 |
+| 8 | **메타데이터/설정 접근** | ~5 | 7% | environment-proxy(2), validation.ts(2) | 스키마 검증 (Zod) |
+| 9 | **기타** | ~5 | 7% | — | 개별 수정 |
+
+### 13-6. 제거 로드맵: 407건 → 0건
+
+#### Phase 1: Quick Wins (2주, ~50건 제거)
+
+| 작업 | 대상 | 건수 | 담당 | 공수 |
+|------|------|------|------|------|
+| Website `as any` 4건 전수 제거 | Auth.tsx, Profile.tsx, ProductPerformance.tsx | 4 | E | 0.25d |
+| OS 불필요한 lazy typing 제거 | buildRetailOntologyGraph.ts 등 | 13 | D | 0.5d |
+| Supabase 열거형/유니언 수정 | generate-optimization, run-simulation | 3 | C | 0.25d |
+| process-wifi-data 파싱 래퍼 생성 | process-wifi-data/index.ts | 23 | B | 1d |
+| `@ts-ignore` 1건 제거 | generate-optimization/index.ts:1423 | 1 | C | 0.1d |
+| `@ts-expect-error` 1건 제거 | DataImportWidget.tsx:723 | 1 | D | 0.25d |
+| **소계** | | **45** | | **2.35d** |
+
+#### Phase 2: 타입 인프라 구축 (4주, ~200건 제거)
+
+| 작업 | 대상 | 건수 | 담당 | 공수 |
+|------|------|------|------|------|
+| `ModelMetadata` 판별 유니언 타입 정의 | DigitalTwinStudio, sceneStore, overlays | ~59 | D | 2d |
+| `Vector3D`, `Transform`, `Position` 인터페이스 | modelLayerLoader.ts, scene 관련 | ~32 | D | 1d |
+| Supabase 타입드 쿼리 래퍼 (`typedFrom<T>()`) | useOnboarding, useROI, usePOS 등 | ~115 | D+A | 3d |
+| RPC 리턴 타입 정의 (`@neuraltwin/types`) | rpcHelpers.ts | ~10 | A+C | 1d |
+| **소계** | | **~216** | | **7d** |
+
+#### Phase 3: 잔여 제거 + ESLint 규칙 (4주, ~146건 제거)
+
+| 작업 | 대상 | 건수 | 담당 | 공수 |
+|------|------|------|------|------|
+| JSON/API 응답 타이핑 (Supabase EF) | aggregate-kpis, import-ontology 등 | ~22 | C | 2d |
+| 배열 타입 명시화 | sceneRecipeGenerator, useLayout 등 | ~31 | D | 1d |
+| 서드파티 어댑터 인터페이스 | Canvas3D, Three.js 관련 | ~20 | D | 1d |
+| Supabase EF 프로퍼티 접근 타이핑 | retail-chatbot, environment-proxy 등 | ~15 | C | 1d |
+| 메타데이터/설정 Zod 스키마 | generate-optimization, validation 등 | ~11 | C | 1d |
+| 시뮬레이션 훅 타이핑 | useSceneSimulation, useStoreContext | ~27 | D | 2d |
+| 배열 변환 + 기타 잔여 | 산발적 파일 | ~20 | 전체 | 1d |
+| **소계** | | **~146** | | **9d** |
+
+#### Phase 4: 예방 (지속)
+
+| 작업 | 설명 | 공수 |
+|------|------|------|
+| ESLint `no-explicit-any` 규칙 활성화 (warn → error) | 신규 `as any` 차단 | 0.5d |
+| `@ts-expect-error` 필수화 (기존 `@ts-ignore` 대체) | 이유 주석 강제 | 0.25d |
+| CI 파이프라인에 `any` count 리포트 추가 | PR별 `as any` 증감 추적 | 0.5d |
+
+### 13-7. 전체 제거 일정 요약
+
+| Phase | 기간 | 제거 건수 | 누적 잔여 | 담당 |
+|-------|------|----------|----------|------|
+| 현재 | — | — | **407** | — |
+| Phase 1 (Quick Wins) | 2주 | -45 | **362** | E, D, C, B |
+| Phase 2 (타입 인프라) | 4주 | -216 | **146** | D, A, C |
+| Phase 3 (잔여 제거) | 4주 | -146 | **0** | D, C, 전체 |
+| Phase 4 (예방) | 지속 | — | **0 유지** | 전체 |
+| **합계** | **~10주** | **-407** | **0** | |
+
+---
+
 ## 부록: 라우팅 맵
 
 ```
