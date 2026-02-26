@@ -272,20 +272,25 @@ export function useConnectPOS() {
 
       if (error) throw error;
 
-      // OAuth 플로우 시작 (Edge Function 호출)
-      const { data: oauthData, error: oauthError } = await supabase.functions.invoke('pos-oauth-start', {
-        body: {
-          integrationId: integration.id,
-          provider,
-          redirectUrl: `${window.location.origin}/data-management/api?callback=pos`,
-        },
-      });
+      // OAuth 플로우 시작 (pos-oauth-start EF not yet deployed — guard)
+      try {
+        const { data: oauthData, error: oauthError } = await supabase.functions.invoke('pos-oauth-start', {
+          body: {
+            integrationId: integration.id,
+            provider,
+            redirectUrl: `${window.location.origin}/data-management/api?callback=pos`,
+          },
+        });
 
-      if (oauthError) throw oauthError;
+        if (oauthError) throw oauthError;
 
-      // OAuth URL로 리다이렉트
-      if (oauthData?.authUrl) {
-        window.location.href = oauthData.authUrl;
+        if (oauthData?.authUrl) {
+          window.location.href = oauthData.authUrl;
+        }
+      } catch (err) {
+        // Clean up the pending integration record
+        await (supabase.from('pos_integrations' as any).delete().eq('id', integration.id) as any);
+        throw new Error('POS 연동 기능이 아직 준비 중입니다. 곧 지원될 예정입니다.');
       }
 
       return integration;
@@ -316,26 +321,29 @@ export function useCompletePOSConnection() {
       integrationId: string;
       code: string;
     }) => {
-      // Edge Function으로 토큰 교환
-      const { data, error } = await supabase.functions.invoke('pos-oauth-callback', {
-        body: {
-          integrationId,
-          code,
-        },
-      });
+      // Edge Function으로 토큰 교환 (pos-oauth-callback EF not yet deployed — guard)
+      try {
+        const { data, error } = await supabase.functions.invoke('pos-oauth-callback', {
+          body: {
+            integrationId,
+            code,
+          },
+        });
 
-      if (error) throw error;
+        if (error) throw error;
 
-      // 연동 상태 업데이트
-      await (supabase
-        .from('pos_integrations' as any)
-        .update({
-          status: 'active',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', integrationId) as any);
+        await (supabase
+          .from('pos_integrations' as any)
+          .update({
+            status: 'active',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', integrationId) as any);
 
-      return data;
+        return data;
+      } catch (err) {
+        throw new Error('POS 인증 처리 기능이 아직 준비 중입니다.');
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pos-integrations'] });
@@ -395,16 +403,20 @@ export function useTriggerSync() {
 
   return useMutation({
     mutationFn: async (integrationId: string) => {
-      // Edge Function 호출
-      const { data, error } = await supabase.functions.invoke('sync-pos-data', {
-        body: {
-          integrationId,
-          syncType: 'incremental',
-        },
-      });
+      // Edge Function 호출 (sync-pos-data EF not yet deployed — guard)
+      try {
+        const { data, error } = await supabase.functions.invoke('sync-pos-data', {
+          body: {
+            integrationId,
+            syncType: 'incremental',
+          },
+        });
 
-      if (error) throw error;
-      return data;
+        if (error) throw error;
+        return data;
+      } catch (err) {
+        throw new Error('POS 데이터 동기화 기능이 아직 준비 중입니다.');
+      }
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['pos-integrations'] });

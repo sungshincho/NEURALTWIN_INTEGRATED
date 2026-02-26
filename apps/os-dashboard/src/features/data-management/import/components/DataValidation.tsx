@@ -235,7 +235,7 @@ export function DataValidation({ storeId }: Props) {
           title: "자동 수정 완료",
           description: `${data.fixes?.length || 0}개 문제 해결 (${data.originalCount}행 → ${data.fixedCount}행)`,
         });
-        
+
         // 수정 완료 후 재검증
         await validateData();
       } else {
@@ -244,8 +244,8 @@ export function DataValidation({ storeId }: Props) {
     } catch (error: any) {
       console.error('Auto-fix error:', error);
       toast({
-        title: "자동 수정 실패",
-        description: error.message,
+        title: "자동 수정 기능 준비 중",
+        description: "현재 자동 수정 기능을 사용할 수 없습니다. CSV 파일을 수동으로 수정한 후 다시 업로드해주세요.",
         variant: "destructive",
       });
     } finally {
