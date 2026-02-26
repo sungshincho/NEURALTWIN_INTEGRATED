@@ -519,6 +519,433 @@ apps/website/
 
 ---
 
+## 8. Chat UI 컴포넌트 상세 분석 (★ 추출 대상)
+
+### 8-1. 아키텍처 개요
+
+`src/shared/chat/` 는 이미 **variant 시스템**을 내장하여 website/os 양쪽에서 사용 가능하도록 설계되어 있다.
+
+```
+shared/chat/
+├── index.ts                    # barrel export (9개 심볼)
+├── types/chat.types.ts         # 타입 + 상수 (CHAT_STYLES, WELCOME_MESSAGES)
+├── components/                 # UI 컴포넌트 7개
+│   ├── ChatBubble.tsx          # 메시지 버블 (Markdown 렌더링)
+│   ├── ChatInput.tsx           # 입력창 (자동 높이 + 글자수 제한)
+│   ├── ChatScrollArea.tsx      # 자동 스크롤 영역
+│   ├── WelcomeMessage.tsx      # 초기 인사 + 추천 질문
+│   ├── SuggestionChips.tsx     # 후속 질문 칩
+│   ├── FeedbackButtons.tsx     # 👍/👎 피드백
+│   └── TypingIndicator.tsx     # 타이핑 인디케이터
+├── hooks/                      # 로직 훅 2개
+│   ├── useStreaming.ts         # SSE 스트리밍 (fetch + ReadableStream)
+│   └── useChatSession.ts       # 세션 관리 (localStorage)
+└── utils/                      # 유틸 2개
+    ├── exportConversation.ts   # 대화 내보내기 (PDF/DOCX/TXT/MD)
+    └── fileUpload.ts           # 파일 업로드 핸들링
+```
+
+### 8-2. Variant 시스템 분석
+
+**타입 정의**: `ChatVariant = 'website' | 'os'`
+
+모든 UI 컴포넌트가 `variant` prop을 받아 테마를 전환한다:
+
+| 속성 | `website` | `os` |
+|------|-----------|------|
+| 배경 | `#0a0a0a` (dark navy) | `hsl(var(--background))` |
+| 유저 버블 | `#1a1a2e` | `hsl(var(--primary))` |
+| AI 버블 | `#16213e` | `hsl(var(--muted))` |
+| 텍스트 | `#ffffff` | `hsl(var(--foreground))` |
+| 액센트 | `#00d4aa` (teal) | `hsl(var(--primary))` |
+| 입력 배경 | `#111111` | `hsl(var(--background))` |
+| 입력 보더 | `#333333` | `hsl(var(--border))` |
+
+> website = **하드코딩된 다크 테마**, os = **shadcn/ui CSS 변수 기반** (라이트/다크 자동 대응)
+
+### 8-3. 컴포넌트별 Props 인터페이스
+
+```typescript
+// ChatBubble — 메시지 버블
+interface ChatBubbleProps {
+  message: ChatMessageUI;      // id, role, content, timestamp, isStreaming, feedback
+  variant?: ChatVariant;        // 'website' | 'os' (default: 'website')
+  showTimestamp?: boolean;      // 타임스탬프 표시 (default: false)
+  feedbackSlot?: React.ReactNode; // 피드백 UI 삽입 슬롯
+}
+
+// ChatInput — 입력창
+interface ChatInputProps {
+  onSend: (message: string) => void;
+  placeholder?: string;         // default: '예: 이번 시즌 VMD 트렌드 알려줘'
+  disabled?: boolean;
+  maxLength?: number;           // default: 1000
+  variant?: ChatVariant;
+}
+
+// ChatScrollArea — 스크롤 영역
+interface ChatScrollAreaProps {
+  children: React.ReactNode;
+  className?: string;
+}
+
+// WelcomeMessage — 초기 인사
+interface WelcomeMessageProps {
+  variant?: ChatVariant;
+  suggestions?: string[];       // 커스텀 추천 질문 (없으면 기본값)
+  onSuggestionSelect?: (suggestion: string) => void;
+}
+
+// SuggestionChips — 추천 질문
+interface SuggestionChipsProps {
+  suggestions: string[];
+  onSelect: (suggestion: string) => void;
+  maxItems?: number;            // default: 3
+  variant?: ChatVariant;
+}
+
+// FeedbackButtons — 피드백
+interface FeedbackButtonsProps {
+  messageId: string;
+  currentFeedback?: 'positive' | 'negative';
+  onFeedback: (messageId: string, feedback: 'positive' | 'negative') => void;
+  disabled?: boolean;
+}
+
+// TypingIndicator — 타이핑 중
+interface TypingIndicatorProps {
+  text?: string;                // default: 'NEURAL이 답변 중...'
+  variant?: ChatVariant;
+}
+```
+
+### 8-4. Hook 인터페이스
+
+```typescript
+// useStreaming — SSE 스트리밍
+interface UseStreamingOptions {
+  onDelta: (chunk: string) => void;
+  onComplete: (metadata: StreamingMetadata) => void;
+  onError: (error: string) => void;
+}
+// Returns: { startStreaming(url, body), abort(), isStreaming() }
+
+// useChatSession — 세션 관리
+interface UseChatSessionResult {
+  sessionId: string;             // crypto.randomUUID() 기반
+  conversationId: string | null; // 서버 응답에서 수신
+  setConversationId: (id: string) => void;
+  clearSession: () => void;
+}
+```
+
+### 8-5. 외부 의존성 (추출 시 포함 필요)
+
+| 의존성 | 사용 위치 | 용도 |
+|--------|----------|------|
+| `framer-motion` | 6/7 컴포넌트 | 애니메이션 (motion.div, AnimatePresence) |
+| `react-markdown` | ChatBubble | AI 응답 Markdown 렌더링 |
+| `lucide-react` | 4 컴포넌트 | 아이콘 (Send, ThumbsUp, ThumbsDown, ChevronDown, Brain, Bot, ArrowRight) |
+| `@/lib/utils` (cn) | 6/7 컴포넌트 | className 병합 |
+| `@/components/ui/button` | ChatInput | 전송 버튼 |
+| `jspdf` | exportConversation | PDF 내보내기 |
+| `docx` | exportConversation | DOCX 내보내기 |
+| `file-saver` | exportConversation | 파일 다운로드 |
+
+### 8-6. 추출 계획: `packages/@neuraltwin/ui/chat/`
+
+**구조**:
+```
+packages/ui/
+├── src/
+│   ├── index.ts                    # 기존 exports + chat re-export
+│   ├── button.tsx, input.tsx, ...  # 기존 4개
+│   ├── chat/                       # ★ 새로 추가
+│   │   ├── index.ts
+│   │   ├── ChatBubble.tsx
+│   │   ├── ChatInput.tsx
+│   │   ├── ChatScrollArea.tsx
+│   │   ├── WelcomeMessage.tsx
+│   │   ├── SuggestionChips.tsx
+│   │   ├── FeedbackButtons.tsx
+│   │   ├── TypingIndicator.tsx
+│   │   └── chat.types.ts
+│   ├── hooks/
+│   │   ├── useStreaming.ts
+│   │   └── useChatSession.ts
+│   └── utils/
+│       ├── exportConversation.ts
+│       └── fileUpload.ts
+└── package.json                    # + framer-motion, react-markdown 의존성 추가
+```
+
+**마이그레이션 단계**:
+1. `packages/ui/package.json`에 framer-motion, react-markdown, lucide-react 추가
+2. 파일 이동 + `@/lib/utils` → `../lib/utils` import 경로 수정
+3. `@/components/ui/button` → `../button` import 경로 수정
+4. Website: `import { ChatBubble } from '@neuraltwin/ui/chat'`
+5. OS Dashboard: `import { ChatBubble } from '@neuraltwin/ui/chat'` + `variant="os"`
+6. 예상 절감: **~2,500 LOC** 중복 제거 (website 1,818 + OS 측 유사 코드)
+
+---
+
+## 9. shadcn/ui 현황 분석
+
+### 9-1. 컴포넌트 비교 (Website vs OS Dashboard)
+
+| 앱 | 파일 수 | 상태 |
+|-----|--------|------|
+| Website | 48개 (46 .tsx + 1 .ts + use-toast) | 대부분 `@neuraltwin/ui` re-export |
+| OS Dashboard | 49개 (47 .tsx + 1 .ts + glass-card) | 로컬 구현 (glassmorphism) |
+
+### 9-2. 커스터마이징 상태
+
+**Website**: 핵심 4개 컴포넌트를 `@neuraltwin/ui`에서 re-export (2줄짜리 래퍼)
+
+```typescript
+// apps/website/src/components/ui/button.tsx (2줄)
+export { Button, buttonVariants, type ButtonProps } from '@neuraltwin/ui';
+```
+
+**OS Dashboard**: 독립적인 로컬 구현 (glassmorphism 스타일링)
+
+| 컴포넌트 | Website LOC | OS Dashboard LOC | 커스터마이징 수준 |
+|----------|-------------|------------------|-------------------|
+| `button.tsx` | 2 (re-export) | 146 | **Heavy** — glassmorphism, MutationObserver 다크모드 |
+| `input.tsx` | 2 (re-export) | 51 | **Heavy** — gradient 배경, 인라인 스타일 |
+| `dialog.tsx` | 13 (re-export) | 269 | **Very Heavy** — 3D perspective, 다층 glass 효과 |
+| `card.tsx` | 2 (re-export) | 43 | **Minimal** — 표준 shadcn/ui |
+| `glass-card.tsx` | 없음 | 286 | **Unique** — 3D glassmorphism + Icon3D, Badge3D |
+
+### 9-3. 동일/다른 컴포넌트 분류
+
+**동일 (표준 shadcn/ui)** — 공유 가능 대상:
+accordion, alert, alert-dialog, aspect-ratio, avatar, badge, breadcrumb, calendar, carousel, chart, checkbox, collapsible, command, context-menu, drawer, dropdown-menu, form, hover-card, input-otp, label, menubar, navigation-menu, pagination, popover, progress, radio-group, resizable, scroll-area, select, separator, sheet, sidebar, skeleton, slider, sonner, switch, table, tabs, textarea, toast, toaster, toggle, toggle-group, tooltip
+
+→ **44개 공유 가능** (표준 shadcn/ui 그대로)
+
+**다른 (앱별 유지 필요):**
+| 컴포넌트 | 이유 |
+|----------|------|
+| `button.tsx` | OS: glassmorphism |
+| `dialog.tsx` | OS: 3D glass overlay |
+| `input.tsx` | OS: gradient 배경 |
+| `glass-card.tsx` | OS 전용 (286줄) |
+
+### 9-4. 통합 전략
+
+```
+@neuraltwin/ui (공유)
+├── button.tsx (표준 shadcn/ui)
+├── input.tsx (표준 shadcn/ui)
+├── dialog.tsx (표준 shadcn/ui)
+├── card.tsx (표준 shadcn/ui)
+└── [+44개 표준 컴포넌트 점진적 추가]
+
+apps/os-dashboard/src/components/ui/ (로컬 유지)
+├── button.tsx (glassmorphism override)
+├── dialog.tsx (glass overlay override)
+├── input.tsx (gradient override)
+└── glass-card.tsx (OS 전용)
+```
+
+---
+
+## 10. Tailwind 커스텀 색상 분석
+
+### 10-1. CSS 커스텀 속성 비교
+
+| 항목 | Website | OS Dashboard |
+|------|---------|-------------|
+| CSS 변수 선언 수 | 74개 | 87개 |
+| 고유 변수명 수 | 42개 | 56개 |
+| 공통 변수 | **30개** | **30개** |
+| Website 전용 | **12개** | — |
+| OS Dashboard 전용 | — | **26개** |
+
+### 10-2. 공통 변수 (30개) — 프리셋 추출 대상
+
+```
+--accent, --accent-foreground, --background, --border, --card, --card-foreground,
+--destructive, --destructive-foreground, --foreground, --glass-bg, --glass-border,
+--input, --muted, --muted-foreground, --popover, --popover-foreground,
+--primary, --primary-foreground, --radius, --ring,
+--secondary, --secondary-foreground,
+--sidebar-accent, --sidebar-accent-foreground, --sidebar-background,
+--sidebar-border, --sidebar-foreground, --sidebar-primary,
+--sidebar-primary-foreground, --sidebar-ring
+```
+
+### 10-3. Website 전용 변수 (12개)
+
+| 변수 | 용도 |
+|------|------|
+| `--gradient-accent` | 악센트 그라디언트 |
+| `--gradient-chrome` | 크롬 그라디언트 |
+| `--gradient-dark` | 다크 그라디언트 |
+| `--gradient-metallic` | 메탈릭 그라디언트 |
+| `--gradient-primary` | 프라이머리 그라디언트 |
+| `--primary-glow` | 프라이머리 글로우 |
+| `--primary-variant` | 프라이머리 변형 |
+| `--shadow-chrome` | 크롬 그림자 |
+| `--shadow-glass` | 글래스 그림자 |
+| `--shadow-glow` | 글로우 그림자 |
+| `--shadow-sharp` | 날카로운 그림자 |
+| `--shadow-soft` | 부드러운 그림자 |
+
+### 10-4. OS Dashboard 전용 변수 (26개)
+
+| 변수 | 용도 |
+|------|------|
+| `--background-gradient` | 배경 그라디언트 |
+| `--blur-glass`, `--blur-subtle` | 블러 강도 |
+| `--chart-1` ~ `--chart-5` | 차트 색상 5개 |
+| `--chrome-left`, `--chrome-top`, `--chrome-top-dark` | 크롬 하이라이트 |
+| `--glass-bg-dark`, `--glass-border-dark` | 다크 글래스 |
+| `--glass-reflection`, `--glass-reflection-dark` | 반사 효과 |
+| `--icon-bg`, `--icon-bg-dark` | 아이콘 배경 |
+| `--radius-sm`, `--radius-xs` | 추가 반지름 크기 |
+| `--shadow-3d`, `--shadow-3d-dark` | 3D 그림자 |
+| `--success`, `--success-foreground` | 성공 색상 |
+| `--text-3d-dark`, `--text-3d-hero`, `--text-3d-label` | 3D 텍스트 효과 |
+
+### 10-5. Tailwind 설정 비교
+
+| 항목 | Website | OS Dashboard |
+|------|---------|-------------|
+| `tailwind.config.ts` 색상 | shadcn 표준 + chrome, glass | shadcn 표준 + primary.dark |
+| 커스텀 폰트 | 없음 | Pretendard, Inter |
+| keyframes | 6개 | 10개 |
+| animations | 6개 | 12개 (+ enter/exit 조합) |
+| boxShadow | 없음 | 7단계 (2xs ~ 2xl) |
+| borderRadius | 표준 3단계 | 표준 3단계 |
+
+### 10-6. `@neuraltwin/tailwind-preset` 설계
+
+```typescript
+// packages/tailwind-preset/src/index.ts
+export const neuraltwinPreset = {
+  theme: {
+    extend: {
+      colors: {
+        // 30개 공통 CSS 변수 기반 색상
+        border: "hsl(var(--border))",
+        input: "hsl(var(--input))",
+        ring: "hsl(var(--ring))",
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
+        primary: { DEFAULT: "hsl(var(--primary))", foreground: "hsl(var(--primary-foreground))" },
+        secondary: { DEFAULT: "hsl(var(--secondary))", foreground: "hsl(var(--secondary-foreground))" },
+        destructive: { DEFAULT: "hsl(var(--destructive))", foreground: "hsl(var(--destructive-foreground))" },
+        muted: { DEFAULT: "hsl(var(--muted))", foreground: "hsl(var(--muted-foreground))" },
+        accent: { DEFAULT: "hsl(var(--accent))", foreground: "hsl(var(--accent-foreground))" },
+        popover: { DEFAULT: "hsl(var(--popover))", foreground: "hsl(var(--popover-foreground))" },
+        card: { DEFAULT: "hsl(var(--card))", foreground: "hsl(var(--card-foreground))" },
+        sidebar: { /* 8개 사이드바 변수 */ },
+      },
+      borderRadius: {
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
+      },
+      keyframes: {
+        "accordion-down": { /* 공통 */ },
+        "accordion-up": { /* 공통 */ },
+        "fade-in": { /* 공통 */ },
+        "scale-in": { /* 공통 */ },
+        "float": { /* 공통 */ },
+      },
+    },
+  },
+  plugins: [require("tailwindcss-animate")],
+};
+```
+
+**사용 방식**:
+```typescript
+// apps/website/tailwind.config.ts
+import { neuraltwinPreset } from '@neuraltwin/tailwind-preset';
+export default {
+  presets: [neuraltwinPreset],
+  theme: {
+    extend: {
+      colors: {
+        chrome: { /* website 전용 */ },
+        glass: { /* website 전용 */ },
+      },
+    },
+  },
+};
+```
+
+---
+
+## 11. 보안 취약점 분석
+
+### 11-1. Supabase URL/Key 하드코딩 — ✅ 수정 완료
+
+| 항목 | 상태 | 커밋 |
+|------|------|------|
+| `.env` 파일 Git 삭제 | ✅ 수정됨 | `6343d49` (2026-02-25) |
+| `client.ts` 환경변수 전환 | ✅ 수정됨 | `6343d49` (2026-02-25) |
+| `.gitignore`에 `.env` 추가 | ✅ 적용됨 | 루트 `.gitignore` |
+
+### 11-2. Git 히스토리 내 키 노출 — ⚠️ 주의 필요
+
+커밋 `bff06ac` (subtree import) 에서 `.env` 파일이 포함되어 Git 히스토리에 다음 정보 잔존:
+
+| 항목 | 노출 내용 | 위험도 |
+|------|----------|--------|
+| `VITE_SUPABASE_URL` | `https://bdrvowacecxnraaivlhr.supabase.co` | 🟡 낮음 (공개 URL) |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | `eyJhbGciOiJIUzI1NiIs...` (anon key) | 🟡 낮음 (anon key는 공개용) |
+| `VITE_SUPABASE_PROJECT_ID` | `bdrvowacecxnraaivlhr` | 🟢 낮음 (공개 정보) |
+
+> **판정**: Supabase anon key는 설계상 공개 키 (클라이언트 사이드 RLS 기반). service_role_key가 노출되지 않았으므로 **즉각적인 키 로테이션은 불필요**. 다만 히스토리 정리 시 `git filter-branch` 또는 `BFG Repo-Cleaner` 권장.
+
+### 11-3. 현재 소스 코드 내 하드코딩 검사 — ✅ 클린
+
+| 검사 항목 | Website | OS Dashboard |
+|-----------|---------|-------------|
+| JWT 토큰 하드코딩 (`eyJ`) | ❌ 없음 | ❌ 없음 |
+| Supabase URL 하드코딩 | ❌ 없음 | ❌ 없음 (주석 내 예시 1건만 존재) |
+| API 키 하드코딩 | ❌ 없음 | ❌ 없음 |
+| `.env` 파일 추적 | ❌ 없음 (.gitignore) | ❌ 없음 (.gitignore) |
+
+### 11-4. Chat.tsx 환경변수 직접 참조 — ⚠️ 개선 필요
+
+`pages/Chat.tsx`에서 `import.meta.env.VITE_SUPABASE_URL`을 **3곳** 직접 참조:
+
+```typescript
+// 라인 531, 757, 832
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+```
+
+**문제**: EF 호출 URL을 수동으로 조립. Supabase 클라이언트의 `functions.invoke()`를 사용하지 않음.
+
+**권장 수정**:
+```typescript
+// Before (3곳 반복)
+const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/retail-chatbot`;
+fetch(url, { headers: { Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` } });
+
+// After (1곳으로 통합)
+import { supabase } from '@/integrations/supabase/client';
+// SSE는 supabase.functions.invoke가 지원하지 않으므로 래퍼 함수 사용
+const url = `${supabase.supabaseUrl}/functions/v1/retail-chatbot`;
+```
+
+### 11-5. 즉시 수정 필요 항목 요약
+
+| 우선순위 | 항목 | 상태 | 조치 |
+|---------|------|------|------|
+| P0 | `.env` Git 추적 제거 | ✅ 완료 | `6343d49`에서 삭제됨 |
+| P0 | 소스 내 키 하드코딩 | ✅ 클린 | 현재 하드코딩 없음 |
+| P1 | Chat.tsx env 직접 참조 | ⚠️ 미완 | 래퍼 함수로 통합 필요 |
+| P2 | Git 히스토리 키 잔존 | ⚠️ 잔존 | BFG Cleaner로 정리 권장 (anon key라 긴급성 낮음) |
+
+---
+
 ## 부록: 라우팅 맵
 
 ```
