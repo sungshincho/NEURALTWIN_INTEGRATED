@@ -43,6 +43,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   // signIn()에서 fetchOrganizationContext를 이미 호출했는지 추적
   const orgContextFetchedRef = useRef(false);
+  // fetchOrganizationContext 동시 호출 방지
+  const orgContextFetchingRef = useRef(false);
 
   // Function to migrate user to organization if needed
   const ensureOrganization = async (userId: string) => {
@@ -108,6 +110,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Function to fetch organization context
   const fetchOrganizationContext = async (userId: string) => {
+    // 동시 호출 방지: 이미 fetching 중이면 스킵
+    if (orgContextFetchingRef.current) return;
+    orgContextFetchingRef.current = true;
+
     try {
       // Ensure user has organization
       const migrated_org_id = await ensureOrganization(userId);
@@ -146,16 +152,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setLicenseId(null);
             setLicenseType(null);
             setLicenseStatus(null);
-            return;
           }
+          // RLS 정책 누락은 배포 이슈이므로 signOut 하지 않음 — 제한된 컨텍스트로 로그인 허용
+          return;
         }
 
+        // RLS가 아닌 진짜 에러인 경우만 signOut
         console.error('Error fetching organization membership:', memberError);
         await supabase.auth.signOut({ scope: 'local' });
         throw new Error('NO_SUBSCRIPTION');
       }
 
       if (!membership) {
+        // RPC fallback으로 최소 컨텍스트 설정 시도
+        if (migrated_org_id) {
+          console.warn('No membership found via query, using RPC fallback org_id.');
+          setOrgId(migrated_org_id);
+          setOrgName(null);
+          setRole('ORG_MEMBER');
+          setLicenseId(null);
+          setLicenseType(null);
+          setLicenseStatus(null);
+          return;
+        }
         console.error('No organization membership found for user');
         await supabase.auth.signOut({ scope: 'local' });
         throw new Error('NO_SUBSCRIPTION');
@@ -207,6 +226,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       console.error('Error fetching organization context:', err);
       throw err;
+    } finally {
+      orgContextFetchingRef.current = false;
     }
   };
 
@@ -300,9 +321,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (data.user) {
         // Check subscription status
         try {
-          await fetchOrganizationContext(data.user.id);
-          // onAuthStateChange에서 중복 호출 방지 플래그 설정
+          // onAuthStateChange에서 중복 호출 방지 플래그: await 전에 설정
+          // (signInWithPassword가 onAuthStateChange를 트리거하므로)
           orgContextFetchedRef.current = true;
+          await fetchOrganizationContext(data.user.id);
 
           // 로그인 성공 시 활동 로깅
           setTimeout(async () => {
