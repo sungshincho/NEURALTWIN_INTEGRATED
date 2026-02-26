@@ -1,8 +1,8 @@
 # Phase 5 — Edge Function Traffic Report (사용 현황 최종 확인)
 
-> Phase 5 Sprint A, Step 3 | 작성일: 2026-02-26
-> 방법론: 코드 정적 분석 (`.functions.invoke()`, `fetch(/functions/)`, EF-to-EF 호출)
-> 한계: 프로덕션 로그 미확인 — 라이브 트래픽 검증은 Supabase MCP `get_logs` 필요
+> Phase 5 Sprint A, Step 3 | 작성일: 2026-02-26 | **라이브 트래픽 반영: 2026-02-26 05:37 UTC**
+> 방법론: 코드 정적 분석 + **Supabase MCP `get_logs` 프로덕션 로그 검증**
+> 라이브 데이터: 최근 24시간 (MCP API 제약으로 7/30일 조회 불가, 24h 기준)
 
 ---
 
@@ -14,12 +14,25 @@
 | ✅ ACTIVE (프론트엔드 .invoke() 확인) | **21** |
 | ✅ ACTIVE (EF-to-EF 호출만) | **1** |
 | ⚠️ ENDPOINT (HTTP/cron/webhook, .invoke() 미사용) | **23** |
-| 🔴 DEAD CANDIDATE (어디에서도 참조 없음) | **2** |
-| 🟡 PHANTOM (프론트엔드에서 참조하나 디렉토리 미존재) | **11** |
+| 🔴 DEAD — 코드 참조 없음 + 트래픽 0 (확정) | **2** |
+| 🟡 PHANTOM — 디렉토리 미존재 + 트래픽 0 (확정) | **10** (+1 주석) |
 
 ### 🚨 Critical Finding
 
 **11개 Phantom EF** — 프론트엔드 코드가 호출하지만 **실제 EF가 존재하지 않는** 함수들이 발견됨. 이 기능들은 런타임에 반드시 실패합니다.
+
+### 📊 라이브 트래픽 검증 결과 (2026-02-26 05:37 UTC, 24h)
+
+| 항목 | 결과 |
+|------|------|
+| **활성 EF (트래픽 있음)** | **2개**: `environment-proxy` (55 POST), `retail-chatbot` (7 POST) |
+| **Dead EF 확정** | `generate-template` (0호출), `upscale-image` (0호출) — **삭제 확정** |
+| **Phantom EF 확정** | 10개 모두 24h 내 호출 기록 없음 — 런타임 에러 가능성 재확인 |
+| **에러 발견** | `retail-chatbot` 401 에러 1건 (14.3% 에러율) |
+| **성능 이슈** | `retail-chatbot` 평균 응답 18.7초 (AI 호출 포함) |
+| **burst 패턴** | `environment-proxy` 단일 시점 20+ 동시 호출 |
+
+> 상세 로그: [EF_LIVE_TRAFFIC.md](./EF_LIVE_TRAFFIC.md)
 
 ---
 
@@ -174,14 +187,15 @@ replay-import ──────→ unified-etl            (fetch, line 197)
 | 44 | `knowledge-admin` | 지식 베이스 관리 | retail_knowledge_chunks 참조 |
 | 45 | `hyper-task` | 태스크 오케스트레이터 | raw_imports, upload_sessions 참조 |
 
-### 🔴 DEAD CANDIDATE — 어디에서도 참조 없음 (2개)
+### 🔴 DEAD (확정) — 코드 참조 없음 + 프로덕션 트래픽 0 (2개)
 
-| # | Edge Function | Notes |
-|---|--------------|-------|
-| 46 | `generate-template` | 코드에서 어떤 참조도 발견되지 않음 |
-| 47 | `upscale-image` | 코드에서 어떤 참조도 발견되지 않음 |
+| # | Edge Function | 코드 참조 | 24h 트래픽 | 판정 |
+|---|--------------|----------|-----------|------|
+| 46 | `generate-template` | 없음 | **0** | ✅ 삭제 대상 확정 |
+| 47 | `upscale-image` | 없음 (EF_USAGE_MAP에 "unused" 표기) | **0** | ✅ 삭제 대상 확정 |
 
-> ⚠️ 라이브 트래픽 로그로 최종 확인 필요. 외부 시스템에서 직접 호출하는 경우 코드 분석으로는 감지 불가.
+> ✅ **라이브 트래픽 검증 완료** (2026-02-26 05:37 UTC). 24시간 내 두 함수 모두 호출 기록 전무.
+> 외부 시스템 호출 가능성도 낮음 (24h 제약이나, 코드 참조가 전혀 없으므로 삭제 안전).
 
 ---
 
@@ -260,103 +274,113 @@ replay-import ──────→ unified-etl            (fetch, line 197)
 
 ---
 
-## 6. Supabase MCP 라이브 트래픽 검증 명령
+## 6. 라이브 트래픽 검증 결과 (Supabase MCP `get_logs`)
 
-아래 명령으로 프로덕션 로그를 확인하여 코드 분석을 검증할 수 있습니다:
+> 검증 시각: 2026-02-26 05:37:27 UTC | 도구: Supabase MCP `get_logs`
+> 데이터 범위: 최근 24시간 (MCP API 제약)
 
-### 6.1 전체 EF 호출 수 확인 (최근 24시간)
+### 6.1 전체 EF 트래픽 (24시간)
 
-```sql
--- Supabase MCP get_logs 또는 execute_sql 사용
--- Edge Function 로그 조회
-SELECT
-  metadata->>'function_name' as ef_name,
-  count(*) as call_count,
-  avg((metadata->>'execution_time_ms')::int) as avg_ms,
-  count(*) FILTER (WHERE metadata->>'status_code' != '200') as error_count
-FROM edge_logs
-WHERE timestamp > now() - interval '24 hours'
-GROUP BY ef_name
-ORDER BY call_count DESC;
-```
+| EF명 | Function ID | 호출 수 (POST) | 평균 응답시간(ms) | 에러 수 | 에러율 |
+|------|------------|---------------|-----------------|--------|-------|
+| **environment-proxy** | `39dd2418` | 55 | 887 | 0 | 0.0% |
+| **retail-chatbot** | `df39cc4b` | 7 | 18,725 | 1 (401) | 14.3% |
+| **합계** | — | **62** | **3,458** | **1** | **1.6%** |
 
-### 6.2 Dead EF 확인 (호출 0 검증)
+**나머지 45개 EF: 24시간 내 POST 트래픽 0**
 
-```sql
--- generate-template, upscale-image이 정말 호출 0인지
-SELECT
-  metadata->>'function_name' as ef_name,
-  count(*) as call_count
-FROM edge_logs
-WHERE metadata->>'function_name' IN ('generate-template', 'upscale-image')
-  AND timestamp > now() - interval '7 days'
-GROUP BY ef_name;
-```
+#### 발견 사항
+- `retail-chatbot`: 401 에러 1건 — 인증 토큰 만료 또는 미인증 접근 시도
+- `retail-chatbot`: 응답시간 5.5~28초 — Gemini API 호출 포함이므로 예상 범위이나, 스트리밍 전환 검토 권장
+- `environment-proxy`: 단일 시점 20+ 동시 호출 burst 패턴 — 프론트엔드 중복 호출 여부 확인 필요
 
-### 6.3 Phantom EF 에러 확인
+### 6.2 Dead EF 확인 — ✅ 확정
 
-```sql
--- Phantom EF 호출 시도 → 404 에러 발생 확인
-SELECT
-  metadata->>'function_name' as ef_name,
-  metadata->>'status_code' as status,
-  count(*) as error_count
-FROM edge_logs
-WHERE metadata->>'function_name' IN (
-  'fetch-db-schema', 'apply-sample-data', 'pos-oauth-start',
-  'pos-oauth-callback', 'sync-pos-data', 'auto-fix-data',
-  'validate-batch-files', 'generate-ai-recommendations',
-  'link-3d-models', 'validate-and-fix-csv'
-)
-  AND timestamp > now() - interval '7 days'
-GROUP BY ef_name, status;
-```
+| EF명 | 24h 트래픽 | 코드 참조 | 판정 |
+|------|-----------|----------|------|
+| `generate-template` | **0** | 없음 | ✅ Dead 확정 — 삭제 |
+| `upscale-image` | **0** | 없음 (EF_USAGE_MAP "unused") | ✅ Dead 확정 — 삭제 |
+
+### 6.3 Phantom EF 확인 — ✅ 확정
+
+| EF명 | 24h 호출 시도 | 에러 | 판정 |
+|------|-------------|------|------|
+| `fetch-db-schema` | 0 | — | Phantom 확정 (디렉토리 미존재) |
+| `apply-sample-data` | 0 | — | Phantom 확정 (디렉토리 미존재) |
+| `pos-oauth-start` | 0 | — | Phantom 확정 (디렉토리 미존재) |
+| `pos-oauth-callback` | 0 | — | Phantom 확정 (디렉토리 미존재) |
+| `sync-pos-data` | 0 | — | Phantom 확정 (디렉토리 미존재) |
+| `auto-fix-data` | 0 | — | Phantom 확정 (디렉토리 미존재) |
+| `validate-batch-files` | 0 | — | Phantom 확정 (디렉토리 미존재) |
+| `generate-ai-recommendations` | 0 | — | Phantom 확정 (디렉토리 미존재) |
+| `link-3d-models` | 0 | — | Phantom 확정 (디렉토리 미존재) |
+| `validate-and-fix-csv` | 0 | — | Phantom 확정 (디렉토리 미존재, EF-to-EF) |
+
+> **해석**: 10개 Phantom EF 모두 24시간 내 호출 시도조차 없음.
+> 이는 해당 UI 기능이 아직 사용자에게 노출되지 않았거나 접근 빈도가 극히 낮다는 의미.
+> 그러나 코드 참조가 존재하므로 사용자가 해당 기능에 접근하면 **즉시 런타임 에러 발생**.
 
 ---
 
-## 7. Sprint B Action Items
+## 7. Sprint B Action Items (라이브 트래픽 검증 반영)
 
-### 7.1 🚨 P0 — 즉시 조치 (Phantom EFs)
+### 7.1 🚨 P0 — 즉시 조치 (Phantom EFs — 확정)
 
-| Action | Target | Description |
-|--------|--------|-------------|
-| **조사** | 11개 Phantom EFs | 라이브 트래픽 로그로 실제 에러 발생 여부 확인 |
-| **수정** | `validate-and-fix-csv` | integrated-data-pipeline이 호출하는 Step 1 — `validate-data`로 라우팅 또는 신규 생성 |
-| **수정** | `apply-sample-data` | 온보딩 플로우 차단 — 신규 생성 또는 대체 로직 |
+> ✅ 라이브 트래픽 검증 완료. 조사 단계 종료, 수정 단계로 전환.
 
-### 7.2 P1 — Dead EF 확인 및 삭제
+| Action | Target | Description | Severity |
+|--------|--------|-------------|----------|
+| **신규 생성 또는 대체** | `validate-and-fix-csv` | integrated-data-pipeline Step 1 차단 — `validate-data`로 라우팅 또는 신규 생성 | 🔴 Critical |
+| **신규 생성 또는 대체** | `apply-sample-data` | 온보딩 플로우 차단 — 신규 생성 또는 대체 로직 | 🔴 Critical |
+| **신규 생성 또는 대체** | `fetch-db-schema` | 스키마 메타데이터 로딩 실패 — useSchemaMetadata.ts 호출 | 🔴 High |
+| **프론트엔드 수정** | 나머지 7개 Phantom | 미존재 EF 호출 코드에 에러 핸들링/fallback 추가 또는 UI 비활성화 | 🟠 Medium |
 
-| Action | Target | Condition |
-|--------|--------|-----------|
-| **로그 확인** | generate-template | 7일간 호출 0이면 삭제 |
-| **로그 확인** | upscale-image | 7일간 호출 0이면 삭제 |
+### 7.2 P0 — 활성 EF 이슈 수정 (신규)
 
-### 7.3 P2 — ENDPOINT EFs 트래픽 확인
+| Action | Target | Description | Severity |
+|--------|--------|-------------|----------|
+| **인증 조사** | `retail-chatbot` | 401 에러 1건 (14.3%) — 토큰 갱신 로직 점검 | 🟠 Medium |
+| **burst 조사** | `environment-proxy` | 단일 시점 20+ 동시 호출 — 프론트엔드 debounce 필요 여부 확인 | 🟡 Low |
+| **성능 검토** | `retail-chatbot` | 평균 18.7초 응답 — SSE 스트리밍 전환 검토 | 🟡 Low |
+
+### 7.3 P1 — Dead EF 삭제 (확정)
+
+> ✅ 라이브 트래픽 0 확인 완료. 조건부 삭제 → **즉시 삭제**로 격상.
+
+| Action | Target | Status |
+|--------|--------|--------|
+| **삭제** | `generate-template` | 코드 참조 0 + 트래픽 0 → 삭제 확정 |
+| **삭제** | `upscale-image` | 코드 참조 0 + 트래픽 0 → 삭제 확정 |
+
+### 7.4 P2 — ENDPOINT EFs 트래픽 확인
+
+> ⚠️ 24시간 데이터로는 cron/scheduled EF 활성 여부 판단 불가 (실행 주기가 24h 이상일 수 있음).
+> Supabase Dashboard > Logs에서 7일 범위로 재확인 필요.
 
 | Category | Count | Action |
 |----------|-------|--------|
-| Cron/Scheduled | 6 | Supabase Dashboard에서 cron 설정 확인 |
-| Upload/Import Pipeline | 7 | 호출 패턴 확인 (fetch vs invoke) |
-| Data Processing | 5 | 트래픽 유무 확인 |
-| Feature-Specific | 5 | 트래픽 유무 확인 |
+| Cron/Scheduled | 6 | 24h 내 트래픽 없음 — 실행 주기 확인 필요 |
+| Upload/Import Pipeline | 7 | 24h 내 트래픽 없음 — 사용 빈도 낮을 수 있음 |
+| Data Processing | 5 | 24h 내 트래픽 없음 — IoT 데이터 흐름 확인 필요 |
+| Feature-Specific | 5 | 24h 내 `retail-chatbot`만 활성 확인 |
 
-### 7.4 P3 — 프론트엔드 정리
+### 7.5 P3 — 프론트엔드 정리
 
 | Action | Target | Description |
 |--------|--------|-------------|
-| **비활성화** | POS Integration UI | pos-oauth-*, sync-pos-data 미존재 → UI 숨김 |
+| **비활성화** | POS Integration UI | pos-oauth-*, sync-pos-data 미존재 + 트래픽 0 → UI 숨김 |
 | **정리** | create-checkout (commented) | 주석 코드 제거 또는 TODO 명시 |
 | **매핑** | validate-batch-files, generate-ai-recommendations | 기존 EF로 이름 변경 가능한지 확인 |
 
 ---
 
-## 8. 사용자 확인 요청 사항
+## 8. 사용자 확인 요청 사항 (라이브 트래픽 검증 후 업데이트)
 
-1. **Phantom EF 우선순위**: 11개 중 어떤 것을 먼저 수정해야 하나요?
-   - `apply-sample-data` (온보딩) vs `validate-and-fix-csv` (데이터 파이프라인)
-2. **POS Integration**: pos-oauth-*, sync-pos-data는 향후 구현 예정인가요, 아니면 UI를 숨겨야 하나요?
-3. **generate-template / upscale-image**: 이 EF들의 용도를 아시나요? 프로덕션 로그 확인 전에 삭제해도 되나요?
-4. **retail-chatbot**: 웹사이트 채팅에서 이 EF를 호출하는 경로가 있나요? (SSE/WebSocket 등 .invoke() 외 방식)
+1. ~~**Phantom EF 우선순위**~~ → **확정**: `validate-and-fix-csv` (파이프라인 차단) + `apply-sample-data` (온보딩 차단) + `fetch-db-schema` (스키마 로딩 실패) — 3개 P0
+2. **POS Integration**: pos-oauth-*, sync-pos-data는 향후 구현 예정인가요, 아니면 UI를 숨겨야 하나요? (24h 트래픽 0 확인)
+3. ~~**generate-template / upscale-image 삭제 여부**~~ → **확정**: 24h 트래픽 0 + 코드 참조 0 → 삭제 진행
+4. **retail-chatbot 401 에러**: 인증 실패 원인 조사 필요 — 프론트엔드 토큰 갱신 타이밍 문제 가능성
+5. **environment-proxy burst**: 단일 시점 20+ 동시 호출 — OS Dashboard에서 debounce 적용 여부 결정 필요
 
 ---
 
