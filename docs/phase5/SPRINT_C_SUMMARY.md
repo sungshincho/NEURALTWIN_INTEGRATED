@@ -147,6 +147,29 @@ zone_events WHERE org_id:
 
 ---
 
+## 검증 결과
+
+### 프로덕션 사이트 정상 동작 확인
+
+| 사이트 | URL | 타이틀 | 상태 |
+|--------|-----|--------|------|
+| Website | neuraltwin-integrated-website.vercel.app | NEURALTWIN | ✅ 정상 |
+| OS Dashboard | neuraltwin-os.vercel.app | NEURALTWIN OS (다크모드 동작) | ✅ 정상 |
+
+> RLS 정책 변경 + 인덱스 최적화 후에도 프로덕션 서비스 정상 동작 확인
+
+### Security Advisors 최종 확인
+
+```
+ERROR:  0건 ✅
+WARN:   function_search_path_mutable ~52개 (기존, Sprint C 범위 외)
+        extension_in_public 2개 (pg_net, vector)
+        rls_policy_always_true 4건 (3개 의도적 + 1개 _archive)
+INFO:   rls_enabled_no_policy 4건 (3개 _archive + v_org_id 의도적)
+```
+
+---
+
 ## Sprint C 완료 체크리스트
 
 ```
@@ -157,6 +180,7 @@ zone_events WHERE org_id:
 ✅ 미사용 인덱스 상위 7개 DROP 완료
 ✅ 중복 인덱스 정리 완료 (10개)
 ✅ Supabase Advisors 보안 ERROR 0건
+✅ 프로덕션 사이트 정상 동작 확인 (website + os-dashboard)
 ✅ RLS_MIGRATION_LOG.md 생성
 ✅ INDEX_OPTIMIZATION_LOG.md 생성
 ✅ QUERY_OPTIMIZATION_REPORT.md 생성
