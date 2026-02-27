@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
-import { Store, Database, Users, Settings, CreditCard, Plus, Mail, Building2, Upload, Link, Eye, Edit, MapPin, Network, Boxes, Plug } from 'lucide-react';
+import { Store, Database, Users, Settings, CreditCard, Plus, Mail, Building2, Upload, Link, Eye, Edit, MapPin, Network, Boxes, Plug, Radio } from 'lucide-react';
 import { ApiConnectionsList, AddConnectorDialog } from '@/features/data-control/components';
 import { useActivityLogger } from '@/hooks/useActivityLogger';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
@@ -23,6 +23,7 @@ import { useSelectedStore } from '@/hooks/useSelectedStore';
 import { useDarkMode } from '@/hooks/useDarkMode';
 import { OntologyGraph3D } from '@/features/data-management/ontology/components/OntologyGraph3D';
 import { MasterSchemaSync } from '@/features/data-management/ontology/components/MasterSchemaSync';
+import { IoTStatusPanel } from '@/features/settings/components/IoTStatusPanel';
 import { GlassCard, Icon3D } from '@/components/ui/glass-card';
 
 const getText3D = (isDark: boolean) => ({
@@ -54,6 +55,7 @@ const tabs = [
   { value: 'stores', label: '매장 관리', icon: Store },
   { value: 'data', label: '데이터', icon: Database },
   { value: 'users', label: '사용자', icon: Users },
+  { value: 'iot', label: 'IoT', icon: Radio },
   { value: 'system', label: '시스템', icon: Building2 },
   { value: 'license', label: '플랜', icon: CreditCard },
 ];
@@ -73,7 +75,7 @@ export default function SettingsPage() {
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab');
     if (!tabFromUrl) return;
-    const validTabs = ['stores', 'data', 'users', 'system', 'license'];
+    const validTabs = ['stores', 'data', 'users', 'iot', 'system', 'license'];
     if (validTabs.includes(tabFromUrl)) {
       setActiveTab(tabFromUrl);
     }
@@ -333,6 +335,10 @@ export default function SettingsPage() {
           <TabsContent value="users" className="space-y-4 mt-0">
             <GlassCard dark={isDark}><div style={{ padding: '24px' }}><div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}><div><h3 style={{ fontSize: '16px', margin: 0, ...text3D.number }}>조직 멤버</h3><p style={{ fontSize: '12px', margin: '4px 0 0 0', ...text3D.body }}>사용자 및 역할 관리</p></div>{(isOrgHQ() || isOrgStore()) && (<Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}><DialogTrigger asChild><Button3D size="sm" dark={isDark}><Mail className="w-4 h-4" /> 사용자 초대</Button3D></DialogTrigger><DialogContent><DialogHeader><DialogTitle>Viewer 초대</DialogTitle><DialogDescription>읽기 전용 권한을 가진 사용자를 초대합니다</DialogDescription></DialogHeader><div className="space-y-4"><div className="space-y-2"><Label>이메일</Label><Input type="email" placeholder="viewer@example.com" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} /></div><Button onClick={sendViewerInvitation} disabled={loading || !inviteEmail} className="w-full">{loading ? '전송 중...' : '초대 전송'}</Button></div></DialogContent></Dialog>)}</div><div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}><thead><tr style={{ borderBottom: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.08)' }}><th style={{ textAlign: 'left', padding: '12px 8px', fontWeight: 600, color: isDark ? 'rgba(255,255,255,0.5)' : '#6b7280' }}>사용자 ID</th><th style={{ textAlign: 'left', padding: '12px 8px', fontWeight: 600, color: isDark ? 'rgba(255,255,255,0.5)' : '#6b7280' }}>역할</th><th style={{ textAlign: 'left', padding: '12px 8px', fontWeight: 600, color: isDark ? 'rgba(255,255,255,0.5)' : '#6b7280' }}>라이선스</th><th style={{ textAlign: 'left', padding: '12px 8px', fontWeight: 600, color: isDark ? 'rgba(255,255,255,0.5)' : '#6b7280' }}>가입일</th></tr></thead><tbody>{orgMembers.map((member) => (<tr key={member.id} style={{ borderBottom: isDark ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(0,0,0,0.04)' }}><td style={{ padding: '12px 8px', fontFamily: 'monospace', fontSize: '11px', color: isDark ? 'rgba(255,255,255,0.6)' : '#6b7280' }}>{member.user_id.substring(0, 8)}...</td><td style={{ padding: '12px 8px' }}>{getRoleBadge(member.role)}</td><td style={{ padding: '12px 8px' }}>{member.licenses ? getLicenseTypeBadge(member.licenses.license_type) : <Badge3D variant="secondary" dark={isDark}>없음</Badge3D>}</td><td style={{ padding: '12px 8px', ...text3D.body }}>{new Date(member.joined_at).toLocaleDateString('ko-KR')}</td></tr>))}</tbody></table></div></div></GlassCard>
             <GlassCard dark={isDark}><div style={{ padding: '24px' }}><h3 style={{ fontSize: '16px', margin: '0 0 16px 0', ...text3D.number }}>역할 설명</h3><div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>{[{ role: 'ORG_HQ', desc: '조직 관리, 모든 매장 접근 (HQ 라이선스 필요)' }, { role: 'ORG_STORE', desc: '매장 관리 및 데이터 분석 (Store 라이선스 필요)' }, { role: 'ORG_VIEWER', desc: '읽기 전용 권한 (무료)' }].map((item) => (<div key={item.role} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>{getRoleBadge(item.role)}<span style={{ fontSize: '13px', ...text3D.body }}>{item.desc}</span></div>))}</div></div></GlassCard>
+          </TabsContent>
+
+          <TabsContent value="iot" className="space-y-4 mt-0">
+            <IoTStatusPanel />
           </TabsContent>
 
           <TabsContent value="system" className="space-y-4 mt-0">

@@ -24,11 +24,13 @@ import {
   Menu,
   X,
   Store,
+  MessageSquare,
 } from "lucide-react";
 import { useAuth } from "@/providers/AuthProvider";
 import { SelectedStoreProvider } from "@/providers/SelectedStoreProvider";
 import { useSelectedStore } from "@/hooks/useSelectedStore";
 import { Button } from "@/components/ui/button";
+import { AssistantPanel } from "@/components/assistant";
 
 const NAV_ITEMS = [
   { label: "인사이트 허브", href: "/os/insights", icon: LayoutDashboard },
@@ -129,6 +131,7 @@ export default function DashboardLayout() {
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(false);
 
   // Sync dark mode on mount
   useEffect(() => {
@@ -209,8 +212,20 @@ export default function DashboardLayout() {
             })}
           </nav>
 
-          {/* Sidebar footer — simplified (avatar only, no email/logout) */}
-          <div className="p-2 border-t border-border">
+          {/* Sidebar footer — AI Assistant toggle + user */}
+          <div className="p-2 border-t border-border space-y-1">
+            <button
+              onClick={() => setAssistantOpen(!assistantOpen)}
+              className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                assistantOpen
+                  ? "bg-accent text-accent-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+              title="AI 어시스턴트"
+            >
+              <MessageSquare size={18} />
+              {!collapsed && <span>AI 어시스턴트</span>}
+            </button>
             <div className="flex items-center justify-center px-3 py-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
                 <User size={14} />
@@ -294,8 +309,8 @@ export default function DashboardLayout() {
           </div>
         </aside>
 
-        {/* ---- Main area (header + content) ---- */}
-        <main className="flex-1 flex flex-col overflow-hidden">
+        {/* ---- Main area (header + content + assistant) ---- */}
+        <div className="flex-1 flex flex-col overflow-hidden">
           {/* Top header bar */}
           <header className="h-14 border-b border-border/50 flex items-center justify-between px-4 shrink-0 bg-card/50 backdrop-blur-sm">
             {/* Left: hamburger (mobile) + store selector */}
@@ -330,11 +345,16 @@ export default function DashboardLayout() {
             </div>
           </header>
 
-          {/* Content area with mobile bottom padding for tab bar */}
-          <div className="flex-1 overflow-auto pb-16 md:pb-0">
-            <Outlet />
+          {/* Content area + Assistant panel side by side */}
+          <div className="flex-1 flex overflow-hidden">
+            <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
+              <Outlet />
+            </main>
+            {assistantOpen && (
+              <AssistantPanel onClose={() => setAssistantOpen(false)} />
+            )}
           </div>
-        </main>
+        </div>
 
         {/* ---- Mobile bottom tab bar (md breakpoint and below) ---- */}
         <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-card border-t border-border flex items-center justify-around z-30">
@@ -357,6 +377,20 @@ export default function DashboardLayout() {
               </Link>
             );
           })}
+          {/* AI Assistant tab */}
+          <button
+            onClick={() => setAssistantOpen(!assistantOpen)}
+            className={`flex flex-col items-center justify-center gap-0.5 px-2 py-1.5 rounded-lg transition-colors min-w-0 ${
+              assistantOpen
+                ? "text-accent"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <MessageSquare size={20} />
+            <span className="text-[10px] font-medium leading-tight truncate max-w-[60px]">
+              AI
+            </span>
+          </button>
         </nav>
       </div>
     </SelectedStoreProvider>

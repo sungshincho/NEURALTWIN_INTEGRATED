@@ -120,6 +120,30 @@ const Auth = () => {
       if (subError) {
         console.error("Error fetching subscription:", subError);
       }
+
+      // --- Session Handover: link anonymous chat history to authenticated user ---
+      const chatSessionId = localStorage.getItem('neuraltwin_chat_session_id');
+      if (chatSessionId && session.access_token) {
+        try {
+          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+          const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+          await fetch(`${supabaseUrl}/functions/v1/retail-chatbot`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
+              'apikey': supabaseKey,
+            },
+            body: JSON.stringify({
+              action: 'handover_session',
+              sessionId: chatSessionId,
+            }),
+          });
+        } catch (e) {
+          console.warn('[SessionHandover] Failed:', e);
+        }
+      }
+
       if (subscription) {
         navigate(safeRedirect);
       } else {
@@ -220,6 +244,32 @@ const Auth = () => {
         if (subError) {
           console.error("Error fetching subscription:", subError);
         }
+
+        // --- Session Handover: link anonymous chat history to authenticated user ---
+        const chatSessionId = localStorage.getItem('neuraltwin_chat_session_id');
+        if (chatSessionId && session.access_token) {
+          try {
+            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+            const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+            await fetch(`${supabaseUrl}/functions/v1/retail-chatbot`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`,
+                'apikey': supabaseKey,
+              },
+              body: JSON.stringify({
+                action: 'handover_session',
+                sessionId: chatSessionId,
+              }),
+            });
+            // Don't remove session ID - user might return to chat
+          } catch (e) {
+            console.warn('[SessionHandover] Failed:', e);
+            // Non-blocking - don't prevent login flow
+          }
+        }
+
         if (subscription) {
           navigate(safeRedirect);
         } else {
@@ -380,6 +430,29 @@ const Auth = () => {
           description: "환영합니다!"
         });
         trackFunnelStep(2, 'signup_completed');
+
+        // --- Session Handover: link anonymous chat history to authenticated user ---
+        const chatSessionId = localStorage.getItem('neuraltwin_chat_session_id');
+        if (chatSessionId && data.session?.access_token) {
+          try {
+            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+            const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+            await fetch(`${supabaseUrl}/functions/v1/retail-chatbot`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${data.session.access_token}`,
+                'apikey': supabaseKey,
+              },
+              body: JSON.stringify({
+                action: 'handover_session',
+                sessionId: chatSessionId,
+              }),
+            });
+          } catch (e) {
+            console.warn('[SessionHandover] Failed:', e);
+          }
+        }
 
         const {
           data: subscription

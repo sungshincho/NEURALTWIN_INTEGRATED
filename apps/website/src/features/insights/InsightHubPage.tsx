@@ -36,6 +36,7 @@ import { AIRecommendationTab } from '@/features/insights/tabs/AIRecommendationTa
 
 // Data Quality Banner (데이터 컨트롤타워 연동)
 import { DataQualityBanner } from '@/features/insights/components/DataQualityBanner';
+import { IoTLiveWidget } from '@/features/insights/components/IoTLiveWidget';
 import { useDarkMode } from '@/hooks/useDarkMode';
 
 const tabs = [
@@ -125,8 +126,11 @@ function InsightHubContent({ activeTab, setActiveTab }: {
           <GlobalDateFilter />
         </div>
 
-      {/* Data Quality Banner */}
-      <DataQualityBanner className="mb-2" />
+      {/* IoT Live Widget + Data Quality Banner */}
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_280px] gap-4 items-start">
+        <DataQualityBanner className="" />
+        <IoTLiveWidget />
+      </div>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as InsightTabType)} className="space-y-6">
