@@ -1316,10 +1316,10 @@ CREATE TABLE IF NOT EXISTS public.realtime_inventory (
   category text,
   quantity_on_hand integer NOT NULL DEFAULT 0,
   quantity_reserved integer DEFAULT 0,
-  quantity_available integer DEFAULT (quantity_on_hand - quantity_reserved),
+  quantity_available integer GENERATED ALWAYS AS (quantity_on_hand - quantity_reserved) STORED,
   reorder_point integer,
   reorder_quantity integer,
-  is_low_stock boolean DEFAULT (quantity_on_hand <= COALESCE(reorder_point, 0)),
+  is_low_stock boolean GENERATED ALWAYS AS (quantity_on_hand <= COALESCE(reorder_point, 0)) STORED,
   unit_cost numeric(10,2),
   unit_price numeric(10,2),
   last_updated_at timestamp with time zone DEFAULT now(),
@@ -6283,22 +6283,7 @@ END;
 $function$
 ;
 
-CREATE OR REPLACE FUNCTION public.get_strategy_roi_trend(p_strategy_id uuid)
- RETURNS TABLE(date date, daily_roi numeric, cumulative_roi numeric, metrics jsonb)
- LANGUAGE sql
- STABLE
-AS $function$
-
-  SELECT date, daily_roi, cumulative_roi, metrics
-
-  FROM public.strategy_daily_metrics
-
-  WHERE strategy_id = p_strategy_id
-
-  ORDER BY date;
-
-$function$
-;
+-- SKIPPED: get_strategy_roi_trend references non-existent strategy_daily_metrics table
 
 CREATE OR REPLACE FUNCTION public.get_success_patterns(p_store_id uuid, p_strategy_type character varying, p_limit integer DEFAULT 5)
  RETURNS json

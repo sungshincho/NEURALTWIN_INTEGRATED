@@ -70,35 +70,35 @@ WHERE id = 'store-data';
 -- ============================================================
 
 -- zone_events (37,109 rows)
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_zone_events_customer_id
+CREATE INDEX IF NOT EXISTS idx_zone_events_customer_id
   ON public.zone_events(customer_id);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_zone_events_org_id
+CREATE INDEX IF NOT EXISTS idx_zone_events_org_id
   ON public.zone_events(org_id);
 
 -- funnel_events (26,588 rows)
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_funnel_events_zone_id
+CREATE INDEX IF NOT EXISTS idx_funnel_events_zone_id
   ON public.funnel_events(zone_id);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_funnel_events_customer_id
+CREATE INDEX IF NOT EXISTS idx_funnel_events_customer_id
   ON public.funnel_events(customer_id);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_funnel_events_org_id
+CREATE INDEX IF NOT EXISTS idx_funnel_events_org_id
   ON public.funnel_events(org_id);
 
 -- visit_zone_events (24,626 rows)
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_visit_zone_events_org_id
+CREATE INDEX IF NOT EXISTS idx_visit_zone_events_org_id
   ON public.visit_zone_events(org_id);
 
 -- line_items (8,194 rows)
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_line_items_org_id
+CREATE INDEX IF NOT EXISTS idx_line_items_org_id
   ON public.line_items(org_id);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_line_items_purchase_id
+CREATE INDEX IF NOT EXISTS idx_line_items_purchase_id
   ON public.line_items(purchase_id);
 
 -- transactions (4,109 rows)
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_transactions_org_id
+CREATE INDEX IF NOT EXISTS idx_transactions_org_id
   ON public.transactions(org_id);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_transactions_visit_id
+CREATE INDEX IF NOT EXISTS idx_transactions_visit_id
   ON public.transactions(visit_id);
 
 -- customers (2,500 rows)
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_customers_store_id
+CREATE INDEX IF NOT EXISTS idx_customers_store_id
   ON public.customers(store_id);
