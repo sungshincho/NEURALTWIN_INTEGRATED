@@ -16,19 +16,19 @@ export default defineConfig(({ mode }) => ({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          "vendor-react": ["react", "react-dom", "react-router-dom"],
-          "vendor-data": [
-            "@tanstack/react-query",
-            "@supabase/supabase-js",
-          ],
-          "vendor-three": [
-            "three",
-            "@react-three/fiber",
-            "@react-three/drei",
-          ],
-          "vendor-pdf": ["jspdf", "pdfjs-dist"],
-          "vendor-office": ["xlsx", "docx"],
+        manualChunks(id) {
+          // Vendor chunks
+          if (id.includes("node_modules/react-dom")) return "vendor-react";
+          if (id.includes("node_modules/react-router-dom")) return "vendor-react";
+          if (id.includes("node_modules/react/")) return "vendor-react";
+          if (id.includes("node_modules/@tanstack/react-query")) return "vendor-data";
+          if (id.includes("node_modules/@supabase/supabase-js")) return "vendor-data";
+          if (id.includes("node_modules/three/") || id.includes("node_modules/@react-three/")) return "vendor-three";
+          if (id.includes("node_modules/jspdf") || id.includes("node_modules/pdfjs-dist")) return "vendor-pdf";
+          if (id.includes("node_modules/xlsx") || id.includes("node_modules/docx")) return "vendor-office";
+
+          // Simulation feature chunk (lazy-loaded via Studio)
+          if (id.includes("features/simulation/")) return "studio-simulation";
         },
       },
     },

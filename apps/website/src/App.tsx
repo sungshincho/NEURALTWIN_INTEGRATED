@@ -26,10 +26,10 @@ const Subscribe = lazy(() => import("./pages/Subscribe"));
 
 // OS Dashboard — lazy load (authenticated layout + pages)
 const DashboardLayout = lazy(() => import("./layouts/DashboardLayout"));
-const OsPlaceholder = lazy(() => import("./pages/os/OsPlaceholder"));
 const ROIMeasurementPage = lazy(() => import("./features/roi/ROIMeasurementPage"));
 const InsightHubPage = lazy(() => import("./features/insights/InsightHubPage"));
 const SettingsPage = lazy(() => import("./features/settings/SettingsPage"));
+const DigitalTwinStudioPage = lazy(() => import("./features/studio/DigitalTwinStudioPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -100,7 +100,7 @@ const App = () => (
               >
                 <Route index element={<Navigate to="/os/insights" replace />} />
                 <Route path="insights" element={<InsightHubPage />} />
-                <Route path="studio" element={<OsPlaceholder />} />
+                <Route path="studio" element={<DigitalTwinStudioPage />} />
                 <Route path="roi" element={<ROIMeasurementPage />} />
                 <Route path="settings" element={<SettingsPage />} />
               </Route>
