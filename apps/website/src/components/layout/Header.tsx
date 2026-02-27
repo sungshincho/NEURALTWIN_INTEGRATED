@@ -65,7 +65,7 @@ export const Header = () => {
     href: "/chat"
   }, {
     name: "대시보드",
-    href: "/dashboard"
+    href: "/os/insights"
   }];
   return <header className="fixed top-0 left-0 right-0 z-50 glass border-b border-border/50">
       <nav className="container mx-auto px-4 sm:px-6 lg:px-8">
