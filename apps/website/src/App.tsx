@@ -1,8 +1,13 @@
+import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/providers/AuthProvider";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+
+// Public pages — eager load (landing + core marketing)
 import Index from "./pages/Index";
 import Product from "./pages/Product";
 import Chat from "./pages/Chat";
@@ -10,38 +15,78 @@ import About from "./pages/About";
 import Auth from "./pages/Auth";
 import Pricing from "./pages/Pricing";
 import Contact from "./pages/Contact";
-import Subscribe from "./pages/Subscribe";
-import Dashboard from "./pages/Dashboard";
-import Profile from "./pages/Profile";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+// Protected pages — lazy load
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Profile = lazy(() => import("./pages/Profile"));
+const Subscribe = lazy(() => import("./pages/Subscribe"));
 
-// Rebuild trigger - latest GitHub commit v16
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: { refetchOnWindowFocus: false },
+  },
+});
+
+const LoadingFallback = () => (
+  <div className="flex items-center justify-center min-h-screen">
+    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
+  </div>
+);
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Chat />} />
-          <Route path="/index" element={<Index />} />
-          <Route path="/product" element={<Product />} />
-          <Route path="/chat" element={<Chat />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/pricing" element={<Pricing />} />
-          <Route path="/contact" element={<Contact />} />
-          <Route path="/subscribe" element={<Subscribe />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/privacy" element={<Privacy />} />
-          <Route path="/terms" element={<Terms />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <AuthProvider>
+          <Suspense fallback={<LoadingFallback />}>
+            <Routes>
+              {/* ===== Public Routes ===== */}
+              <Route path="/" element={<Index />} />
+              <Route path="/product" element={<Product />} />
+              <Route path="/chat" element={<Chat />} />
+              <Route path="/about" element={<About />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/pricing" element={<Pricing />} />
+              <Route path="/contact" element={<Contact />} />
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/terms" element={<Terms />} />
+
+              {/* ===== Protected Routes ===== */}
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/profile"
+                element={
+                  <ProtectedRoute>
+                    <Profile />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/subscribe"
+                element={
+                  <ProtectedRoute>
+                    <Subscribe />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* ===== Catch-all ===== */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Suspense>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
