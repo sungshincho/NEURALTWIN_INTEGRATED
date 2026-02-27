@@ -205,6 +205,90 @@ export function useROIMeasurements(applicationId?: string) {
 }
 
 // ============================================================================
+// ROI 요약 통계
+// ============================================================================
+
+export function useROISummary(storeId?: string) {
+  const { orgId } = useAuth();
+
+  return useQuery({
+    queryKey: ['roi-summary', orgId, storeId],
+    queryFn: async () => {
+      if (!orgId) return null;
+
+      let query = (supabase
+        .from('roi_measurements' as any)
+        .select(`
+          *,
+          recommendation_applications!inner (
+            recommendation_type,
+            store_id
+          )
+        `)
+        .eq('org_id', orgId) as any);
+
+      if (storeId) {
+        query = query.eq('recommendation_applications.store_id', storeId);
+      }
+
+      const { data: measurements, error } = await query;
+      if (error) throw error;
+
+      if (!measurements || measurements.length === 0) {
+        return {
+          totalApplications: 0,
+          completedMeasurements: 0,
+          avgROI: 0,
+          positiveImpactRate: 0,
+          totalEstimatedAnnualImpact: 0,
+          byType: {} as Record<RecommendationType, { count: number; avgROI: number }>,
+        };
+      }
+
+      const positiveCount = measurements.filter((m: any) => m.is_positive_impact).length;
+      const roiValues = measurements
+        .map((m: any) => (m.kpi_changes as any)?.total_revenue?.percentage || 0)
+        .filter((v: number) => v !== 0);
+
+      const avgROI = roiValues.length > 0
+        ? roiValues.reduce((a: number, b: number) => a + b, 0) / roiValues.length
+        : 0;
+
+      const totalAnnualImpact = measurements
+        .reduce((sum: number, m: any) => sum + ((m.estimated_annual_impact as any)?.revenue || 0), 0);
+
+      const byType: Record<string, { count: number; totalROI: number }> = {};
+      measurements.forEach((m: any) => {
+        const type = (m.recommendation_applications as any)?.recommendation_type;
+        if (type) {
+          if (!byType[type]) byType[type] = { count: 0, totalROI: 0 };
+          byType[type].count++;
+          byType[type].totalROI += (m.kpi_changes as any)?.total_revenue?.percentage || 0;
+        }
+      });
+
+      const byTypeResult: Record<string, { count: number; avgROI: number }> = {};
+      Object.entries(byType).forEach(([type, data]) => {
+        byTypeResult[type] = {
+          count: data.count,
+          avgROI: data.count > 0 ? data.totalROI / data.count : 0,
+        };
+      });
+
+      return {
+        totalApplications: measurements.length,
+        completedMeasurements: measurements.length,
+        avgROI: Math.round(avgROI * 10) / 10,
+        positiveImpactRate: Math.round((positiveCount / measurements.length) * 100),
+        totalEstimatedAnnualImpact: Math.round(totalAnnualImpact),
+        byType: byTypeResult,
+      };
+    },
+    enabled: !!orgId,
+  });
+}
+
+// ============================================================================
 // 추천 적용 시작 (베이스라인 캡처)
 // ============================================================================
 

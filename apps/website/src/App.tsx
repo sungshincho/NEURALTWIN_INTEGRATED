@@ -28,6 +28,7 @@ const Subscribe = lazy(() => import("./pages/Subscribe"));
 const DashboardLayout = lazy(() => import("./layouts/DashboardLayout"));
 const OsPlaceholder = lazy(() => import("./pages/os/OsPlaceholder"));
 const ROIMeasurementPage = lazy(() => import("./features/roi/ROIMeasurementPage"));
+const InsightHubPage = lazy(() => import("./features/insights/InsightHubPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -97,7 +98,7 @@ const App = () => (
                 }
               >
                 <Route index element={<Navigate to="/os/insights" replace />} />
-                <Route path="insights" element={<OsPlaceholder />} />
+                <Route path="insights" element={<InsightHubPage />} />
                 <Route path="studio" element={<OsPlaceholder />} />
                 <Route path="roi" element={<ROIMeasurementPage />} />
                 <Route path="settings" element={<OsPlaceholder />} />
