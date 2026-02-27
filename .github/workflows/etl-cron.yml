@@ -1,0 +1,40 @@
+name: ETL Scheduler Cron
+
+on:
+  schedule:
+    # Run every 6 hours: midnight, 6am, noon, 6pm UTC
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+jobs:
+  run-etl:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call etl-scheduler Edge Function
+        id: call-etl
+        run: |
+          HTTP_STATUS=$(curl -s -o response.json -w "%{http_code}" \
+            -X POST \
+            "https://bdrvowacecxnraaivlhr.supabase.co/functions/v1/etl-scheduler" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+            --max-time 120)
+
+          echo "HTTP Status: $HTTP_STATUS"
+          echo "Response:"
+          cat response.json | jq . 2>/dev/null || cat response.json
+
+          if [ "$HTTP_STATUS" -lt 200 ] || [ "$HTTP_STATUS" -ge 300 ]; then
+            echo "::error::ETL scheduler returned HTTP $HTTP_STATUS"
+            exit 1
+          fi
+
+          # Verify the response indicates success
+          SUCCESS=$(cat response.json | jq -r '.success // false')
+          if [ "$SUCCESS" != "true" ]; then
+            echo "::error::ETL scheduler response did not indicate success"
+            exit 1
+          fi
+
+          ORGS_PROCESSED=$(cat response.json | jq -r '.orgs_processed // 0')
+          echo "ETL pipeline completed successfully. Organizations processed: $ORGS_PROCESSED"

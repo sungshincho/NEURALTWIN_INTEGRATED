@@ -91,10 +91,14 @@ def parse_mac_list(s: str):
 
 def hash_mac(mac: str, salt: str):
     """
-    Stable pseudonym for MAC: sha256(salt + mac) -> short hex.
+    Stable pseudonym for MAC: sha256(salt + normalized_mac) -> short hex.
     Keep salt private. Same salt => consistent IDs across runs.
+    Normalizes MAC (lowercase, strip colons/dashes) so that
+    'AA:BB:CC:DD:EE:FF', 'aa-bb-cc-dd-ee-ff', 'aabbccddeeff'
+    all produce the same hash. Compatible with mac_hasher.py on the laptop.
     """
-    h = hashlib.sha256((salt + mac).encode("utf-8")).hexdigest()
+    normalized = mac.strip().lower().replace(":", "").replace("-", "")
+    h = hashlib.sha256((salt + normalized).encode("utf-8")).hexdigest()
     return h[:16]  # short id is enough
 
 def main():

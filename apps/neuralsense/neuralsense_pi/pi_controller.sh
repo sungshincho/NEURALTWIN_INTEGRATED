@@ -12,6 +12,9 @@
 CHANNEL="${2:-6}"
 CAL_MAC="a8:76:50:e9:28:20"
 TRACK_MACS="b0:54:76:5c:99:d5,24:24:b7:19:30:0a,a8:76:50:e9:28:20"
+# MAC hashing salt for production mode (Decision #7 — GDPR/privacy).
+# Override via environment variable: NEURALSENSE_MAC_SALT="your-secret"
+MAC_SALT="${NEURALSENSE_MAC_SALT:-}"
 
 PI_IDS=(pi10 pi5 pi7 pi8 pi9 pi11 pi12 pi13)
 
@@ -158,6 +161,49 @@ cmd_start_test() {
     echo "Now run: python run_live_geometry.py"
 }
 
+cmd_start_prod() {
+    echo "============================================"
+    echo "  Starting PRODUCTION sniffers (MAC hashing)"
+    echo "============================================"
+    echo ""
+
+    if [ -z "$MAC_SALT" ]; then
+        echo "ERROR: NEURALSENSE_MAC_SALT is not set."
+        echo "Set it before running production mode:"
+        echo "  export NEURALSENSE_MAC_SALT='your-secret-salt'"
+        echo "  bash pi_controller.sh start-prod"
+        exit 1
+    fi
+
+    for pi in "${PI_IDS[@]}"; do
+        local target="${PI_SSH[$pi]}"
+        echo -n "$pi: "
+
+        local iface
+        iface=$(detect_realtek "$target")
+
+        if [ -z "$iface" ]; then
+            echo "FAIL (no REALTEK interface)"
+            continue
+        fi
+
+        # Kill any existing sniffer
+        run_ssh "$target" "sudo pkill -f sniff_and_send_unified.py 2>/dev/null; sleep 0.5" 2>/dev/null
+
+        # Start production sniffer with MAC hashing enabled
+        run_ssh "$target" \
+            "cd ~/neuralsense_pi && nohup sudo python3 sniff_and_send_unified.py \
+            --rpi-id $pi --iface $iface --hash-macs --hash-salt '$MAC_SALT' \
+            > /tmp/sniffer_${pi}.log 2>&1 &"
+
+        echo "OK ($iface, production mode, MAC hashing ON)"
+    done
+
+    echo ""
+    echo "All production sniffers started (MAC hashing enabled)."
+    echo "Now run: python run_live_geometry.py"
+}
+
 cmd_stop() {
     echo "============================================"
     echo "  Stopping all sniffers"
@@ -231,6 +277,7 @@ cmd_help() {
     echo "  bash pi_controller.sh monitor [channel]   Set monitor mode (default ch 6)"
     echo "  bash pi_controller.sh start-cal            Start calibration sniffers"
     echo "  bash pi_controller.sh start-test           Start test sniffers"
+    echo "  bash pi_controller.sh start-prod           Start production sniffers (MAC hashing ON)"
     echo "  bash pi_controller.sh stop                 Stop all sniffers"
     echo "  bash pi_controller.sh status               Check fleet status"
     echo ""
@@ -242,6 +289,12 @@ cmd_help() {
     echo "     python run_live_geometry.py"
     echo "     python accuracy_test_from_zone_assignments.py"
     echo "  4. bash pi_controller.sh stop"
+    echo ""
+    echo "Production (with MAC hashing):"
+    echo "  export NEURALSENSE_MAC_SALT='your-secret-salt'"
+    echo "  bash pi_controller.sh monitor"
+    echo "  bash pi_controller.sh start-prod"
+    echo "  NEURALSENSE_MAC_HASH_ENABLED=true python run_live_geometry.py"
 }
 
 # ── Main ────────────────────────────────────────────────────
@@ -250,10 +303,11 @@ cmd_help() {
 # to avoid typing your key passphrase for every Pi connection.
 
 case "${1:-help}" in
-    monitor)    cmd_monitor ;;
-    start-cal)  cmd_start_cal ;;
-    start-test) cmd_start_test ;;
-    stop)       cmd_stop ;;
-    status)     cmd_status ;;
-    help|*)     cmd_help ;;
+    monitor)     cmd_monitor ;;
+    start-cal)   cmd_start_cal ;;
+    start-test)  cmd_start_test ;;
+    start-prod)  cmd_start_prod ;;
+    stop)        cmd_stop ;;
+    status)      cmd_status ;;
+    help|*)      cmd_help ;;
 esac

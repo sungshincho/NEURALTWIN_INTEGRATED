@@ -9,6 +9,10 @@ from statistics import median
 from datetime import datetime, timezone, timedelta
 import paho.mqtt.client as mqtt
 
+# MAC address hashing for GDPR/privacy (Decision #7)
+from mac_hasher import get_mac_hasher
+_hash_mac = get_mac_hasher()
+
 # Supabase upload integration (optional, toggled by ENABLE_UPLOAD)
 _uploader = None
 try:
@@ -273,6 +277,13 @@ def main():
     print("TRANSITION_CONFIRM_COUNT =", TRANSITION_CONFIRM_COUNT)
     print("STALE_MAC_SEC =", STALE_MAC_SEC)
     print("Broker:", MQTT_HOST, "Topic:", MQTT_TOPIC)
+    # Report MAC hashing status
+    try:
+        import config as _mcfg
+        _mac_hash_on = getattr(_mcfg, "MAC_HASH_ENABLED", False)
+    except ImportError:
+        _mac_hash_on = False
+    print("MAC_HASH_ENABLED =", _mac_hash_on)
     print("Zones loaded:", len(zones), "| Cal zones:", len(cal))
 
     # Supabase uploader init
@@ -394,13 +405,18 @@ def main():
             log_error("json_decode", e)
             return
 
-        phone = str(evt.get("mac", "")).lower().strip()
+        raw_mac = str(evt.get("mac", "")).lower().strip()
         rpi_id = str(evt.get("rpi_id", "")).strip().lower()
         try:
             rssi = int(evt.get("rssi"))
         except Exception as e:
             log_error("parse_rssi", e, extra={"evt": evt})
             return
+
+        # Apply MAC hashing at the earliest pipeline point (Decision #7 — GDPR/privacy).
+        # When MAC_HASH_ENABLED=true, raw_mac is hashed before any storage or processing.
+        # When disabled (default for dev), _hash_mac is a passthrough.
+        phone = _hash_mac(raw_mac)
 
         safe_append_jsonl(OUT_RAW, {
             "ts": rx_ts, "ts_kst": ts_kst(rx_ts),

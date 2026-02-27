@@ -62,6 +62,12 @@ STABLE_STREAK_REQUIRED = int(os.getenv("STABLE_STREAK_REQUIRED", "3"))
 RSSI_MIN_DBM = int(os.getenv("RSSI_MIN_DBM", "-95"))
 RSSI_MAX_DBM = int(os.getenv("RSSI_MAX_DBM", "-20"))
 
+# ── MAC Address Hashing (GDPR/Privacy) ──
+# When enabled, MAC addresses are SHA-256 hashed with a salt before processing.
+# Same MAC + same salt = same hash (deterministic — session linking still works).
+MAC_HASH_ENABLED = os.getenv("NEURALSENSE_MAC_HASH_ENABLED", "false").lower() == "true"
+MAC_SALT = os.getenv("NEURALSENSE_MAC_SALT", "")
+
 # ── Data output ──
 OUTPUT_DIR = os.getenv("OUTPUT_DIR", "output")
 
