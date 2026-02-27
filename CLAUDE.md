@@ -1,7 +1,7 @@
 # NEURALTWIN 모노레포
 
-> **Version**: 2.0 | 2026-02-26
-> **Audience**: PM 리드 에이전트 + 5 Teammates (Agent Teams)
+> **Version**: 2.1 | 2026-02-27
+> **Audience**: PM 리드 에이전트 + 6 Teammates (Agent Teams)
 > **Owner**: CEO 성신 (최종 의사결정권자)
 
 ---
@@ -20,7 +20,8 @@ CEO 성신 (Human)
         ├── Teammate 2 — Backend     (supabase/)
         ├── Teammate 3 — DT/OS      (apps/os-dashboard/)
         ├── Teammate 4 — Website     (apps/website/)
-        └── Teammate 5 — Domain Expert/Data Researcher
+        ├── Teammate 5 — Domain Expert/Data Researcher
+        └── Teammate 6 — Designer    (docs/design/)
 ```
 
 ### PM 리드 역할
@@ -66,6 +67,14 @@ CEO 성신 (Human)
 - **기술**: 웹 리서치, 데이터 분석, 도메인 모델링
 - **주요 산출물**: 시장 분석 보고서, 도메인 용어집, AI 프롬프트 검증 피드백
 
+#### Teammate 6 — Designer (UI/UX 총괄)
+- **담당**: UI/UX 리서치, 디자인 시스템 가이드 작성, 컴포넌트 스펙, 유저플로우 설계, 인터랙션 패턴 정의
+- **작업 디렉토리**: `docs/design/` (디자인 가이드 및 스펙 문서)
+- **기술**: UI/UX 리서치, 디자인 시스템, 접근성(A11y), 반응형 레이아웃, 색상/타이포 체계
+- **주요 산출물**: 디자인 가이드라인, 컴포넌트 스펙 문서, 유저플로우 다이어그램, 디자인 토큰
+- **크로스팀 역할**: T3(DT/OS), T4(Website) 구현 시 디자인 스펙 제공 및 리뷰, @neuraltwin/ui 패키지 디자인 방향 결정
+- **참조 디렉토리** (읽기 전용): `apps/website/`, `apps/os-dashboard/`, `packages/ui/`
+
 ### 운영 규칙
 
 #### 규칙 1: 파일 소유권 — 충돌 방지
@@ -75,7 +84,8 @@ Teammate 1 → apps/neuralsense/**
 Teammate 2 → supabase/**, .github/workflows/**
 Teammate 3 → apps/os-dashboard/**
 Teammate 4 → apps/website/**, packages/ui/**
-Teammate 5 → docs/** (리서치 산출물)
+Teammate 5 → docs/** (리서치 산출물, docs/design/ 제외)
+Teammate 6 → docs/design/** (디자인 가이드 및 스펙)
 ```
 **위반 금지**: 다른 teammate의 디렉토리 파일을 직접 수정하지 않습니다.
 
@@ -85,7 +95,8 @@ Teammate 5 → docs/** (리서치 산출물)
 |-------------|-----------|-----------|
 | `packages/types/` | DB 타입 변경 | 전원 (1~4) |
 | `packages/shared/` | EF 유틸 변경 | Teammate 2, 3, 4 |
-| `packages/ui/` | UI 컴포넌트 변경 | Teammate 3, 4 |
+| `packages/ui/` | UI 컴포넌트 변경 | Teammate 3, 4, 6 |
+| `docs/design/` | 디자인 가이드 변경 | Teammate 3, 4 |
 | `.env` 변수 추가/변경 | 환경설정 | 관련 teammate |
 | `supabase/supabase/migrations/` | DB 스키마 변경 | 전원 (1~4) |
 | `pnpm-workspace.yaml`, `turbo.json` | 빌드 설정 | 전원 |
