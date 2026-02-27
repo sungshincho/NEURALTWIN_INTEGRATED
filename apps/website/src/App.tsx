@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/providers/AuthProvider";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 
@@ -23,6 +23,10 @@ import NotFound from "./pages/NotFound";
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Subscribe = lazy(() => import("./pages/Subscribe"));
+
+// OS Dashboard — lazy load (authenticated layout + pages)
+const DashboardLayout = lazy(() => import("./layouts/DashboardLayout"));
+const OsPlaceholder = lazy(() => import("./pages/os/OsPlaceholder"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -56,7 +60,7 @@ const App = () => (
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/terms" element={<Terms />} />
 
-              {/* ===== Protected Routes ===== */}
+              {/* ===== Protected Routes (Website) ===== */}
               <Route
                 path="/dashboard"
                 element={
@@ -81,6 +85,22 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
+
+              {/* ===== OS Dashboard Routes (Protected + DashboardLayout) ===== */}
+              <Route
+                path="/os"
+                element={
+                  <ProtectedRoute>
+                    <DashboardLayout />
+                  </ProtectedRoute>
+                }
+              >
+                <Route index element={<Navigate to="/os/insights" replace />} />
+                <Route path="insights" element={<OsPlaceholder />} />
+                <Route path="studio" element={<OsPlaceholder />} />
+                <Route path="roi" element={<OsPlaceholder />} />
+                <Route path="settings" element={<OsPlaceholder />} />
+              </Route>
 
               {/* ===== Catch-all ===== */}
               <Route path="*" element={<NotFound />} />
