@@ -20,4 +20,8 @@ export {
   CardDescription,
   CardContent,
 } from './card';
+export { Alert, AlertTitle, AlertDescription, alertVariants } from './alert';
+export { Badge, badgeVariants, type BadgeProps } from './badge';
+export { Label } from './label';
+export { Separator } from './separator';
 export { cn } from './lib/utils';
