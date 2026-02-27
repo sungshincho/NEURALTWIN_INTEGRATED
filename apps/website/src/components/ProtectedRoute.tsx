@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { AppRole } from '@/types/auth';
 
@@ -16,13 +16,14 @@ export const ProtectedRoute = ({
 }: ProtectedRouteProps) => {
   const { isAuthenticated, authContext, loading, initialized } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     if (!initialized) return;
 
     // Redirect to auth if not authenticated and auth is required
     if (requireAuth && !isAuthenticated) {
-      navigate('/auth');
+      navigate(`/auth?redirect_to=${encodeURIComponent(location.pathname)}`);
       return;
     }
 
@@ -39,14 +40,14 @@ export const ProtectedRoute = ({
           case 'ORG_HQ':
           case 'ORG_STORE':
           case 'ORG_VIEWER':
-            navigate('/dashboard'); // Customer dashboard
+            navigate('/os/insights'); // Customer dashboard
             break;
           default:
             navigate('/');
         }
       }
     }
-  }, [isAuthenticated, authContext, loading, initialized, navigate, allowedRoles, requireAuth]);
+  }, [isAuthenticated, authContext, loading, initialized, navigate, location.pathname, allowedRoles, requireAuth]);
 
   // Show loading state while checking authentication
   if (loading || !initialized) {

@@ -8,7 +8,6 @@ import { AuthProvider } from "@/providers/AuthProvider";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 // Public pages — eager load (landing + core marketing)
-import Index from "./pages/Index";
 import Product from "./pages/Product";
 import Chat from "./pages/Chat";
 import About from "./pages/About";
@@ -37,6 +36,20 @@ const queryClient = new QueryClient({
   },
 });
 
+// 다크모드 기본값 — App 컴포넌트 렌더 전 즉시 실행 (FOUC 방지)
+(() => {
+  const saved = localStorage.getItem("neuraltwin-theme");
+  if (!saved) {
+    // 첫 방문: 다크 모드를 기본값으로
+    localStorage.setItem("neuraltwin-theme", "dark");
+    document.documentElement.classList.add("dark");
+  } else if (saved === "dark") {
+    document.documentElement.classList.add("dark");
+  } else {
+    document.documentElement.classList.remove("dark");
+  }
+})();
+
 const LoadingFallback = () => (
   <div className="flex items-center justify-center min-h-screen">
     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
@@ -53,9 +66,9 @@ const App = () => (
           <Suspense fallback={<LoadingFallback />}>
             <Routes>
               {/* ===== Public Routes ===== */}
-              <Route path="/" element={<Index />} />
+              <Route path="/" element={<Chat />} />
+              <Route path="/chat" element={<Navigate to="/" replace />} />
               <Route path="/product" element={<Product />} />
-              <Route path="/chat" element={<Chat />} />
               <Route path="/about" element={<About />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/pricing" element={<Pricing />} />

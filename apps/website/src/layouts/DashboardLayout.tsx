@@ -35,11 +35,13 @@ export default function DashboardLayout() {
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
 
-  // Sync dark mode on mount (OS Dashboard defaults to light)
+  // Sync dark mode on mount (dark mode is the app-wide default, set in App.tsx)
   useEffect(() => {
     const saved = localStorage.getItem("neuraltwin-theme");
-    if (saved === "dark") {
+    if (saved === "dark" || !saved) {
       document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
     }
   }, []);
 

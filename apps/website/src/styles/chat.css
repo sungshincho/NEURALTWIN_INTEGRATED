@@ -2530,6 +2530,26 @@
     gap: 10px;
 }
 
+.turn-limit-login-btn {
+    display: block;
+    width: 100%;
+    padding: 14px 24px;
+    background: #00d4aa;
+    color: #0a0a0a;
+    border-radius: 10px;
+    text-align: center;
+    font-family: 'Fira Code', 'Noto Sans KR', monospace;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+}
+.turn-limit-login-btn:hover {
+    background: #00e8bb;
+    transform: translateY(-1px);
+}
+
 .turn-limit-reset-btn {
     width: 100%;
     padding: 14px 24px;

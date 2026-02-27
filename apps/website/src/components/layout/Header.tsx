@@ -61,9 +61,6 @@ export const Header = () => {
     name: t("nav.contact"),
     href: "/contact"
   }, {
-    name: "채팅",
-    href: "/chat"
-  }, {
     name: "대시보드",
     href: "/os/insights"
   }];

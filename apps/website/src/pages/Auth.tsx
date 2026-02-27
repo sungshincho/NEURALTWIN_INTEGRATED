@@ -11,6 +11,13 @@ const Auth = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useTranslation();
+
+  // Extract redirect_to from query parameters for post-login navigation
+  const searchParams = new URLSearchParams(location.search);
+  const rawRedirect = searchParams.get('redirect_to');
+  // Safety: only allow internal paths (starting with /) to prevent open redirect
+  const safeRedirect = rawRedirect && rawRedirect.startsWith('/') ? rawRedirect : '/os/insights';
+
   const [activeTab, setActiveTab] = useState<"login" | "signup">((location.state as any)?.tab === "signup" ? "signup" : "login");
   const [privacyDialogOpen, setPrivacyDialogOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -114,7 +121,7 @@ const Auth = () => {
         console.error("Error fetching subscription:", subError);
       }
       if (subscription) {
-        navigate("/dashboard");
+        navigate(safeRedirect);
       } else {
         navigate("/subscribe");
       }
@@ -214,7 +221,7 @@ const Auth = () => {
           console.error("Error fetching subscription:", subError);
         }
         if (subscription) {
-          navigate("/dashboard");
+          navigate(safeRedirect);
         } else {
           navigate("/subscribe");
         }
@@ -266,7 +273,7 @@ const Auth = () => {
       clearTimeout(t3);
       subscription.unsubscribe();
     };
-  }, [navigate, toast]);
+  }, [navigate, toast, safeRedirect]);
 
   const handleEmailSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -378,7 +385,7 @@ const Auth = () => {
           data: subscription
         } = await supabase.from('subscriptions').select('id').eq('org_id', orgId).eq('status', 'active').maybeSingle();
         if (subscription) {
-          navigate("/dashboard");
+          navigate(safeRedirect);
         } else {
           navigate("/subscribe");
         }

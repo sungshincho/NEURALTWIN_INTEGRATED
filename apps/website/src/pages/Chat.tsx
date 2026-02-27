@@ -76,10 +76,12 @@ const Chat = () => {
   const location = useLocation();
   const { user, isAuthenticated, signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [introComplete, setIntroComplete] = useState(false);
-  const [curtainsOpen, setCurtainsOpen] = useState(false);
-  const [contentVisible, setContentVisible] = useState(false);
-  const [introHidden, setIntroHidden] = useState(false);
+  // 인트로 애니메이션: 첫 방문만 풀 재생, 재방문(같은 세션) 시 스킵
+  const hasSeenIntro = sessionStorage.getItem('neuraltwin-intro-seen') === 'true';
+  const [introComplete, setIntroComplete] = useState(hasSeenIntro);
+  const [curtainsOpen, setCurtainsOpen] = useState(hasSeenIntro);
+  const [contentVisible, setContentVisible] = useState(hasSeenIntro);
+  const [introHidden, setIntroHidden] = useState(hasSeenIntro);
 
   // 채팅 상태
   const [messages, setMessages] = useState<Message[]>([]);
@@ -190,13 +192,26 @@ const Chat = () => {
     document.body.style.margin = "0";
     document.body.style.padding = "0";
 
+    // 재방문 시 인트로 애니메이션 스킵
+    if (hasSeenIntro) {
+      return () => {
+        document.body.style.backgroundColor = "";
+        document.body.style.margin = "";
+        document.body.style.padding = "";
+        abortControllerRef.current?.abort();
+      };
+    }
+
     // 인트로 애니메이션 시퀀스 (HTML 원본 타이밍과 동일)
     const timer1 = setTimeout(() => setIntroComplete(true), 1100);
     const timer2 = setTimeout(() => {
       setCurtainsOpen(true);
       setContentVisible(true);
     }, 1400);
-    const timer3 = setTimeout(() => setIntroHidden(true), 2200);
+    const timer3 = setTimeout(() => {
+      setIntroHidden(true);
+      sessionStorage.setItem('neuraltwin-intro-seen', 'true');
+    }, 2200);
 
     return () => {
       document.body.style.backgroundColor = "";
@@ -232,7 +247,7 @@ const Chat = () => {
 
   // 비회원 턴 카운트 (user 메시지 수 = 턴 수)
   const turnCount = messages.filter(m => m.role === 'user').length;
-  const isGuestLimitReached = turnCount >= MAX_GUEST_TURNS;
+  const isGuestLimitReached = !isAuthenticated && turnCount >= MAX_GUEST_TURNS;
 
   // 비회원 턴 제한 도달 시 모달 자동 표시
   useEffect(() => {
@@ -1497,6 +1512,9 @@ const Chat = () => {
               <span className="turn-limit-max">/ {MAX_GUEST_TURNS} 턴 사용</span>
             </div>
             <div className="turn-limit-actions">
+              <Link to="/auth" className="turn-limit-login-btn" onClick={() => setShowTurnLimitModal(false)}>
+                로그인하면 무제한 이용 &rarr;
+              </Link>
               <button className="turn-limit-reset-btn" onClick={handleResetSession}>
                 새 대화 시작
               </button>
@@ -1728,7 +1746,7 @@ const Chat = () => {
 
         <div className="chat-fs-footer">
           <div className="chat-fs-input-wrapper">
-            {turnCount > 0 && (
+            {!isAuthenticated && turnCount > 0 && (
               <div className={`turn-counter-bar${isGuestLimitReached ? ' limit-reached' : ''}`}>
                 <span className="turn-counter-text">{turnCount} / {MAX_GUEST_TURNS} 턴 사용</span>
                 {isGuestLimitReached && (
@@ -1865,19 +1883,14 @@ const Chat = () => {
             <div className="hero-nav-links">
               <Link to="/about">제품 &amp; 회사소개</Link>
               <Link to="/contact">문의하기</Link>
-              {/* auth buttons hidden
-            {isAuthenticated ? (
+              {isAuthenticated ? (
                 <>
-                  <span className="nav-user-name">{user?.user_metadata?.name || user?.email?.split('@')[0] || '사용자'}</span>
+                  <Link to="/os/insights">대시보드</Link>
                   <button className="nav-auth-btn" onClick={() => signOut()}>로그아웃</button>
                 </>
               ) : (
-                <>
-                  <Link to="/auth" state={{ tab: "login" }}>로그인</Link>
-                  <Link to="/auth" state={{ tab: "signup" }}>회원가입</Link>
-                </>
+                <Link to="/auth" style={{ color: '#00d4aa' }}>로그인</Link>
               )}
-            */}
             </div>
             <button className={`mobile-menu-btn${mobileMenuOpen ? " open" : ""}`} onClick={() => setMobileMenuOpen(!mobileMenuOpen)} aria-label="메뉴">
               <span className="mobile-menu-bar"></span>
@@ -1889,16 +1902,14 @@ const Chat = () => {
             <div className="mobile-menu-dropdown">
               <Link to="/about" onClick={() => setMobileMenuOpen(false)}>제품 &amp; 회사소개</Link>
               <Link to="/contact" onClick={() => setMobileMenuOpen(false)}>문의하기</Link>
-              {/* auth buttons hidden
               {isAuthenticated ? (
-                <button className="mobile-auth-btn" onClick={() => { signOut(); setMobileMenuOpen(false); }}>로그아웃</button>
-              ) : (
                 <>
-                  <Link to="/auth" state={{ tab: "login" }} onClick={() => setMobileMenuOpen(false)}>로그인</Link>
-                  <Link to="/auth" state={{ tab: "signup" }} onClick={() => setMobileMenuOpen(false)}>회원가입</Link>
+                  <Link to="/os/insights" onClick={() => setMobileMenuOpen(false)}>대시보드</Link>
+                  <button className="mobile-auth-btn" onClick={() => { signOut(); setMobileMenuOpen(false); }}>로그아웃</button>
                 </>
+              ) : (
+                <Link to="/auth" onClick={() => setMobileMenuOpen(false)} style={{ color: '#00d4aa' }}>로그인</Link>
               )}
-              */}
             </div>
           )}
 
@@ -1947,7 +1958,7 @@ const Chat = () => {
 
               {/* 데스크톱 전용: 인라인 채팅 기록 (모바일에서는 숨김 → 전체화면에서만 표시) */}
               <div className="chat-inline-desktop">
-                {turnCount > 0 && (
+                {!isAuthenticated && turnCount > 0 && (
                   <div className={`turn-counter-bar${isGuestLimitReached ? ' limit-reached' : ''}`}>
                     <span className="turn-counter-text">{turnCount} / {MAX_GUEST_TURNS} 턴 사용</span>
                     {isGuestLimitReached && (
