@@ -9,12 +9,9 @@ import { useState, useEffect, useRef } from 'react';
 import { Target, DollarSign, Users, TrendingUp, ShoppingCart, Trash2, Trophy, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useGoalProgress, useDeleteGoal, formatGoalValue, GOAL_TYPES, GoalType, PeriodType } from '@/hooks/useGoals';
+import { useDarkMode } from '@/hooks/useDarkMode';
 import { GoalSettingDialog } from './GoalSettingDialog';
 import React from 'react';
-
-// 🔧 FIX: 다크모드 초기값 동기 설정 (깜빡임 방지)
-const getInitialDarkMode = () =>
-  typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
 
 // 기간 유형 라벨
 const PERIOD_LABELS: Record<PeriodType, string> = {
@@ -212,14 +209,7 @@ const iconMap = {
 export function GoalProgressWidget() {
   const { data: progressList = [], isLoading } = useGoalProgress();
   const deleteGoal = useDeleteGoal();
-  const [isDark, setIsDark] = useState(getInitialDarkMode);
-
-  useEffect(() => {
-    const check = () => setIsDark(document.documentElement.classList.contains('dark'));
-    const obs = new MutationObserver(check);
-    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    return () => obs.disconnect();
-  }, []);
+  const isDark = useDarkMode();
 
   const text3D = getText3D(isDark);
   const iconColor = isDark ? 'rgba(255,255,255,0.8)' : '#1a1a1f';

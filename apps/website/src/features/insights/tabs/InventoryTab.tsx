@@ -29,10 +29,7 @@ import {
 } from 'lucide-react';
 import { useInventoryMetricsData } from '../context/InsightDataContext';
 import { useCountUp } from '@/hooks/useCountUp';
-
-// 🔧 FIX: 다크모드 초기값 동기 설정 (깜빡임 방지)
-const getInitialDarkMode = () =>
-  typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+import { useDarkMode } from '@/hooks/useDarkMode';
 
 const getText3D = (isDark: boolean) => ({
   heroNumber: isDark ? {
@@ -555,19 +552,12 @@ const MovementTypeIcon = ({ type, isDark }: { type: string; isDark: boolean }) =
 
 export function InventoryTab() {
   const { data, isLoading, refetch, enableLoading } = useInventoryMetricsData();
-  const [isDark, setIsDark] = useState(getInitialDarkMode);
+  const isDark = useDarkMode();
 
   // 컴포넌트 마운트 시 데이터 로딩 활성화
   useEffect(() => {
     enableLoading();
   }, [enableLoading]);
-
-  useEffect(() => {
-    const check = () => setIsDark(document.documentElement.classList.contains('dark'));
-    const obs = new MutationObserver(check);
-    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    return () => obs.disconnect();
-  }, []);
 
   const text3D = getText3D(isDark);
   const iconColor = isDark ? 'rgba(255,255,255,0.8)' : '#1a1a1f';

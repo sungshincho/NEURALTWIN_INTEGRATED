@@ -11,7 +11,7 @@ import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import type {
   FurnitureSlot,
   ProductDisplayType,
@@ -61,7 +61,6 @@ export function useFurnitureSlots({
   autoLoad = true,
 }: UseFurnitureSlotsOptions): UseFurnitureSlotsReturn {
   const { user } = useAuth();
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const [error, setError] = useState<Error | null>(null);
 
@@ -185,11 +184,7 @@ export function useFurnitureSlots({
       queryClient.invalidateQueries({ queryKey: ['furniture-slots', storeId] });
     },
     onError: (err) => {
-      toast({
-        title: '슬롯 점유 실패',
-        description: err instanceof Error ? err.message : '오류가 발생했습니다.',
-        variant: 'destructive',
-      });
+      toast.error('슬롯 점유 실패', { description: err instanceof Error ? err.message : String(err) });
     },
   });
 
@@ -211,11 +206,7 @@ export function useFurnitureSlots({
       queryClient.invalidateQueries({ queryKey: ['furniture-slots', storeId] });
     },
     onError: (err) => {
-      toast({
-        title: '슬롯 해제 실패',
-        description: err instanceof Error ? err.message : '오류가 발생했습니다.',
-        variant: 'destructive',
-      });
+      toast.error('슬롯 해제 실패', { description: err instanceof Error ? err.message : String(err) });
     },
   });
 

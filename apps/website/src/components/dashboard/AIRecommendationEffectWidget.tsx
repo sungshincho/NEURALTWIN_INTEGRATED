@@ -5,7 +5,7 @@
  * 3D Glassmorphism Design + Dark Mode Support
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Sparkles,
@@ -17,12 +17,9 @@ import {
 } from 'lucide-react';
 import { useROISummary, useRecommendationApplications, usePendingMeasurements, useCompleteROIMeasurement, RECOMMENDATION_TYPE_LABELS } from '@/hooks/useROITracking';
 import { useSelectedStore } from '@/hooks/useSelectedStore';
+import { useDarkMode } from '@/hooks/useDarkMode';
 import { format, differenceInDays, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
-
-// 🔧 FIX: 다크모드 초기값 동기 설정 (깜빡임 방지)
-const getInitialDarkMode = () =>
-  typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
 
 const getText3D = (isDark: boolean) => ({
   number: isDark ? {
@@ -145,14 +142,7 @@ export function AIRecommendationEffectWidget() {
   const { data: applications = [] } = useRecommendationApplications(selectedStore?.id);
   const pendingMeasurements = usePendingMeasurements(selectedStore?.id);
   const completeROI = useCompleteROIMeasurement();
-  const [isDark, setIsDark] = useState(getInitialDarkMode);
-
-  useEffect(() => {
-    const check = () => setIsDark(document.documentElement.classList.contains('dark'));
-    const obs = new MutationObserver(check);
-    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    return () => obs.disconnect();
-  }, []);
+  const isDark = useDarkMode();
 
   const text3D = getText3D(isDark);
   const iconColor = isDark ? 'rgba(255,255,255,0.8)' : '#1a1a1f';

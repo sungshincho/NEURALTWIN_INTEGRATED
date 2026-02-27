@@ -7,14 +7,11 @@
  * - 추가 최적화 권장
  */
 
-import { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, Users, Armchair, BarChart3, RefreshCw, ArrowRight, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ko } from 'date-fns/locale';
-
-// 🔧 FIX: 다크모드 초기값 동기 설정 (깜빡임 방지)
-const getInitialDarkMode = () =>
-  typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+import { useDarkMode } from '@/hooks/useDarkMode';
+import { GlassCard } from '@/components/ui/glass-card';
 
 // ============================================================================
 // 타입 정의
@@ -78,39 +75,6 @@ const getText3D = (isDark: boolean) => ({
     : { fontWeight: 500, color: '#515158' },
 });
 
-const GlassCard = ({ children, dark = false, gradient = '' }: { children: React.ReactNode; dark?: boolean; gradient?: string }) => (
-  <div style={{ perspective: '1200px', height: '100%' }}>
-    <div
-      style={{
-        borderRadius: '20px',
-        padding: '1.5px',
-        background: gradient || (dark
-          ? 'linear-gradient(145deg, rgba(75,75,85,0.9) 0%, rgba(50,50,60,0.8) 50%, rgba(65,65,75,0.9) 100%)'
-          : 'linear-gradient(145deg, rgba(255,255,255,0.95) 0%, rgba(220,220,230,0.6) 50%, rgba(255,255,255,0.93) 100%)'),
-        boxShadow: dark
-          ? '0 2px 4px rgba(0,0,0,0.2), 0 8px 16px rgba(0,0,0,0.25)'
-          : '0 1px 1px rgba(0,0,0,0.02), 0 2px 2px rgba(0,0,0,0.02), 0 4px 4px rgba(0,0,0,0.02), 0 8px 8px rgba(0,0,0,0.02)',
-        height: '100%',
-      }}
-    >
-      <div
-        style={{
-          background: dark
-            ? 'linear-gradient(165deg, rgba(48,48,58,0.98) 0%, rgba(32,32,40,0.97) 30%, rgba(42,42,52,0.98) 60%, rgba(35,35,45,0.97) 100%)'
-            : 'linear-gradient(165deg, rgba(255,255,255,0.95) 0%, rgba(253,253,255,0.88) 25%, rgba(255,255,255,0.92) 50%, rgba(251,251,254,0.85) 75%, rgba(255,255,255,0.94) 100%)',
-          backdropFilter: 'blur(80px) saturate(200%)',
-          borderRadius: '19px',
-          height: '100%',
-          position: 'relative',
-          overflow: 'hidden',
-        }}
-      >
-        <div style={{ position: 'relative', zIndex: 10, height: '100%' }}>{children}</div>
-      </div>
-    </div>
-  </div>
-);
-
 // ============================================================================
 // 메인 컴포넌트
 // ============================================================================
@@ -123,14 +87,7 @@ export function OptimizationEffectSection({
   onViewHistory,
   onStartOptimization,
 }: OptimizationEffectSectionProps) {
-  const [isDark, setIsDark] = useState(getInitialDarkMode);
-
-  useEffect(() => {
-    const check = () => setIsDark(document.documentElement.classList.contains('dark'));
-    const obs = new MutationObserver(check);
-    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    return () => obs.disconnect();
-  }, []);
+  const isDark = useDarkMode();
 
   const text3D = getText3D(isDark);
   const iconColor = isDark ? 'rgba(255,255,255,0.7)' : '#374151';

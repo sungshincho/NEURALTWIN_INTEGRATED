@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/select';
 import { TrendingUp, Download, AlertCircle, RefreshCw } from 'lucide-react';
 import { useSelectedStore } from '@/hooks/useSelectedStore';
+import { useDarkMode } from '@/hooks/useDarkMode';
 
 import { useROISummary } from './hooks/useROISummary';
 import { useCategoryPerformanceGrouped } from './hooks/useCategoryPerformance';
@@ -30,25 +31,11 @@ import {
 
 import type { DateRange } from './types/roi.types';
 
-// 🔧 FIX: 다크모드 초기값 동기 설정 (깜빡임 방지)
-const getInitialDarkMode = () =>
-  typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
-
 export const ROIMeasurementPage: React.FC = () => {
   const { selectedStore } = useSelectedStore();
   const [dateRange, setDateRange] = useState<DateRange>('90d');
   const [selectedStrategyId, setSelectedStrategyId] = useState<string | null>(null);
-  const [isDark, setIsDark] = useState(getInitialDarkMode);
-
-  // 다크모드 감지
-  useEffect(() => {
-    const checkDarkMode = () => {
-      setIsDark(document.documentElement.classList.contains('dark'));
-    };
-    const observer = new MutationObserver(checkDarkMode);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    return () => observer.disconnect();
-  }, []);
+  const isDark = useDarkMode();
 
   // AI 어시스턴트 날짜 필터 연동
   useEffect(() => {

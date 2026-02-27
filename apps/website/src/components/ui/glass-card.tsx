@@ -283,4 +283,7 @@ export const text3DStyles = {
   } as React.CSSProperties,
 };
 
+// Alias for inline convention compatibility
+export const GlassCard = Glass3DCard;
+
 export default Glass3DCard;

@@ -13,40 +13,23 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { Store, Database, Users, Settings, CreditCard, Plus, Mail, Building2, Upload, Link, Eye, Edit, MapPin, Network, Boxes, Plug } from 'lucide-react';
 import { ApiConnectionsList, AddConnectorDialog } from '@/features/data-control/components';
 import { useActivityLogger } from '@/hooks/useActivityLogger';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useSelectedStore } from '@/hooks/useSelectedStore';
+import { useDarkMode } from '@/hooks/useDarkMode';
 import { OntologyGraph3D } from '@/features/data-management/ontology/components/OntologyGraph3D';
 import { MasterSchemaSync } from '@/features/data-management/ontology/components/MasterSchemaSync';
-
-// 🔧 FIX: 다크모드 초기값 동기 설정 (깜빡임 방지)
-const getInitialDarkMode = () =>
-  typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+import { GlassCard, Icon3D } from '@/components/ui/glass-card';
 
 const getText3D = (isDark: boolean) => ({
   heroNumber: isDark ? { fontWeight: 800, letterSpacing: '-0.04em', color: '#ffffff', textShadow: '0 2px 4px rgba(0,0,0,0.4)' } as React.CSSProperties : { fontWeight: 800, letterSpacing: '-0.04em', background: 'linear-gradient(180deg, #1a1a1f 0%, #0a0a0c 35%, #1a1a1f 70%, #0c0c0e 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' } as React.CSSProperties,
   number: isDark ? { fontWeight: 800, letterSpacing: '-0.03em', color: '#ffffff', textShadow: '0 2px 4px rgba(0,0,0,0.3)' } as React.CSSProperties : { fontWeight: 800, letterSpacing: '-0.03em', color: '#0a0a0c' } as React.CSSProperties,
   body: isDark ? { fontWeight: 500, color: 'rgba(255,255,255,0.6)' } as React.CSSProperties : { fontWeight: 500, color: '#515158' } as React.CSSProperties,
 });
-
-const GlassCard = ({ children, dark = false }: { children: React.ReactNode; dark?: boolean }) => (
-  <div style={{ perspective: '1200px' }}>
-    <div style={{ borderRadius: '20px', padding: '1.5px', background: dark ? 'linear-gradient(145deg, rgba(75,75,85,0.9) 0%, rgba(50,50,60,0.8) 50%, rgba(65,65,75,0.9) 100%)' : 'linear-gradient(145deg, rgba(255,255,255,0.95) 0%, rgba(220,220,230,0.6) 50%, rgba(255,255,255,0.93) 100%)', boxShadow: dark ? '0 2px 4px rgba(0,0,0,0.2), 0 8px 16px rgba(0,0,0,0.25)' : '0 1px 1px rgba(0,0,0,0.02), 0 2px 2px rgba(0,0,0,0.02), 0 4px 4px rgba(0,0,0,0.02), 0 8px 8px rgba(0,0,0,0.02)' }}>
-      <div style={{ background: dark ? 'linear-gradient(165deg, rgba(48,48,58,0.98) 0%, rgba(32,32,40,0.97) 30%, rgba(42,42,52,0.98) 60%, rgba(35,35,45,0.97) 100%)' : 'linear-gradient(165deg, rgba(255,255,255,0.95) 0%, rgba(253,253,255,0.88) 25%, rgba(255,255,255,0.92) 50%, rgba(251,251,254,0.85) 75%, rgba(255,255,255,0.94) 100%)', backdropFilter: 'blur(80px) saturate(200%)', borderRadius: '19px', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '1px', background: dark ? 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.18) 20%, rgba(255,255,255,0.28) 50%, rgba(255,255,255,0.18) 80%, transparent 100%)' : 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.9) 10%, rgba(255,255,255,1) 50%, rgba(255,255,255,0.9) 90%, transparent 100%)', pointerEvents: 'none' }} />
-        <div style={{ position: 'relative', zIndex: 10 }}>{children}</div>
-      </div>
-    </div>
-  </div>
-);
-
-const Icon3D = ({ children, size = 36, dark = false }: { children: React.ReactNode; size?: number; dark?: boolean }) => (
-  <div style={{ width: size, height: size, background: dark ? 'linear-gradient(145deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.04) 50%, rgba(255,255,255,0.09) 100%)' : 'linear-gradient(145deg, rgba(255,255,255,0.98) 0%, rgba(230,230,238,0.95) 40%, rgba(245,245,250,0.98) 100%)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: dark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(255,255,255,0.95)', boxShadow: dark ? 'inset 0 1px 2px rgba(255,255,255,0.12), 0 4px 12px rgba(0,0,0,0.3)' : '0 2px 4px rgba(0,0,0,0.05), 0 4px 8px rgba(0,0,0,0.06), inset 0 2px 4px rgba(255,255,255,1)' }}>{children}</div>
-);
 
 const Badge3D = ({ children, variant = 'default', dark = false }: { children: React.ReactNode; variant?: 'default' | 'outline' | 'secondary'; dark?: boolean }) => {
   const getStyle = () => {
@@ -76,7 +59,6 @@ const tabs = [
 ];
 
 export default function SettingsPage() {
-  const { toast } = useToast();
   const { logActivity } = useActivityLogger();
   const location = useLocation();
   const navigate = useNavigate();
@@ -85,7 +67,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('stores');
   const [searchParams] = useSearchParams();
-  const [isDark, setIsDark] = useState(getInitialDarkMode);
+  const isDark = useDarkMode();
 
   // URL 쿼리 파라미터로 탭 전환 (AI 어시스턴트 연동)
   useEffect(() => {
@@ -113,8 +95,6 @@ export default function SettingsPage() {
     window.addEventListener('assistant:open-modal', handleOpenModal);
     return () => window.removeEventListener('assistant:open-modal', handleOpenModal);
   }, []);
-
-  useEffect(() => { const check = () => setIsDark(document.documentElement.classList.contains('dark')); const obs = new MutationObserver(check); obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] }); return () => obs.disconnect(); }, []);
   const text3D = getText3D(isDark);
   const iconColor = isDark ? 'rgba(255,255,255,0.7)' : '#374151';
 
@@ -153,10 +133,10 @@ export default function SettingsPage() {
     } catch (error) { console.error('Error fetching settings:', error); }
   };
 
-  const saveOrgSettings = async () => { setLoading(true); try { if (!orgId) throw new Error('Organization not found'); const { error } = await supabase.from('organization_settings').upsert({ org_id: orgId, timezone: orgSettings.timezone, currency: orgSettings.currency, logo_url: orgSettings.logoUrl, brand_color: orgSettings.brandColor }); if (error) throw error; toast({ title: '조직 설정 저장 완료', description: '조직 설정이 저장되었습니다.' }); } catch (error: any) { toast({ title: '저장 실패', description: error.message, variant: 'destructive' }); } finally { setLoading(false); } };
-  const saveNotificationSettings = async () => { setLoading(true); try { if (!user) throw new Error('User not found'); const { error } = await supabase.from('notification_settings').upsert({ user_id: user.id, email_enabled: notificationSettings.emailEnabled, slack_enabled: notificationSettings.slackEnabled, slack_webhook_url: notificationSettings.slackWebhookUrl, notification_types: notificationSettings.notificationTypes }); if (error) throw error; toast({ title: '알림 설정 저장 완료', description: '알림 설정이 저장되었습니다.' }); } catch (error: any) { toast({ title: '저장 실패', description: error.message, variant: 'destructive' }); } finally { setLoading(false); } };
-  const createStore = async () => { setLoading(true); try { if (!orgId || !user) throw new Error('Organization not found'); const { error } = await supabase.from('stores').insert({ store_name: newStore.store_name, store_code: newStore.store_code, address: newStore.address, manager_name: newStore.manager_name, manager_email: newStore.manager_email, user_id: user.id }); if (error) throw error; toast({ title: '매장 생성 완료', description: `${newStore.store_name} 매장이 생성되었습니다.` }); setStoreDialogOpen(false); setNewStore({ store_name: '', store_code: '', address: '', manager_name: '', manager_email: '' }); refreshStores(); } catch (error: any) { toast({ title: '매장 생성 실패', description: error.message, variant: 'destructive' }); } finally { setLoading(false); } };
-  const sendViewerInvitation = async () => { if (!inviteEmail || !orgId || !user) return; setLoading(true); try { const token = Math.random().toString(36).substring(2, 15); const expiresAt = new Date(); expiresAt.setDate(expiresAt.getDate() + 7); const { error } = await supabase.from('invitations').insert({ org_id: orgId, email: inviteEmail, role: 'ORG_VIEWER', invited_by: user.id, token: token, expires_at: expiresAt.toISOString(), status: 'pending' }); if (error) throw error; toast({ title: '초대 전송 완료', description: `${inviteEmail}에게 초대가 전송되었습니다.` }); setInviteEmail(''); setInviteDialogOpen(false); } catch (error: any) { toast({ title: '초대 전송 실패', description: error.message, variant: 'destructive' }); } finally { setLoading(false); } };
+  const saveOrgSettings = async () => { setLoading(true); try { if (!orgId) throw new Error('Organization not found'); const { error } = await supabase.from('organization_settings').upsert({ org_id: orgId, timezone: orgSettings.timezone, currency: orgSettings.currency, logo_url: orgSettings.logoUrl, brand_color: orgSettings.brandColor }); if (error) throw error; toast.success('조직 설정 저장 완료', { description: '조직 설정이 저장되었습니다.' }); } catch (error: any) { toast.error('저장 실패', { description: error.message }); } finally { setLoading(false); } };
+  const saveNotificationSettings = async () => { setLoading(true); try { if (!user) throw new Error('User not found'); const { error } = await supabase.from('notification_settings').upsert({ user_id: user.id, email_enabled: notificationSettings.emailEnabled, slack_enabled: notificationSettings.slackEnabled, slack_webhook_url: notificationSettings.slackWebhookUrl, notification_types: notificationSettings.notificationTypes }); if (error) throw error; toast.success('알림 설정 저장 완료', { description: '알림 설정이 저장되었습니다.' }); } catch (error: any) { toast.error('저장 실패', { description: error.message }); } finally { setLoading(false); } };
+  const createStore = async () => { setLoading(true); try { if (!orgId || !user) throw new Error('Organization not found'); const { error } = await supabase.from('stores').insert({ store_name: newStore.store_name, store_code: newStore.store_code, address: newStore.address, manager_name: newStore.manager_name, manager_email: newStore.manager_email, user_id: user.id }); if (error) throw error; toast.success('매장 생성 완료', { description: `${newStore.store_name} 매장이 생성되었습니다.` }); setStoreDialogOpen(false); setNewStore({ store_name: '', store_code: '', address: '', manager_name: '', manager_email: '' }); refreshStores(); } catch (error: any) { toast.error('매장 생성 실패', { description: error.message }); } finally { setLoading(false); } };
+  const sendViewerInvitation = async () => { if (!inviteEmail || !orgId || !user) return; setLoading(true); try { const token = Math.random().toString(36).substring(2, 15); const expiresAt = new Date(); expiresAt.setDate(expiresAt.getDate() + 7); const { error } = await supabase.from('invitations').insert({ org_id: orgId, email: inviteEmail, role: 'ORG_VIEWER', invited_by: user.id, token: token, expires_at: expiresAt.toISOString(), status: 'pending' }); if (error) throw error; toast.success('초대 전송 완료', { description: `${inviteEmail}에게 초대가 전송되었습니다.` }); setInviteEmail(''); setInviteDialogOpen(false); } catch (error: any) { toast.error('초대 전송 실패', { description: error.message }); } finally { setLoading(false); } };
   const toggleNotificationType = (type: string) => { const types = [...notificationSettings.notificationTypes]; const index = types.indexOf(type); if (index > -1) { types.splice(index, 1); } else { types.push(type); } setNotificationSettings({ ...notificationSettings, notificationTypes: types }); };
 
   const getRoleBadge = (roleType: string) => { const labels: Record<string, string> = { NEURALTWIN_MASTER: '마스터', ORG_HQ: '본사', ORG_STORE: '매장', ORG_VIEWER: '뷰어' }; return <Badge3D dark={isDark}>{labels[roleType] || roleType}</Badge3D>; };

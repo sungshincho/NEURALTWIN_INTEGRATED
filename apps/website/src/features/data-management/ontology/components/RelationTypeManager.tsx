@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Edit, Trash2, ArrowRight, Link2, Settings2, X } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from 'sonner';
 
 interface PropertyField {
   id: string;
@@ -51,7 +51,6 @@ const PROPERTY_TYPES = [
 ];
 
 export const RelationTypeManager = () => {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(false);
   const [editingRelation, setEditingRelation] = useState<RelationType | null>(null);
@@ -140,12 +139,12 @@ export const RelationTypeManager = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["relation-types"] });
-      toast({ title: "관계 타입이 생성되었습니다" });
+      toast.success("관계 타입이 생성되었습니다");
       setIsOpen(false);
       resetForm();
     },
     onError: (error) => {
-      toast({ title: "오류 발생", description: error.message, variant: "destructive" });
+      toast.error("오류 발생", { description: error.message });
     },
   });
 
@@ -171,7 +170,7 @@ export const RelationTypeManager = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["relation-types"] });
-      toast({ title: "관계 타입이 수정되었습니다" });
+      toast.success("관계 타입이 수정되었습니다");
       setIsOpen(false);
       setEditingRelation(null);
       resetForm();
@@ -189,7 +188,7 @@ export const RelationTypeManager = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["relation-types"] });
-      toast({ title: "관계 타입이 삭제되었습니다" });
+      toast.success("관계 타입이 삭제되었습니다");
     },
   });
 
@@ -242,7 +241,7 @@ export const RelationTypeManager = () => {
 
   const handleAddProperty = () => {
     if (!newProperty.name || !newProperty.label) {
-      toast({ title: "속성 이름과 표시명을 입력하세요", variant: "destructive" });
+      toast.error("속성 이름과 표시명을 입력하세요");
       return;
     }
 
@@ -270,7 +269,7 @@ export const RelationTypeManager = () => {
       description: "",
     });
 
-    toast({ title: "속성이 추가되었습니다" });
+    toast.success("속성이 추가되었습니다");
   };
 
   const handleRemoveProperty = (id: string) => {

@@ -2,7 +2,6 @@
  * 전략 상세 모달 컴포넌트
  */
 
-import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -17,10 +16,7 @@ import { useStrategyDetail, useUpdateStrategyStatus } from '../hooks/useAppliedS
 import { getModuleConfig, STATUS_CONFIG, RESULT_CONFIG, getSourceDisplayName } from '../utils/moduleConfig';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-
-// 🔧 FIX: 다크모드 초기값 동기 설정 (깜빡임 방지)
-const getInitialDarkMode = () =>
-  typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+import { useDarkMode } from '@/hooks/useDarkMode';
 
 interface StrategyDetailModalProps {
   strategyId: string;
@@ -54,14 +50,7 @@ export const StrategyDetailModal: React.FC<StrategyDetailModalProps> = ({
 }) => {
   const { data: strategy, isLoading } = useStrategyDetail(strategyId);
   const { mutate: updateStatus, isPending: isUpdating } = useUpdateStrategyStatus();
-  const [isDark, setIsDark] = useState(getInitialDarkMode);
-
-  useEffect(() => {
-    const check = () => setIsDark(document.documentElement.classList.contains('dark'));
-    const obs = new MutationObserver(check);
-    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    return () => obs.disconnect();
-  }, []);
+  const isDark = useDarkMode();
 
   if (isLoading || !strategy) {
     return (

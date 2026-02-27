@@ -12,7 +12,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useSelectedStore } from '@/hooks/useSelectedStore';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import { buildStoreContext } from '../utils/store-context-builder';
 import type { SimulationStatus, ConfidenceDetails } from '../types';
 
@@ -166,7 +166,6 @@ export interface UseCongestionSimulationReturn {
 export function useCongestionSimulation(): UseCongestionSimulationReturn {
   const { orgId } = useAuth();
   const { selectedStore } = useSelectedStore();
-  const { toast } = useToast();
 
   const [result, setResult] = useState<CongestionSimulationResult | null>(null);
   const [progress, setProgress] = useState(0);
@@ -238,18 +237,11 @@ export function useCongestionSimulation(): UseCongestionSimulationReturn {
     },
     onSuccess: (data) => {
       setResult(data);
-      toast({
-        title: '혼잡도 예측 완료',
-        description: `피크 시간: ${data.summary.peakTime}, 예상 혼잡도: ${data.summary.peakCongestion}%`,
-      });
+      toast.success('혼잡도 예측 완료', { description: `피크 시간: ${data.summary.peakTime}, 예상 혼잡도: ${data.summary.peakCongestion}%` });
     },
     onError: (error) => {
       console.error('Congestion simulation failed:', error);
-      toast({
-        title: '시뮬레이션 실패',
-        description: error instanceof Error ? error.message : '잠시 후 다시 시도해주세요.',
-        variant: 'destructive',
-      });
+      toast.error('시뮬레이션 실패', { description: error instanceof Error ? error.message : String(error) });
     },
     onSettled: () => {
       setProgress(0);

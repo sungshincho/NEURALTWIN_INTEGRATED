@@ -15,7 +15,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useSelectedStore } from '@/hooks/useSelectedStore';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import { buildStoreContext } from '../utils/store-context-builder';
 import type {
   LayoutOptimizationResult,
@@ -119,7 +119,6 @@ export interface UseLayoutSimulationReturn {
 export function useLayoutSimulation(): UseLayoutSimulationReturn {
   const { orgId } = useAuth();
   const { selectedStore } = useSelectedStore();
-  const { toast } = useToast();
 
   const [result, setResult] = useState<LayoutSimulationResult | null>(null);
   const [progress, setProgress] = useState(0);
@@ -206,18 +205,11 @@ export function useLayoutSimulation(): UseLayoutSimulationReturn {
     },
     onSuccess: (data) => {
       setResult(data);
-      toast({
-        title: '레이아웃 최적화 완료',
-        description: `예상 매출 증가: +${data.improvements.revenueIncreasePercent.toFixed(1)}%`,
-      });
+      toast.success('레이아웃 최적화 완료', { description: `예상 매출 증가: +${data.improvements.revenueIncreasePercent.toFixed(1)}%` });
     },
     onError: (error) => {
       console.error('Layout simulation failed:', error);
-      toast({
-        title: '시뮬레이션 실패',
-        description: error instanceof Error ? error.message : '잠시 후 다시 시도해주세요.',
-        variant: 'destructive',
-      });
+      toast.error('시뮬레이션 실패', { description: error instanceof Error ? error.message : String(error) });
     },
     onSettled: () => {
       setProgress(0);
@@ -296,18 +288,11 @@ export function useLayoutSimulation(): UseLayoutSimulationReturn {
       }]);
     },
     onSuccess: () => {
-      toast({
-        title: '레이아웃 변경 적용됨',
-        description: '3D 뷰에서 변경된 배치를 확인하세요.',
-      });
+      toast.success('레이아웃 변경 적용됨', { description: '3D 뷰에서 변경된 배치를 확인하세요.' });
     },
     onError: (error) => {
       console.error('Apply changes failed:', error);
-      toast({
-        title: '변경 적용 실패',
-        description: '잠시 후 다시 시도해주세요.',
-        variant: 'destructive',
-      });
+      toast.error('변경 적용 실패', { description: '잠시 후 다시 시도해주세요.' });
     },
   });
 

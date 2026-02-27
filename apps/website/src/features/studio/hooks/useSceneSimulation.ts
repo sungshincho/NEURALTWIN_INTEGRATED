@@ -13,7 +13,7 @@ import { useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useSelectedStore } from '@/hooks/useSelectedStore';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import {
   generateLayoutOptimizedScene,
   generateFlowOptimizedScene,
@@ -259,7 +259,6 @@ export interface UseSceneSimulationReturn {
 export function useSceneSimulation(): UseSceneSimulationReturn {
   const { orgId, user } = useAuth();
   const { selectedStore } = useSelectedStore();
-  const { toast } = useToast();
 
   // 상태
   const [state, setState] = useState<SceneSimulationState>({
@@ -416,18 +415,11 @@ export function useSceneSimulation(): UseSceneSimulationReturn {
         };
       });
 
-      toast({
-        title: '시뮬레이션 완료',
-        description: 'To-be 씬이 생성되었습니다.',
-      });
+      toast.success('시뮬레이션 완료', { description: 'To-be 씬이 생성되었습니다.' });
     },
     onError: (err) => {
       setError(err as Error);
-      toast({
-        title: '시뮬레이션 실패',
-        description: err instanceof Error ? err.message : '오류가 발생했습니다.',
-        variant: 'destructive',
-      });
+      toast.error('시뮬레이션 실패', { description: err instanceof Error ? err.message : String(err) });
     },
     onSettled: () => {
       setIsSimulating(false);
@@ -462,10 +454,7 @@ export function useSceneSimulation(): UseSceneSimulationReturn {
           storeId: selectedStore?.id,
           orgId,
         });
-        toast({
-          title: '씬을 먼저 선택해주세요',
-          variant: 'destructive',
-        });
+        toast.error('씬을 먼저 선택해주세요');
         return {};
       }
 
@@ -1101,20 +1090,13 @@ export function useSceneSimulation(): UseSceneSimulationReturn {
           comparison,
         }));
 
-        toast({
-          title: '전체 시뮬레이션 완료',
-          description: `${comparison.summary.totalChanges}개의 최적화 제안이 생성되었습니다.`,
-        });
+        toast.success('전체 시뮬레이션 완료', { description: `${comparison.summary.totalChanges}개의 최적화 제안이 생성되었습니다.` });
 
         return results;
       } catch (err) {
         console.error('[useSceneSimulation] ❌ Error in runAllSimulations:', err);
         setError(err as Error);
-        toast({
-          title: '시뮬레이션 실패',
-          description: err instanceof Error ? err.message : '알 수 없는 오류',
-          variant: 'destructive',
-        });
+        toast.error('시뮬레이션 실패', { description: err instanceof Error ? err.message : String(err) });
         return {};
       } finally {
         setIsSimulating(false);
@@ -1175,10 +1157,7 @@ export function useSceneSimulation(): UseSceneSimulationReturn {
       selectedChanges: [],
     }));
 
-    toast({
-      title: '변경 적용 완료',
-      description: `${state.selectedChanges.length}개의 변경이 적용되었습니다.`,
-    });
+    toast.success('변경 적용 완료', { description: `${state.selectedChanges.length}개의 변경이 적용되었습니다.` });
 
     return merged;
   }, [state, toast]);
@@ -1197,9 +1176,7 @@ export function useSceneSimulation(): UseSceneSimulationReturn {
       selectedChanges: [],
     }));
 
-    toast({
-      title: '전체 변경 적용 완료',
-    });
+    toast.success('전체 변경 적용 완료');
 
     return state.toBeScene;
   }, [state.toBeScene, toast]);
@@ -1228,17 +1205,10 @@ export function useSceneSimulation(): UseSceneSimulationReturn {
       if (error) throw error;
     },
     onSuccess: (_, name) => {
-      toast({
-        title: 'To-be 씬 저장 완료',
-        description: `"${name}" 씬이 저장되었습니다.`,
-      });
+      toast.success('To-be 씬 저장 완료', { description: `"${name}" 씬이 저장되었습니다.` });
     },
     onError: (err) => {
-      toast({
-        title: '씬 저장 실패',
-        description: err instanceof Error ? err.message : '오류가 발생했습니다.',
-        variant: 'destructive',
-      });
+      toast.error('씬 저장 실패', { description: err instanceof Error ? err.message : String(err) });
     },
   });
 

@@ -16,10 +16,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useDateFilterStore } from '@/store/dateFilterStore';
 import { useAuth } from '@/hooks/useAuth';
 import { useCountUp } from '@/hooks/useCountUp';
-
-// 🔧 FIX: 다크모드 초기값 동기 설정 (깜빡임 방지)
-const getInitialDarkMode = () =>
-  typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+import { useDarkMode } from '@/hooks/useDarkMode';
 
 const getText3D = (isDark: boolean) => ({
   heroNumber: isDark ? {
@@ -587,14 +584,7 @@ export function ProductTab() {
   const { dateRange } = useDateFilterStore();
   const { orgId } = useAuth();
   const { data: metrics, isLoading: metricsLoading } = useIntegratedMetrics();
-  const [isDark, setIsDark] = useState(getInitialDarkMode);
-
-  useEffect(() => {
-    const check = () => setIsDark(document.documentElement.classList.contains('dark'));
-    const obs = new MutationObserver(check);
-    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    return () => obs.disconnect();
-  }, []);
+  const isDark = useDarkMode();
 
   const text3D = getText3D(isDark);
   const iconColor = isDark ? 'rgba(255,255,255,0.8)' : '#1a1a1f';

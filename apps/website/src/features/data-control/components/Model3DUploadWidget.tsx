@@ -4,7 +4,7 @@
 // Digital Twin Studio용 3D 모델 관리
 // ============================================================================
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -44,11 +44,9 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useSelectedStore } from '@/hooks/useSelectedStore';
-import { useToast } from '@/hooks/use-toast';
-
-// 🔧 FIX: 다크모드 초기값 동기 설정 (깜빡임 방지)
-const getInitialDarkMode = () =>
-  typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+import { toast } from 'sonner';
+import { useDarkMode } from '@/hooks/useDarkMode';
+import { GlassCard, Icon3D } from '@/components/ui/glass-card';
 
 // ============================================================================
 // 3D 스타일 시스템
@@ -73,63 +71,6 @@ const getText3D = (isDark: boolean) => ({
     WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
   } as React.CSSProperties,
 });
-
-const GlassCard = ({ children, dark = false }: { children: React.ReactNode; dark?: boolean }) => (
-  <div style={{ perspective: '1200px', height: '100%' }}>
-    <div style={{
-      borderRadius: '24px', padding: '1.5px',
-      background: dark
-        ? 'linear-gradient(145deg, rgba(75,75,85,0.9) 0%, rgba(50,50,60,0.8) 50%, rgba(65,65,75,0.9) 100%)'
-        : 'linear-gradient(145deg, rgba(255,255,255,0.95) 0%, rgba(220,220,230,0.6) 50%, rgba(255,255,255,0.93) 100%)',
-      boxShadow: dark
-        ? '0 2px 4px rgba(0,0,0,0.2), 0 8px 16px rgba(0,0,0,0.25), 0 16px 32px rgba(0,0,0,0.2)'
-        : '0 1px 1px rgba(0,0,0,0.02), 0 2px 2px rgba(0,0,0,0.02), 0 4px 4px rgba(0,0,0,0.02), 0 8px 8px rgba(0,0,0,0.02), 0 16px 16px rgba(0,0,0,0.02)',
-      height: '100%',
-    }}>
-      <div style={{
-        background: dark
-          ? 'linear-gradient(165deg, rgba(48,48,58,0.98) 0%, rgba(32,32,40,0.97) 30%, rgba(42,42,52,0.98) 60%, rgba(35,35,45,0.97) 100%)'
-          : 'linear-gradient(165deg, rgba(255,255,255,0.95) 0%, rgba(253,253,255,0.88) 25%, rgba(255,255,255,0.92) 50%, rgba(251,251,254,0.85) 75%, rgba(255,255,255,0.94) 100%)',
-        backdropFilter: 'blur(80px) saturate(200%)', borderRadius: '23px', height: '100%', position: 'relative', overflow: 'hidden',
-      }}>
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '1px',
-          background: dark
-            ? 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.18) 20%, rgba(255,255,255,0.28) 50%, rgba(255,255,255,0.18) 80%, transparent 100%)'
-            : 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.9) 10%, rgba(255,255,255,1) 50%, rgba(255,255,255,0.9) 90%, transparent 100%)',
-          pointerEvents: 'none',
-        }} />
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '50%',
-          background: dark
-            ? 'linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 30%, transparent 100%)'
-            : 'linear-gradient(180deg, rgba(255,255,255,0.75) 0%, rgba(255,255,255,0.35) 25%, rgba(255,255,255,0.08) 55%, transparent 100%)',
-          borderRadius: '23px 23px 50% 50%', pointerEvents: 'none',
-        }} />
-        <div style={{ position: 'relative', zIndex: 10, height: '100%' }}>{children}</div>
-      </div>
-    </div>
-  </div>
-);
-
-const Icon3D = ({ children, size = 44, dark = false }: { children: React.ReactNode; size?: number; dark?: boolean }) => (
-  <div style={{
-    width: size, height: size,
-    background: dark
-      ? 'linear-gradient(145deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.04) 50%, rgba(255,255,255,0.09) 100%)'
-      : 'linear-gradient(145deg, rgba(255,255,255,0.98) 0%, rgba(230,230,238,0.95) 40%, rgba(245,245,250,0.98) 100%)',
-    borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
-    border: dark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(255,255,255,0.95)',
-    boxShadow: dark
-      ? 'inset 0 1px 2px rgba(255,255,255,0.12), inset 0 -2px 4px rgba(0,0,0,0.25), 0 4px 12px rgba(0,0,0,0.3)'
-      : '0 2px 4px rgba(0,0,0,0.05), 0 4px 8px rgba(0,0,0,0.06), 0 8px 16px rgba(0,0,0,0.05), inset 0 2px 4px rgba(255,255,255,1), inset 0 -2px 4px rgba(0,0,0,0.04)',
-    flexShrink: 0,
-  }}>
-    {!dark && <div style={{ position: 'absolute', top: '3px', left: '15%', right: '15%', height: '35%',
-      background: 'linear-gradient(180deg, rgba(255,255,255,1) 0%, rgba(255,255,255,0) 100%)',
-      borderRadius: '40% 40% 50% 50%', pointerEvents: 'none',
-    }} />}
-    <span style={{ position: 'relative', zIndex: 10 }}>{children}</span>
-  </div>
-);
 
 // ============================================================================
 // Types
@@ -176,20 +117,13 @@ export function Model3DUploadWidget({ onUploadComplete, className }: Model3DUplo
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [displayName, setDisplayName] = useState('');
   const [description, setDescription] = useState('');
-  const [isDark, setIsDark] = useState(getInitialDarkMode);
+  const isDark = useDarkMode();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user, orgId } = useAuth();
   const { selectedStore } = useSelectedStore();
-  const { toast } = useToast();
 
   // 다크 모드 감지
-  useEffect(() => {
-    const check = () => setIsDark(document.documentElement.classList.contains('dark'));
-    const obs = new MutationObserver(check);
-    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    return () => obs.disconnect();
-  }, []);
 
   const text3D = getText3D(isDark);
   const iconColor = isDark ? 'rgba(255,255,255,0.7)' : '#374151';
@@ -338,10 +272,7 @@ export function Model3DUploadWidget({ onUploadComplete, className }: Model3DUplo
 
       setUploadProgress(100);
 
-      toast({
-        title: '업로드 완료',
-        description: `${uploadFile.name}이(가) 업로드되었습니다.`,
-      });
+      toast.success('업로드 완료', { description: `${uploadFile.name}이(가) 업로드되었습니다.` });
 
       if (model) {
         onUploadComplete?.(model as unknown as Model3DFile);
@@ -350,11 +281,7 @@ export function Model3DUploadWidget({ onUploadComplete, className }: Model3DUplo
     } catch (err) {
       const message = err instanceof Error ? err.message : '업로드 실패';
       setError(message);
-      toast({
-        title: '업로드 실패',
-        description: message,
-        variant: 'destructive',
-      });
+      toast.error('업로드 실패', { description: message });
     } finally {
       setIsLoading(false);
       setUploadProgress(null);
@@ -373,18 +300,11 @@ export function Model3DUploadWidget({ onUploadComplete, className }: Model3DUplo
       // DB에서 삭제
       await supabase.from('model_3d_files').delete().eq('id', model.id);
 
-      toast({
-        title: '삭제 완료',
-        description: `${model.display_name}이(가) 삭제되었습니다.`,
-      });
+      toast.success('삭제 완료', { description: `${model.display_name}이(가) 삭제되었습니다.` });
 
       loadModels();
     } catch (err) {
-      toast({
-        title: '삭제 실패',
-        description: '모델을 삭제하는 중 오류가 발생했습니다.',
-        variant: 'destructive',
-      });
+      toast.error('삭제 실패', { description: '모델을 삭제하는 중 오류가 발생했습니다.' });
     }
   };
 

@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Save, History, Clock } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from 'sonner';
 import { format } from "date-fns";
 
 interface SchemaVersion {
@@ -21,7 +21,6 @@ interface SchemaVersion {
 }
 
 export const SchemaVersionManager = () => {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = React.useState(false);
   const [description, setDescription] = React.useState("");
@@ -90,12 +89,12 @@ export const SchemaVersionManager = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["schema-versions"] });
-      toast({ title: "스키마 버전이 저장되었습니다" });
+      toast.success("스키마 버전이 저장되었습니다");
       setIsOpen(false);
       setDescription("");
     },
     onError: (error) => {
-      toast({ title: "오류 발생", description: error.message, variant: "destructive" });
+      toast.error("오류 발생", { description: error.message });
     },
   });
 

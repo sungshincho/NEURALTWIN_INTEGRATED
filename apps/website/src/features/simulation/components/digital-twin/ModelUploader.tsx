@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { Upload, Loader2, CheckCircle, Copy, ExternalLink, Sparkles, Eye, AlertCircle } from 'lucide-react';
 import { AutoModelMapper } from './AutoModelMapper';
 import { Model3DPreview } from './Model3DPreview';
@@ -37,7 +37,6 @@ interface ModelAnalysis {
 export function ModelUploader() {
   const { user } = useAuth();
   const { selectedStore } = useSelectedStore();
-  const { toast } = useToast();
   const { logActivity } = useActivityLogger();
   const [uploading, setUploading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
@@ -47,10 +46,7 @@ export function ModelUploader() {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    toast({
-      title: "복사 완료",
-      description: "URL이 클립보드에 복사되었습니다",
-    });
+    toast.success('복사 완료', { description: 'URL이 클립보드에 복사되었습니다' });
   };
 
   const autoMapFromFilename = async (
@@ -131,11 +127,7 @@ export function ModelUploader() {
       console.log(`✅ 자동 매핑 완료: ${parsed.originalFilename} → ${parsed.entityType}`);
     } catch (err) {
       console.error('Auto mapping error:', err);
-      toast({
-        title: "자동 매핑 실패",
-        description: "파일명 기반 자동 매핑에 실패했습니다. AI 분석을 시도하세요.",
-        variant: "destructive",
-      });
+      toast.error('자동 매핑 실패', { description: '파일명 기반 자동 매핑에 실패했습니다. AI 분석을 시도하세요.' });
     }
   };
 
@@ -164,11 +156,7 @@ export function ModelUploader() {
       }
     } catch (err) {
       console.error('Model analysis error:', err);
-      toast({
-        title: "분석 실패",
-        description: "3D 모델 자동 분석에 실패했습니다",
-        variant: "destructive",
-      });
+      toast.error('분석 실패', { description: '3D 모델 자동 분석에 실패했습니다' });
     } finally {
       setAnalyzing(false);
     }
@@ -204,11 +192,7 @@ export function ModelUploader() {
     if (!user) return;
 
     if (!selectedStore) {
-      toast({
-        title: "매장을 선택해주세요",
-        description: "3D 모델을 업로드하려면 먼저 매장을 선택해야 합니다",
-        variant: "destructive",
-      });
+      toast.error('매장을 선택해주세요', { description: '3D 모델을 업로드하려면 먼저 매장을 선택해야 합니다' });
       return;
     }
 
@@ -299,10 +283,7 @@ export function ModelUploader() {
           }
         }
 
-        toast({
-          title: "통합 업로드 완료",
-          description: `${results.length}개 모델 업로드 및 ${linkedCount}개 엔티티 타입 연결`,
-        });
+        toast.success('통합 업로드 완료', { description: `${results.length}개 모델 업로드 및 ${linkedCount}개 엔티티 타입 연결` });
         
         // Activity logging
         logActivity('data_upload', {
@@ -313,10 +294,7 @@ export function ModelUploader() {
           timestamp: new Date().toISOString()
         });
       } else {
-        toast({
-          title: "업로드 완료",
-          description: `${results.length}개의 3D 모델이 업로드되었습니다.`,
-        });
+        toast.success('업로드 완료', { description: `${results.length}개의 3D 모델이 업로드되었습니다.` });
         
         // Activity logging
         logActivity('data_upload', {
@@ -330,18 +308,11 @@ export function ModelUploader() {
       // 기존 자동 매핑은 제거하고 통합 시스템 사용
       
       if (results.length > 1) {
-        toast({
-          title: "자동 매핑 완료",
-          description: "파일명 규칙에 따라 온톨로지에 자동으로 연결되었습니다",
-        });
+        toast.success('자동 매핑 완료', { description: '파일명 규칙에 따라 온톨로지에 자동으로 연결되었습니다' });
       }
     } catch (err) {
       console.error('업로드 실패:', err);
-      toast({
-        title: "업로드 실패",
-        description: err instanceof Error ? err.message : "파일 업로드에 실패했습니다",
-        variant: "destructive",
-      });
+      toast.error('업로드 실패', { description: err instanceof Error ? err.message : String(err) });
     } finally {
       setUploading(false);
     }
@@ -363,17 +334,11 @@ export function ModelUploader() {
           analysis={pendingAnalysis}
           onAccept={() => {
             setPendingAnalysis(null);
-            toast({
-              title: "매핑 완료",
-              description: "3D 모델이 온톨로지에 자동으로 연결되었습니다",
-            });
+            toast.success('매핑 완료', { description: '3D 모델이 온톨로지에 자동으로 연결되었습니다' });
           }}
           onReject={() => {
             setPendingAnalysis(null);
-            toast({
-              title: "매핑 거부",
-              description: "수동으로 스키마 빌더에서 연결할 수 있습니다",
-            });
+            toast.success('매핑 거부', { description: '수동으로 스키마 빌더에서 연결할 수 있습니다' });
           }}
         />
       )}

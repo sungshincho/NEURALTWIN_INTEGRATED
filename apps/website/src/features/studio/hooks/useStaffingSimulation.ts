@@ -15,7 +15,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useSelectedStore } from '@/hooks/useSelectedStore';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import { buildStoreContext } from '../utils/store-context-builder';
 import type { SimulationStatus, ConfidenceDetails } from '../types';
 
@@ -179,7 +179,6 @@ export interface UseStaffingSimulationReturn {
 export function useStaffingSimulation(): UseStaffingSimulationReturn {
   const { orgId } = useAuth();
   const { selectedStore } = useSelectedStore();
-  const { toast } = useToast();
 
   const [result, setResult] = useState<StaffingSimulationResult | null>(null);
   const [progress, setProgress] = useState(0);
@@ -253,18 +252,11 @@ export function useStaffingSimulation(): UseStaffingSimulationReturn {
     },
     onSuccess: (data) => {
       setResult(data);
-      toast({
-        title: '인력 배치 최적화 완료',
-        description: `커버리지 ${data.metrics.currentCoverage}% → ${data.metrics.optimizedCoverage}% (+${data.metrics.coverageGain.toFixed(1)}%)`,
-      });
+      toast.success('인력 배치 최적화 완료', { description: `커버리지 ${data.metrics.currentCoverage}% → ${data.metrics.optimizedCoverage}% (+${data.metrics.coverageGain.toFixed(1)}%)` });
     },
     onError: (error) => {
       console.error('Staffing simulation failed:', error);
-      toast({
-        title: '시뮬레이션 실패',
-        description: error instanceof Error ? error.message : '잠시 후 다시 시도해주세요.',
-        variant: 'destructive',
-      });
+      toast.error('시뮬레이션 실패', { description: error instanceof Error ? error.message : String(error) });
     },
     onSettled: () => {
       setProgress(0);
@@ -306,18 +298,11 @@ export function useStaffingSimulation(): UseStaffingSimulationReturn {
       }
     },
     onSuccess: () => {
-      toast({
-        title: '인력 배치 적용됨',
-        description: '직원들에게 새로운 배치 안내가 전송됩니다.',
-      });
+      toast.success('인력 배치 적용됨', { description: '직원들에게 새로운 배치 안내가 전송됩니다.' });
     },
     onError: (error) => {
       console.error('Apply staffing failed:', error);
-      toast({
-        title: '배치 적용 실패',
-        description: '잠시 후 다시 시도해주세요.',
-        variant: 'destructive',
-      });
+      toast.error('배치 적용 실패', { description: '잠시 후 다시 시도해주세요.' });
     },
   });
 

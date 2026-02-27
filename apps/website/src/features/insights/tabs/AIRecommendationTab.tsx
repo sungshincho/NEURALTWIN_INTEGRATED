@@ -8,7 +8,7 @@
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import {
   Sparkles,
   CheckCircle,
@@ -32,13 +32,11 @@ import {
 import { useSelectedStore } from '@/hooks/useSelectedStore';
 import { formatCurrency } from '../components';
 import { useAIRecommendations } from '@/hooks/useAIRecommendations';
+import { useDarkMode } from '@/hooks/useDarkMode';
 import { useNavigate } from 'react-router-dom';
 import { ApplyStrategyModal } from '@/features/roi/components/ApplyStrategyModal';
 import type { SourceModule } from '@/features/roi/types/roi.types';
-
-// 🔧 FIX: 다크모드 초기값 동기 설정 (깜빡임 방지)
-const getInitialDarkMode = () =>
-  typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+import { GlassCard, Icon3D } from '@/components/ui/glass-card';
 
 // ============================================================================
 // 3D 스타일 시스템
@@ -64,52 +62,6 @@ const getText3D = (isDark: boolean) => ({
     fontWeight: 500, color: '#515158',
   } as React.CSSProperties,
 });
-
-const GlassCard = ({ children, dark = false, className = '' }: { children: React.ReactNode; dark?: boolean; className?: string }) => (
-  <div style={{ perspective: '1200px', height: '100%' }} className={className}>
-    <div style={{
-      borderRadius: '20px', padding: '1.5px',
-      background: dark
-        ? 'linear-gradient(145deg, rgba(75,75,85,0.9) 0%, rgba(50,50,60,0.8) 50%, rgba(65,65,75,0.9) 100%)'
-        : 'linear-gradient(145deg, rgba(255,255,255,0.95) 0%, rgba(220,220,230,0.6) 50%, rgba(255,255,255,0.93) 100%)',
-      boxShadow: dark
-        ? '0 2px 4px rgba(0,0,0,0.2), 0 8px 16px rgba(0,0,0,0.25)'
-        : '0 1px 1px rgba(0,0,0,0.02), 0 2px 2px rgba(0,0,0,0.02), 0 4px 4px rgba(0,0,0,0.02), 0 8px 8px rgba(0,0,0,0.02)',
-      height: '100%',
-    }}>
-      <div style={{
-        background: dark
-          ? 'linear-gradient(165deg, rgba(48,48,58,0.98) 0%, rgba(32,32,40,0.97) 30%, rgba(42,42,52,0.98) 60%, rgba(35,35,45,0.97) 100%)'
-          : 'linear-gradient(165deg, rgba(255,255,255,0.95) 0%, rgba(253,253,255,0.88) 25%, rgba(255,255,255,0.92) 50%, rgba(251,251,254,0.85) 75%, rgba(255,255,255,0.94) 100%)',
-        backdropFilter: 'blur(80px) saturate(200%)', borderRadius: '19px', height: '100%', position: 'relative', overflow: 'hidden',
-      }}>
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '1px',
-          background: dark
-            ? 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.18) 20%, rgba(255,255,255,0.28) 50%, rgba(255,255,255,0.18) 80%, transparent 100%)'
-            : 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.9) 10%, rgba(255,255,255,1) 50%, rgba(255,255,255,0.9) 90%, transparent 100%)',
-          pointerEvents: 'none',
-        }} />
-        <div style={{ position: 'relative', zIndex: 10, height: '100%' }}>{children}</div>
-      </div>
-    </div>
-  </div>
-);
-
-const Icon3D = ({ children, size = 32, dark = false }: { children: React.ReactNode; size?: number; dark?: boolean }) => (
-  <div style={{
-    width: size, height: size,
-    background: dark
-      ? 'linear-gradient(145deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.04) 50%, rgba(255,255,255,0.09) 100%)'
-      : 'linear-gradient(145deg, rgba(255,255,255,0.98) 0%, rgba(230,230,238,0.95) 40%, rgba(245,245,250,0.98) 100%)',
-    borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-    border: dark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(255,255,255,0.95)',
-    boxShadow: dark
-      ? 'inset 0 1px 2px rgba(255,255,255,0.12), 0 4px 12px rgba(0,0,0,0.3)'
-      : '0 2px 4px rgba(0,0,0,0.05), 0 4px 8px rgba(0,0,0,0.06), inset 0 2px 4px rgba(255,255,255,1)',
-  }}>
-    <span style={{ position: 'relative', zIndex: 10 }}>{children}</span>
-  </div>
-);
 
 const Badge3D = ({ children, dark = false }: { children: React.ReactNode; dark?: boolean }) => (
   <div style={{
@@ -222,18 +174,10 @@ export function AIRecommendationTab() {
   const { data: recommendations = [], isLoading } = useAIRecommendations(selectedStore?.id);
 
   // 다크모드 감지
-  const [isDark, setIsDark] = useState(getInitialDarkMode);
-  useEffect(() => {
-    const check = () => setIsDark(document.documentElement.classList.contains('dark'));
-    const obs = new MutationObserver(check);
-    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    return () => obs.disconnect();
-  }, []);
+  const isDark = useDarkMode();
 
   const text3D = getText3D(isDark);
   const iconColor = isDark ? 'rgba(255,255,255,0.7)' : '#374151';
-
-  const { toast } = useToast();
 
   // 적용 모달 상태
   const [showApplyModal, setShowApplyModal] = useState(false);
@@ -374,10 +318,7 @@ export function AIRecommendationTab() {
   // H-5: 새 전략 버튼 핸들러
   const handleNewStrategy = useCallback(() => {
     navigate('/studio', { state: { mode: 'create_strategy' } });
-    toast({
-      title: '전략 생성',
-      description: '시뮬레이션 스튜디오에서 새 전략을 생성할 수 있습니다.',
-    });
+    toast.success('전략 생성', { description: '시뮬레이션 스튜디오에서 새 전략을 생성할 수 있습니다.' });
   }, [navigate, toast]);
 
   // H-5: 활성 전략 상세보기 핸들러

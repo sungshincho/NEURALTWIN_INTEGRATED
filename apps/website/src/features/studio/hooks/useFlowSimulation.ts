@@ -12,7 +12,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useSelectedStore } from '@/hooks/useSelectedStore';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import { buildStoreContext } from '../utils/store-context-builder';
 import type {
   SimulationStatus,
@@ -179,7 +179,6 @@ export interface UseFlowSimulationReturn {
 export function useFlowSimulation(): UseFlowSimulationReturn {
   const { orgId } = useAuth();
   const { selectedStore } = useSelectedStore();
-  const { toast } = useToast();
 
   const [result, setResult] = useState<FlowSimulationResult | null>(null);
   const [progress, setProgress] = useState(0);
@@ -263,18 +262,11 @@ export function useFlowSimulation(): UseFlowSimulationReturn {
     },
     onSuccess: (data) => {
       setResult(data);
-      toast({
-        title: '동선 시뮬레이션 완료',
-        description: `병목 지점 ${data.bottlenecks.length}개 발견, 이동 시간 ${data.comparison.timeReduction.toFixed(0)}% 단축 가능`,
-      });
+      toast.success('동선 시뮬레이션 완료', { description: `병목 지점 ${data.bottlenecks.length}개 발견, 이동 시간 ${data.comparison.timeReduction.toFixed(0)}% 단축 가능` });
     },
     onError: (error) => {
       console.error('Flow simulation failed:', error);
-      toast({
-        title: '시뮬레이션 실패',
-        description: error instanceof Error ? error.message : '잠시 후 다시 시도해주세요.',
-        variant: 'destructive',
-      });
+      toast.error('시뮬레이션 실패', { description: error instanceof Error ? error.message : String(error) });
     },
     onSettled: () => {
       setProgress(0);
@@ -326,18 +318,11 @@ export function useFlowSimulation(): UseFlowSimulationReturn {
       }
     },
     onSuccess: () => {
-      toast({
-        title: '동선 최적화 적용됨',
-        description: '작업 목록에서 상세 내용을 확인하세요.',
-      });
+      toast.success('동선 최적화 적용됨', { description: '작업 목록에서 상세 내용을 확인하세요.' });
     },
     onError: (error) => {
       console.error('Apply optimizations failed:', error);
-      toast({
-        title: '최적화 적용 실패',
-        description: '잠시 후 다시 시도해주세요.',
-        variant: 'destructive',
-      });
+      toast.error('최적화 적용 실패', { description: '잠시 후 다시 시도해주세요.' });
     },
   });
 

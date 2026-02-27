@@ -39,6 +39,7 @@ export default {
         accent: {
           DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
+          hover: "#00e8bb",
         },
         popover: {
           DEFAULT: "hsl(var(--popover))",

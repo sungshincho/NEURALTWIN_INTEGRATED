@@ -54,7 +54,7 @@ import {
 } from '../types';
 import { AuthConfigForm } from './AuthConfigForm';
 import { FieldMappingEditor } from './FieldMappingEditor';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 
 // ============================================================================
 // Props & State Types
@@ -111,7 +111,6 @@ export function AddConnectorDialog({
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [testResult, setTestResult] = useState<any>(null);
   const [createError, setCreateError] = useState<string | null>(null);
-  const { toast } = useToast();
 
   const createMutation = useCreateConnection();
   const testMutation = useTestConnection();
@@ -216,28 +215,17 @@ export function AddConnectorDialog({
       if (result && !result.success) {
         const errorMsg = (result as any).error || '연결 생성에 실패했습니다.';
         setCreateError(errorMsg);
-        toast({
-          variant: 'destructive',
-          title: '연결 생성 실패',
-          description: errorMsg,
-        });
+        toast.error('연결 생성 실패', { description: errorMsg });
         return;
       }
 
-      toast({
-        title: '연결 생성 완료',
-        description: `${formData.name} 연결이 성공적으로 생성되었습니다.`,
-      });
+      toast.success('연결 생성 완료', { description: `${formData.name} 연결이 성공적으로 생성되었습니다.` });
       onOpenChange(false);
     } catch (error: any) {
       console.error('연결 생성 실패:', error);
       const errorMessage = error?.message || '연결 생성 중 오류가 발생했습니다.';
       setCreateError(errorMessage);
-      toast({
-        variant: 'destructive',
-        title: '연결 생성 실패',
-        description: errorMessage,
-      });
+      toast.error('연결 생성 실패', { description: errorMessage });
     }
   };
 

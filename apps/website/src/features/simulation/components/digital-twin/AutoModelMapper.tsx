@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { Check, X, Loader2, Sparkles } from 'lucide-react';
 
 interface ModelAnalysis {
@@ -27,7 +27,6 @@ interface AutoModelMapperProps {
 }
 
 export function AutoModelMapper({ analysis, onAccept, onReject }: AutoModelMapperProps) {
-  const { toast } = useToast();
   const [applying, setApplying] = useState(false);
 
   const handleApply = async () => {
@@ -49,19 +48,12 @@ export function AutoModelMapper({ analysis, onAccept, onReject }: AutoModelMappe
 
       if (error) throw error;
 
-      toast({
-        title: "자동 매핑 완료",
-        description: `${analysis.matched_entity_type.label}에 3D 모델이 할당되었습니다`,
-      });
+      toast.success('자동 매핑 완료', { description: `${analysis.matched_entity_type.label}에 3D 모델이 할당되었습니다` });
 
       onAccept();
     } catch (error) {
       console.error('Auto mapping error:', error);
-      toast({
-        title: "매핑 실패",
-        description: error instanceof Error ? error.message : "매핑에 실패했습니다",
-        variant: "destructive",
-      });
+      toast.error('매핑 실패', { description: error instanceof Error ? error.message : String(error) });
     } finally {
       setApplying(false);
     }

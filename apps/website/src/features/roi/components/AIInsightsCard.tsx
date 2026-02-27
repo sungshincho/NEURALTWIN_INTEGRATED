@@ -3,17 +3,14 @@
  * 3D Glassmorphism + Monochrome Design
  */
 
-import { useState, useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Lightbulb, TrendingUp, Sparkles } from 'lucide-react';
+import { useDarkMode } from '@/hooks/useDarkMode';
 import { useCategoryPerformanceGrouped } from '../hooks/useCategoryPerformance';
 import { useROISummary } from '../hooks/useROISummary';
 import { getModuleDisplayName } from '../utils/moduleConfig';
 import type { DateRange, CategoryPerformance } from '../types/roi.types';
-
-// 🔧 FIX: 다크모드 초기값 동기 설정 (깜빡임 방지)
-const getInitialDarkMode = () =>
-  typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+import { GlassCard, Icon3D } from '@/components/ui/glass-card';
 
 // ============================================================================
 // 3D 스타일 시스템
@@ -31,51 +28,6 @@ const getText3D = (isDark: boolean) => ({
     fontWeight: 500, color: '#515158',
   } as React.CSSProperties,
 });
-
-const GlassCard = ({ children, dark = false }: { children: React.ReactNode; dark?: boolean }) => (
-  <div style={{ perspective: '1200px' }}>
-    <div style={{
-      borderRadius: '20px', padding: '1.5px',
-      background: dark
-        ? 'linear-gradient(145deg, rgba(75,75,85,0.9) 0%, rgba(50,50,60,0.8) 50%, rgba(65,65,75,0.9) 100%)'
-        : 'linear-gradient(145deg, rgba(255,255,255,0.95) 0%, rgba(220,220,230,0.6) 50%, rgba(255,255,255,0.93) 100%)',
-      boxShadow: dark
-        ? '0 2px 4px rgba(0,0,0,0.2), 0 8px 16px rgba(0,0,0,0.25)'
-        : '0 1px 1px rgba(0,0,0,0.02), 0 2px 2px rgba(0,0,0,0.02), 0 4px 4px rgba(0,0,0,0.02), 0 8px 8px rgba(0,0,0,0.02)',
-    }}>
-      <div style={{
-        background: dark
-          ? 'linear-gradient(165deg, rgba(48,48,58,0.98) 0%, rgba(32,32,40,0.97) 30%, rgba(42,42,52,0.98) 60%, rgba(35,35,45,0.97) 100%)'
-          : 'linear-gradient(165deg, rgba(255,255,255,0.95) 0%, rgba(253,253,255,0.88) 25%, rgba(255,255,255,0.92) 50%, rgba(251,251,254,0.85) 75%, rgba(255,255,255,0.94) 100%)',
-        backdropFilter: 'blur(80px) saturate(200%)', borderRadius: '19px', position: 'relative', overflow: 'hidden',
-      }}>
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '1px',
-          background: dark
-            ? 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.18) 20%, rgba(255,255,255,0.28) 50%, rgba(255,255,255,0.18) 80%, transparent 100%)'
-            : 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.9) 10%, rgba(255,255,255,1) 50%, rgba(255,255,255,0.9) 90%, transparent 100%)',
-          pointerEvents: 'none',
-        }} />
-        <div style={{ position: 'relative', zIndex: 10 }}>{children}</div>
-      </div>
-    </div>
-  </div>
-);
-
-const Icon3D = ({ children, size = 20, dark = false }: { children: React.ReactNode; size?: number; dark?: boolean }) => (
-  <div style={{
-    width: size, height: size,
-    background: dark
-      ? 'linear-gradient(145deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.04) 50%, rgba(255,255,255,0.09) 100%)'
-      : 'linear-gradient(145deg, rgba(255,255,255,0.98) 0%, rgba(230,230,238,0.95) 40%, rgba(245,245,250,0.98) 100%)',
-    borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-    border: dark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(255,255,255,0.95)',
-    boxShadow: dark
-      ? 'inset 0 1px 2px rgba(255,255,255,0.12), 0 2px 6px rgba(0,0,0,0.2)'
-      : '0 1px 2px rgba(0,0,0,0.04), 0 2px 4px rgba(0,0,0,0.05), inset 0 1px 2px rgba(255,255,255,1)',
-  }}>
-    {children}
-  </div>
-);
 
 interface AIInsightsCardProps {
   dateRange: DateRange;
@@ -168,14 +120,7 @@ const generateInsights = (
 export const AIInsightsCard: React.FC<AIInsightsCardProps> = ({ dateRange }) => {
   const { data: summary, isLoading: summaryLoading } = useROISummary(dateRange);
   const { data: categoryData, isLoading: categoryLoading } = useCategoryPerformanceGrouped(dateRange);
-  const [isDark, setIsDark] = useState(getInitialDarkMode);
-
-  useEffect(() => {
-    const check = () => setIsDark(document.documentElement.classList.contains('dark'));
-    const obs = new MutationObserver(check);
-    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    return () => obs.disconnect();
-  }, []);
+  const isDark = useDarkMode();
 
   const text3D = getText3D(isDark);
   const iconColor = isDark ? 'rgba(255,255,255,0.7)' : '#374151';

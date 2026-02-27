@@ -7,14 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from 'sonner';
 import { Store, Loader2, Sparkles, AlertTriangle, CheckCircle, Plus, RefreshCw, Link2 } from "lucide-react";
 import { applyRetailSchemaPreset } from "../utils/comprehensiveRetailSchema";
 
 type SchemaMode = 'merge' | 'replace';
 
 export const RetailSchemaPreset = () => {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const [schemaMode, setSchemaMode] = useState<SchemaMode>('merge');
 
@@ -147,18 +146,11 @@ export const RetailSchemaPreset = () => {
         ? "기존 스키마에 최적화된 리테일 온톨로지 스키마가 추가되었습니다."
         : "이전 스키마는 버전으로 안전하게 백업되었습니다. '스키마 불러오기'에서 복원할 수 있습니다.";
       
-      toast({
-        title: "최적화된 리테일 온톨로지 스키마 적용 완료",
-        description: `${entitiesCount}개 엔티티와 ${relationsCount}개 관계가 적용되었습니다. ${message}`,
-      });
+      toast.success("최적화된 리테일 온톨로지 스키마 적용 완료", { description: `${entitiesCount}개 엔티티와 ${relationsCount}개 관계가 적용되었습니다. ${message}` });
     },
     onError: (error: any) => {
       console.error("스키마 적용 오류:", error);
-      toast({
-        title: "스키마 적용 실패",
-        description: error.message || "알 수 없는 오류가 발생했습니다.",
-        variant: "destructive",
-      });
+      toast.error("스키마 적용 실패", { description: error.message });
     },
   });
 

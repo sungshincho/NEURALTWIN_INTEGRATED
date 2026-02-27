@@ -19,7 +19,7 @@ import {
   Clock, Target, TrendingDown, PieChart, BarChart3, Globe,
   Navigation, Zap, Activity, AlertTriangle, CheckCircle, Loader2, FileCheck2
 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from 'sonner';
 import { verifyAndCleanupModelUrls } from "@/features/simulation/utils";
 
 interface PropertyField {
@@ -137,7 +137,6 @@ const PROPERTY_TYPES = [
 ];
 
 export const EntityTypeManager = () => {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(false);
   const [editingEntity, setEditingEntity] = useState<EntityType | null>(null);
@@ -218,7 +217,7 @@ export const EntityTypeManager = () => {
     },
     onSuccess: async (result) => {
       queryClient.invalidateQueries({ queryKey: ["entity-types"] });
-      toast({ title: "엔티티 타입이 생성되었습니다" });
+      toast.success("엔티티 타입이 생성되었습니다");
       
       // Activity logging
       const { data: { user } } = await supabase.auth.getUser();
@@ -239,7 +238,7 @@ export const EntityTypeManager = () => {
       resetForm();
     },
     onError: (error) => {
-      toast({ title: "오류 발생", description: error.message, variant: "destructive" });
+      toast.error("오류 발생", { description: error.message });
     },
   });
 
@@ -264,7 +263,7 @@ export const EntityTypeManager = () => {
     },
     onSuccess: async (result) => {
       queryClient.invalidateQueries({ queryKey: ["entity-types"] });
-      toast({ title: "엔티티 타입이 수정되었습니다" });
+      toast.success("엔티티 타입이 수정되었습니다");
       
       // Activity logging
       const { data: { user } } = await supabase.auth.getUser();
@@ -298,7 +297,7 @@ export const EntityTypeManager = () => {
     },
     onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ["entity-types"] });
-      toast({ title: "엔티티 타입이 삭제되었습니다" });
+      toast.success("엔티티 타입이 삭제되었습니다");
       
       // Activity logging
       const { data: { user } } = await supabase.auth.getUser();
@@ -327,26 +326,16 @@ export const EntityTypeManager = () => {
         queryClient.invalidateQueries({ queryKey: ["entity-types"] });
         
         if (result.cleaned === 0) {
-          toast({
-            title: "검증 완료",
-            description: `${result.checked}개 모델 URL 검증 완료. 문제없음.`,
-          });
+          toast.success("검증 완료", { description: `${result.checked}개 모델 URL 검증 완료. 문제없음.` });
         } else {
-          toast({
-            title: "자동 정리 완료",
-            description: `${result.checked}개 검증, ${result.cleaned}개 잘못된 URL 제거됨`,
-          });
+          toast.success("자동 정리 완료", { description: `${result.checked}개 검증, ${result.cleaned}개 잘못된 URL 제거됨` });
         }
       } else {
         throw new Error(result.error || '검증 실패');
       }
     },
     onError: (error: any) => {
-      toast({
-        title: "검증 실패",
-        description: error.message,
-        variant: "destructive"
-      });
+      toast.error("검증 실패", { description: error.message });
     },
   });
 
@@ -366,14 +355,10 @@ export const EntityTypeManager = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["entity-types"] });
-      toast({ title: "3D 모델이 제거되었습니다" });
+      toast.success("3D 모델이 제거되었습니다");
     },
     onError: (error) => {
-      toast({ 
-        title: "3D 모델 제거 실패", 
-        description: error.message, 
-        variant: "destructive" 
-      });
+      toast.error("3D 모델 제거 실패", { description: error.message });
     },
   });
 
@@ -445,17 +430,10 @@ export const EntityTypeManager = () => {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["entity-types"] });
-      toast({ 
-        title: "기본 엔티티 타입 생성 완료",
-        description: `${data.length}개의 엔티티 타입이 추가되었습니다 (직원, 구매, 방문)`,
-      });
+      toast.success("기본 엔티티 타입 생성 완료", { description: `${data.length}개의 엔티티 타입이 추가되었습니다 (직원, 구매, 방문)` });
     },
     onError: (error: any) => {
-      toast({ 
-        title: "생성 실패", 
-        description: error.message, 
-        variant: "destructive" 
-      });
+      toast.error("생성 실패", { description: error.message });
     },
   });
 
@@ -635,18 +613,11 @@ export const EntityTypeManager = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['entity-types'] });
       queryClient.invalidateQueries({ queryKey: ['relation-types'] });
-      toast({
-        title: "오프라인 리테일 궁극 스키마 생성 완료",
-        description: "15개 엔티티 타입과 13개 관계 타입이 생성되었습니다. 매출, 동선, 방문객, 전환율, 수요예측, 재고, 가격최적화, 프로모션 효율성 등 모든 비즈니스 로직이 포함되어 있습니다.",
-      });
+      toast.success("오프라인 리테일 궁극 스키마 생성 완료", { description: "15개 엔티티 타입과 13개 관계 타입이 생성되었습니다. 매출, 동선, 방문객, 전환율, 수요예측, 재고, 가격최적화, 프로모션 효율성 등 모든 비즈니스 로직이 포함되어 있습니다." });
     },
     onError: (error: any) => {
       console.error("스키마 생성 오류:", error);
-      toast({
-        title: "스키마 생성 실패",
-        description: error.message || "알 수 없는 오류가 발생했습니다.",
-        variant: "destructive",
-      });
+      toast.error("스키마 생성 실패", { description: error.message });
     },
   });
 
@@ -697,7 +668,7 @@ export const EntityTypeManager = () => {
 
   const handleAddProperty = () => {
     if (!newProperty.name || !newProperty.label) {
-      toast({ title: "속성 이름과 표시명을 입력하세요", variant: "destructive" });
+      toast.error("속성 이름과 표시명을 입력하세요");
       return;
     }
 
@@ -725,7 +696,7 @@ export const EntityTypeManager = () => {
       description: "",
     });
 
-    toast({ title: "속성이 추가되었습니다" });
+    toast.success("속성이 추가되었습니다");
   };
 
   const handleRemoveProperty = (id: string) => {

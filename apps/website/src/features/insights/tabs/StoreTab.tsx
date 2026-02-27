@@ -20,13 +20,10 @@ import { useDateFilterStore } from '@/store/dateFilterStore';
 import { useZoneMetricsByDateRange, useZonesDim } from '@/hooks/useZoneMetrics';
 import { useAuth } from '@/hooks/useAuth';
 import { useCountUp } from '@/hooks/useCountUp';
+import { useDarkMode } from '@/hooks/useDarkMode';
 import { useIntegratedMetrics, useHourlyVisitors } from '../context/InsightDataContext';
 import { formatDuration } from '../components';
 import { useScreenDataStore } from '@/store/screenDataStore';
-
-// 🔧 FIX: 다크모드 초기값 동기 설정 (깜빡임 방지)
-const getInitialDarkMode = () =>
-  typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
 
 // 3D Text 스타일 (다크모드 지원)
 const getText3D = (isDark: boolean) => ({
@@ -597,16 +594,7 @@ export function StoreTab() {
   const { orgId } = useAuth();
   const { data: metrics } = useIntegratedMetrics();
   const { data: hourlyRawData } = useHourlyVisitors();
-  const [isDark, setIsDark] = useState(getInitialDarkMode);
-
-  useEffect(() => {
-    const checkDarkMode = () => {
-      setIsDark(document.documentElement.classList.contains('dark'));
-    };
-    const observer = new MutationObserver(checkDarkMode);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    return () => observer.disconnect();
-  }, []);
+  const isDark = useDarkMode();
 
   const text3D = getText3D(isDark);
   const iconColor = isDark ? 'rgba(255,255,255,0.8)' : '#1a1a1f';

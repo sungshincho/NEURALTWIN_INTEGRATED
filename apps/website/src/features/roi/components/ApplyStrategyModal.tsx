@@ -3,7 +3,7 @@
  * - 인사이트 허브와 디지털트윈 스튜디오에서 공통으로 사용
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -23,10 +23,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useSelectedStore } from '@/hooks/useSelectedStore';
-
-// 🔧 FIX: 다크모드 초기값 동기 설정 (깜빡임 방지)
-const getInitialDarkMode = () =>
-  typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+import { useDarkMode } from '@/hooks/useDarkMode';
 
 interface ApplyStrategyModalProps {
   isOpen: boolean;
@@ -70,13 +67,7 @@ export const ApplyStrategyModal: React.FC<ApplyStrategyModalProps> = ({
   const [notes, setNotes] = useState('');
 
   // 다크 모드 감지
-  const [isDark, setIsDark] = useState(getInitialDarkMode);
-  useEffect(() => {
-    const check = () => setIsDark(document.documentElement.classList.contains('dark'));
-    const obs = new MutationObserver(check);
-    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    return () => obs.disconnect();
-  }, []);
+  const isDark = useDarkMode();
 
   const { mutate: applyStrategy, isPending: isApplyingStrategy } = useApplyStrategy();
   const { mutate: applyRecommendation, isPending: isApplyingRecommendation } = useApplyRecommendation();

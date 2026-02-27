@@ -25,10 +25,6 @@ import {
 // Data Provider (통합 데이터소스)
 import { InsightDataProvider, InsightTabType, useInsightData } from '@/features/insights/context/InsightDataContext';
 
-// 🔧 FIX: 다크모드 초기값 동기 설정 (깜빡임 방지)
-const getInitialDarkMode = () =>
-  typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
-
 // Tab Components
 import { OverviewTab } from '@/features/insights/tabs/OverviewTab';
 import { StoreTab } from '@/features/insights/tabs/StoreTab';
@@ -40,6 +36,7 @@ import { AIRecommendationTab } from '@/features/insights/tabs/AIRecommendationTa
 
 // Data Quality Banner (데이터 컨트롤타워 연동)
 import { DataQualityBanner } from '@/features/insights/components/DataQualityBanner';
+import { useDarkMode } from '@/hooks/useDarkMode';
 
 const tabs = [
   { value: 'overview', label: '개요', icon: LayoutDashboard },
@@ -56,23 +53,7 @@ function InsightHubContent({ activeTab, setActiveTab }: {
   activeTab: InsightTabType;
   setActiveTab: (tab: InsightTabType) => void;
 }) {
-  const [isDark, setIsDark] = useState(getInitialDarkMode);
-
-  // 다크모드 감지
-  useEffect(() => {
-    const checkDarkMode = () => {
-      setIsDark(document.documentElement.classList.contains('dark'));
-    };
-
-    // MutationObserver로 class 변경 감지
-    const observer = new MutationObserver(checkDarkMode);
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['class']
-    });
-
-    return () => observer.disconnect();
-  }, []);
+  const isDark = useDarkMode();
 
   return (
     <div className="space-y-6">

@@ -26,8 +26,8 @@
     --secondary: 0 0% 88%;
     --secondary-foreground: 0 0% 10%;
 
-    --accent: 0 0% 96%;
-    --accent-foreground: 0 0% 8%;
+    --accent: 168 100% 42%;
+    --accent-foreground: 0 0% 5%;
 
     --muted: 0 0% 90%;
     --muted-foreground: 0 0% 40%;
@@ -88,8 +88,8 @@
     --sidebar-foreground: 0 0% 15%;
     --sidebar-primary: 0 0% 10%;
     --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 0 0% 92%;
-    --sidebar-accent-foreground: 0 0% 15%;
+    --sidebar-accent: 168 100% 42%;
+    --sidebar-accent-foreground: 0 0% 5%;
     --sidebar-border: 0 0% 85%;
     --sidebar-ring: 0 0% 15%;
   }
@@ -106,8 +106,8 @@
     --secondary: 0 0% 15%;
     --secondary-foreground: 0 0% 90%;
 
-    --accent: 0 0% 15%;
-    --accent-foreground: 0 0% 95%;
+    --accent: 168 100% 42%;
+    --accent-foreground: 0 0% 5%;
 
     --muted: 0 0% 12%;
     --muted-foreground: 0 0% 60%;
@@ -140,8 +140,8 @@
     --sidebar-foreground: 0 0% 98%;
     --sidebar-primary: 0 0% 98%;
     --sidebar-primary-foreground: 0 0% 5%;
-    --sidebar-accent: 0 0% 12%;
-    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-accent: 168 100% 42%;
+    --sidebar-accent-foreground: 0 0% 5%;
     --sidebar-border: 0 0% 15%;
     --sidebar-ring: 0 0% 55%;
   }
@@ -188,6 +188,15 @@
     z-index: 1;
   }
   
+  .dark body::before {
+    opacity: 0.05;
+    mix-blend-mode: screen;
+  }
+
+  .dark body::after {
+    background: radial-gradient(circle at 50% 50%, hsl(0 0% 8%), hsl(0 0% 4%));
+  }
+
   body > #root {
     position: relative;
     z-index: 2;
