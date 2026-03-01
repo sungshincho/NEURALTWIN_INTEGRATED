@@ -1,4 +1,4 @@
-// 채팅 페이지 - NEURALTWIN 다크 테마 + retail-chatbot EF 연동
+// 채팅 페이지 - NEURALTWIN 다크 테마 + unified-chatbot EF 연동
 // TASK 9: Suggestions + Lead Capture Form 추가
 // TASK C: 3D Wireframe Visualizer 통합
 // PHASE J: 파일 업로드, 메시지 리액션, Export 기능

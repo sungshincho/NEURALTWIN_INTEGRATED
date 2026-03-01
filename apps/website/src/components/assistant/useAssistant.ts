@@ -1,8 +1,8 @@
 /**
  * useAssistant — Hook for OS AI Assistant communication.
  *
- * Manages conversation state and communicates with the neuraltwin-assistant
- * Edge Function. Uses auth context for user token, store context for store
+ * Manages conversation state and communicates with the unified-chatbot
+ * Edge Function (OS channel). Uses auth context for user token, store context for store
  * information, and react-router location for page context.
  */
 
@@ -104,7 +104,7 @@ export function useAssistant(): UseAssistantReturn {
   );
 
   // -------------------------------------------------------
-  // Send a message to the neuraltwin-assistant EF
+  // Send a message to the unified-chatbot EF (OS channel)
   // -------------------------------------------------------
   const sendMessage = useCallback(
     async (text: string) => {
