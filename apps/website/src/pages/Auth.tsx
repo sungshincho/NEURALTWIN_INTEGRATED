@@ -127,7 +127,7 @@ const Auth = () => {
         try {
           const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
           const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-          await fetch(`${supabaseUrl}/functions/v1/retail-chatbot`, {
+          await fetch(`${supabaseUrl}/functions/v1/unified-chatbot`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -251,7 +251,7 @@ const Auth = () => {
           try {
             const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
             const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-            await fetch(`${supabaseUrl}/functions/v1/retail-chatbot`, {
+            await fetch(`${supabaseUrl}/functions/v1/unified-chatbot`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -437,7 +437,7 @@ const Auth = () => {
           try {
             const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
             const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-            await fetch(`${supabaseUrl}/functions/v1/retail-chatbot`, {
+            await fetch(`${supabaseUrl}/functions/v1/unified-chatbot`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',

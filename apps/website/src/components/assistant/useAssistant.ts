@@ -147,13 +147,14 @@ export function useAssistant(): UseAssistantReturn {
         };
 
         const response = await fetch(
-          `${supabaseUrl}/functions/v1/neuraltwin-assistant`,
+          `${supabaseUrl}/functions/v1/unified-chatbot`,
           {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${accessToken}`,
               apikey: supabaseKey,
+              "X-NeuralTwin-Channel": "os",
             },
             body: JSON.stringify(requestBody),
           },

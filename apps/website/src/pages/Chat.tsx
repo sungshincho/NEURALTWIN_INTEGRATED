@@ -578,7 +578,7 @@ const Chat = () => {
         window.innerWidth < 768 || /Mobi|Android/i.test(navigator.userAgent)
       );
 
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/retail-chatbot`, {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/unified-chatbot`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -773,7 +773,7 @@ const Chat = () => {
       const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       const sessionId = getOrCreateSessionId();
 
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/retail-chatbot`, {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/unified-chatbot`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -847,7 +847,7 @@ const Chat = () => {
     const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
     const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
     if (!SUPABASE_URL) return;
-    fetch(`${SUPABASE_URL}/functions/v1/retail-chatbot`, {
+    fetch(`${SUPABASE_URL}/functions/v1/unified-chatbot`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

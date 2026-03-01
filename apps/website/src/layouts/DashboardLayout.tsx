@@ -31,10 +31,12 @@ import { SelectedStoreProvider } from "@/providers/SelectedStoreProvider";
 import { useSelectedStore } from "@/hooks/useSelectedStore";
 import { Button } from "@/components/ui/button";
 import { AssistantPanel } from "@/components/assistant";
+import { useOnboardingTour } from "@/hooks/useOnboardingTour";
+import { OnboardingOverlay } from "@/components/onboarding/OnboardingOverlay";
 
 const NAV_ITEMS = [
-  { label: "인사이트 허브", href: "/os/insights", icon: LayoutDashboard },
-  { label: "디지털트윈 스튜디오", href: "/os/studio", icon: Box },
+  { label: "인사이트 허브", href: "/os/insights", icon: LayoutDashboard, tourId: "insights-nav" },
+  { label: "디지털트윈 스튜디오", href: "/os/studio", icon: Box, tourId: "studio-nav" },
   { label: "ROI 측정", href: "/os/roi", icon: BarChart3 },
   { label: "설정 & 관리", href: "/os/settings", icon: Settings },
 ];
@@ -132,6 +134,15 @@ export default function DashboardLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
+  const tour = useOnboardingTour();
+
+  // Auto-start tour on first visit
+  useEffect(() => {
+    if (!tour.hasCompleted && !tour.isActive) {
+      const timer = setTimeout(() => tour.startTour(), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [tour.hasCompleted, tour.isActive]);
 
   // Sync dark mode on mount
   useEffect(() => {
@@ -199,6 +210,7 @@ export default function DashboardLayout() {
                 <Link
                   key={item.href}
                   to={item.href}
+                  data-tour={item.tourId}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                     active
                       ? "bg-accent text-accent-foreground"
@@ -216,6 +228,7 @@ export default function DashboardLayout() {
           <div className="p-2 border-t border-border space-y-1">
             <button
               onClick={() => setAssistantOpen(!assistantOpen)}
+              data-tour="assistant-toggle"
               className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                 assistantOpen
                   ? "bg-accent text-accent-foreground"
@@ -392,6 +405,17 @@ export default function DashboardLayout() {
             </span>
           </button>
         </nav>
+
+        {/* ---- Onboarding Tour Overlay ---- */}
+        {tour.isActive && tour.step && (
+          <OnboardingOverlay
+            step={tour.step}
+            currentStep={tour.currentStep}
+            totalSteps={tour.totalSteps}
+            onNext={tour.nextStep}
+            onSkip={tour.skipTour}
+          />
+        )}
       </div>
     </SelectedStoreProvider>
   );
