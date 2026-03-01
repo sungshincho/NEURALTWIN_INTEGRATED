@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
+import { SEOHead } from "@/components/seo/SEOHead";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { trackPageView, trackContactForm, trackFunnelStep } from "@/lib/analytics";
@@ -120,6 +121,11 @@ const Contact = () => {
 
   return (
     <div className="contact-page">
+      <SEOHead
+        title={t("nav.contact")}
+        description="NEURALTWIN 도입 문의. 전문가에게 무료 ROI 분석 리포트와 맞춤형 솔루션을 받아보세요."
+        path="/contact"
+      />
       {/* ==================== INTRO ANIMATION ==================== */}
       {!introHidden && (
         <div className={`intro-overlay${introDone ? " done" : ""}`}>

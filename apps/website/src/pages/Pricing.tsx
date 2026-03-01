@@ -7,6 +7,7 @@ import { Link } from "react-router-dom";
 import { useEffect } from "react";
 import { trackPageView, trackFunnelStep, trackCTAClick } from "@/lib/analytics";
 import { useTranslation } from "react-i18next";
+import { SEOHead } from "@/components/seo/SEOHead";
 
 const Pricing = () => {
   const { t } = useTranslation();
@@ -75,6 +76,11 @@ const Pricing = () => {
 
   return (
     <div className="min-h-screen">
+      <SEOHead
+        title={t("nav.pricing")}
+        description="NEURALTWIN 라이선스 기반 가격 정책. Store, HQ, Enterprise 플랜으로 필요한 만큼만 사용하세요. 14일 무료 체험."
+        path="/pricing"
+      />
       <Header />
 
       <section className="pt-32 pb-20">

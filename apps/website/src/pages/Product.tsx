@@ -30,6 +30,7 @@ import { StaffEfficiency } from "@/components/features/StaffEfficiency";
 import { useEffect } from "react";
 import { trackPageView, trackMiniFeature, trackFunnelStep } from "@/lib/analytics";
 import { useTranslation } from "react-i18next";
+import { SEOHead } from "@/components/seo/SEOHead";
 
 import dashboardStoreImage from "@/assets/dashboard-store-license.png";
 import dashboardHQImage from "@/assets/dashboard-hq-license.png";
@@ -78,6 +79,11 @@ const Product = () => {
 
   return (
     <div className="min-h-screen">
+      <SEOHead
+        title={t("nav.product")}
+        description="NEURALTWIN은 AI와 IoT로 오프라인 매장을 완전히 이해하고 최적화합니다. 3D 디지털 트윈, 고객 동선 분석, 수요 예측 등 핵심 기능을 확인하세요."
+        path="/product"
+      />
       <Header />
 
       {/* Hero */}

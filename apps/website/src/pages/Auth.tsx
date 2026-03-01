@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useToast } from "@/hooks/use-toast";
 import { trackPageView, trackFunnelStep } from "@/lib/analytics";
 import { useTranslation } from "react-i18next";
+import { SEOHead } from "@/components/seo/SEOHead";
 import "@/styles/auth.css";
 
 const Auth = () => {
@@ -548,6 +549,12 @@ const Auth = () => {
 
   return (
     <div className="auth-page">
+      <SEOHead
+        title={isLogin ? t("auth.loginTitle") : t("auth.signupTitle")}
+        description="NEURALTWIN에 로그인하거나 회원가입하세요. 14일 무료 체험으로 리테일 혁신을 시작하세요."
+        path="/auth"
+        noIndex
+      />
       {/* ==================== INTRO ANIMATION ==================== */}
       {!introHidden && (
         <div className={`intro-overlay${introDone ? " done" : ""}`}>

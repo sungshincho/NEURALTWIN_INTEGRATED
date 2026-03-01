@@ -6,6 +6,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { SEOHead } from "@/components/seo/SEOHead";
 import "@/styles/chat.css";
 
 // 3D Visualizer 컴포넌트
@@ -1492,6 +1493,11 @@ const Chat = () => {
 
   return (
     <div className="chat-page">
+      <SEOHead
+        title="AI Chat"
+        description="NEURALTWIN AI와 대화하세요. 리테일 운영 최적화, 매장 분석, 디지털 트윈에 대해 전문가 수준의 답변을 제공합니다."
+        path="/"
+      />
       {/* ==================== TURN LIMIT MODAL ==================== */}
       {showTurnLimitModal && (
         <div className="turn-limit-overlay" onClick={() => setShowTurnLimitModal(false)}>
