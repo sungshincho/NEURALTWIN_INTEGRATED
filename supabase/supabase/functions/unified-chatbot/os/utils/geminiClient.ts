@@ -2,7 +2,7 @@
  * Gemini 2.5 Flash API 클라이언트
  * Direct Google AI API
  */
-import { chatCompletion } from "../../../_shared/ai/gateway.ts";
+import { chatCompletion } from "@shared/ai/gateway.ts";
 
 const DEFAULT_MODEL = 'gemini-2.5-flash';
 const DEFAULT_TEMPERATURE = 0.3;

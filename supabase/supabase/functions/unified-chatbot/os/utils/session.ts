@@ -1,5 +1,5 @@
 import { SupabaseClient } from "@supabase/supabase-js";
-import { createConversation, getConversation } from '../../../_shared/chatLogger.ts';
+import { createConversation, getConversation } from "@shared/chatLogger.ts";
 
 interface SessionInput {
   conversationId?: string;

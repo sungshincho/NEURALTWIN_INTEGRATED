@@ -1,9 +1,9 @@
-import { createSupabaseAdmin } from "../../_shared/supabase-client.ts";
-import { corsHeaders, handleCorsOptions } from "../../_shared/cors.ts";
-import { errorResponse } from "../../_shared/error.ts";
-import { checkRateLimit, cleanupExpiredEntries } from '../_shared/rateLimiter.ts';
-import { saveMessage } from '../_shared/chatLogger.ts';
-import { logSessionStart } from '../_shared/chatEventLogger.ts';
+import { createSupabaseAdmin } from "@shared/supabase-client.ts";
+import { corsHeaders, handleCorsOptions } from "@shared/cors.ts";
+import { errorResponse } from "@shared/error.ts";
+import { checkRateLimit, cleanupExpiredEntries } from "@shared/rateLimiter.ts";
+import { saveMessage } from "@shared/chatLogger.ts";
+import { logSessionStart } from "@shared/chatEventLogger.ts";
 import { getOrCreateSession } from './utils/session.ts';
 import { createErrorResponse } from './utils/errorTypes.ts';
 import { classifyIntent } from './intent/classifier.ts';

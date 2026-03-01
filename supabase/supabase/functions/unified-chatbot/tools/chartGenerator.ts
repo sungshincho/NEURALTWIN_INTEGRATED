@@ -5,7 +5,7 @@
  * Supabase에서 데이터를 조회하여 차트 데이터를 생성합니다.
  */
 
-import { createSupabaseAdmin } from "../../_shared/supabase-client.ts";
+import { createSupabaseAdmin } from "@shared/supabase-client.ts";
 
 interface ChartRequest {
   chartType: string;

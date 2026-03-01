@@ -8,7 +8,7 @@
  * - 토픽 라우터 기반 도메인 지식 주입
  */
 
-import { createSupabaseAdmin, createSupabaseWithAuth } from "../../_shared/supabase-client.ts";
+import { createSupabaseAdmin, createSupabaseWithAuth } from "@shared/supabase-client.ts";
 import { buildEnrichedPrompt, formatClassification } from './topicRouter.ts';
 import { extractPainPoints, type PainPointResult } from './painPointExtractor.ts';
 import { evaluateSalesBridge, checkExplicitInterest, type SalesBridgeResult } from './salesBridge.ts';
@@ -35,7 +35,7 @@ import { assembleContext } from './contextAssembler.ts';
 // Phase 7: 레이아웃 힌트 추출 (검색 결과 → 매장 공간 정보 구조화)
 import { extractLayoutHints, formatLayoutHintForPrompt, validateAndCorrectZones, type LayoutHint } from './search/layoutHintExtractor.ts';
 // Direct AI Gateway (with Fallback Chain)
-import { chatCompletionStreamWithFallback, chatCompletionWithFallback } from "../../_shared/ai/gateway.ts";
+import { chatCompletionStreamWithFallback, chatCompletionWithFallback } from "@shared/ai/gateway.ts";
 
 // ═══════════════════════════════════════════
 //  VizDirective 타입 및 파싱 유틸리티
