@@ -44,6 +44,7 @@ interface ProcessingResult {
     total_readings: number;
     zone_events_created: number;
     visits_updated: number;
+    live_state_updated: number;
     unique_devices: number;
     duration_ms: number;
   };
@@ -300,6 +301,51 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
 
     // ========================================
+    // 4.5. neuralsense_live_state 실시간 업데이트
+    // ========================================
+    // 디바이스별 최신 리딩 → upsert_live_visitor RPC
+    // Supabase Realtime (postgres_changes)로 3D 시각화에 자동 전달
+    let liveStateUpdated = 0;
+    const latestByMac = new Map<string, NeuralsenseReading>();
+
+    for (const reading of readings) {
+      if (!reading.hashed_mac) continue;
+      const prev = latestByMac.get(reading.hashed_mac);
+      if (!prev || reading.timestamp > prev.timestamp) {
+        latestByMac.set(reading.hashed_mac, reading);
+      }
+    }
+
+    for (const [mac, reading] of latestByMac) {
+      let status = 'browsing';
+      if (reading.zone_id) {
+        const zone = zoneMap.get(reading.zone_id) as any;
+        if (zone?.zone_type === 'entrance') status = 'entering';
+        else if (zone?.zone_type === 'checkout') status = 'purchasing';
+        else if (zone?.zone_type === 'exit') status = 'leaving';
+      }
+
+      const { error: liveError } = await supabase.rpc('upsert_live_visitor', {
+        p_store_id: store_id,
+        p_hashed_mac: mac,
+        p_zone_id: reading.zone_id || null,
+        p_position: reading.estimated_position
+          ? { x: reading.estimated_position.x, y: reading.estimated_position.y, z: 0 }
+          : {},
+        p_rssi_readings: reading.rssi_readings || {},
+        p_confidence: reading.estimated_position?.confidence || 0,
+        p_session_id: null,
+        p_status: status,
+      });
+
+      if (liveError) {
+        warnings.push(`live_state upsert failed for ${mac}: ${liveError.message}`);
+      } else {
+        liveStateUpdated++;
+      }
+    }
+
+    // ========================================
     // 5. Visit 세션 관리
     // ========================================
     // visits 테이블 실제 스키마:
@@ -430,6 +476,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
           processing_result: {
             zone_events_created: zoneEventsCreated,
             visits_updated: visitsUpdated,
+            live_state_updated: liveStateUpdated,
             unique_devices: processedMacs.size,
             duration_ms: durationMs,
           },
@@ -456,6 +503,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         total_readings: readings.length,
         zone_events_created: zoneEventsCreated,
         visits_updated: visitsUpdated,
+        live_state_updated: liveStateUpdated,
         unique_devices: processedMacs.size,
         duration_ms: durationMs,
       },
