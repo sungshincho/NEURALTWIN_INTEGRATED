@@ -23,9 +23,15 @@ try:
 except Exception:
     _uploader = None
 
-MQTT_HOST = "100.87.27.7"
-MQTT_PORT = 1883
-MQTT_TOPIC = "neuralsense/rssi"
+try:
+    import config as _cfg_mqtt
+    MQTT_HOST = _cfg_mqtt.MQTT_BROKER_IP
+    MQTT_PORT = _cfg_mqtt.MQTT_BROKER_PORT
+    MQTT_TOPIC = _cfg_mqtt.MQTT_TOPIC_PREFIX + "/rssi"
+except ImportError:
+    MQTT_HOST = "100.87.27.7"
+    MQTT_PORT = 1883
+    MQTT_TOPIC = "neuralsense/rssi"
 
 ZONES_CSV = "zones.csv"
 CAL_JSONL = os.path.join("output", "calibration.jsonl")
