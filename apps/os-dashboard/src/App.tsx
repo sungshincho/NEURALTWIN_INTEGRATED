@@ -27,6 +27,9 @@ const ConnectorSettingsPage = React.lazy(() => import("@/features/data-control/C
 import { OnboardingWizard } from "@/features/onboarding/components/OnboardingWizard";
 import { useIsOnboardingComplete } from "@/hooks/useOnboarding";
 
+// AI Insight floating panel
+import { AIInsightBubble } from "@/components/ai/AIInsightBubble";
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -69,6 +72,8 @@ const App = () => (
           <SelectedStoreProvider>
             {/* 온보딩 래퍼로 감싸기 */}
             <OnboardingWrapper>
+              {/* AI Insight 플로팅 패널 — 모든 페이지에서 접근 가능 */}
+              <AIInsightBubble />
               <Suspense fallback={<div className="flex h-screen w-full items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>}>
               <Routes>
                 <Route path="/auth" element={<Auth />} />
