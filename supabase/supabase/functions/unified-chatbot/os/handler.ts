@@ -1,4 +1,4 @@
-import { createSupabaseAdmin } from "@shared/supabase-client.ts";
+import { createSupabaseWithAuth } from "@shared/supabase-client.ts";
 import { corsHeaders, handleCorsOptions } from "@shared/cors.ts";
 import { errorResponse } from "@shared/error.ts";
 import { checkRateLimit, cleanupExpiredEntries } from "@shared/rateLimiter.ts";
@@ -65,19 +65,15 @@ export async function handleOSRequest(req: Request): Promise<Response> {
   const startTime = Date.now();
 
   try {
-    // 1. Supabase 클라이언트 생성
-    const supabase = createSupabaseAdmin();
-
-    // 2. 인증 확인
+    // 1. 인증 확인
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return createErrorResponse('AUTH_EXPIRED', corsHeaders);
     }
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    );
-
+    // 2. Supabase 클라이언트 생성 (사용자 JWT 기반)
+    const supabase = createSupabaseWithAuth(authHeader);
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
       return createErrorResponse('AUTH_EXPIRED', corsHeaders);
     }

@@ -1,6 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
-import { createSupabaseAdmin } from "../_shared/supabase-client.ts";
+import { createSupabaseWithAuth } from "../_shared/supabase-client.ts";
 import { errorResponse } from "../_shared/error.ts";
 import { chatCompletion } from "../_shared/ai/gateway.ts";
 
@@ -19,25 +19,19 @@ Deno.serve(async (req) => {
       throw new Error('storeId is required');
     }
 
+    // 인증 확인
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      throw new Error('Authorization header is required');
+      return errorResponse('Authorization header required', 401, { success: false });
     }
 
-    const token = authHeader.replace('Bearer ', '');
-    const parts = token.split('.');
-    if (parts.length !== 3) {
-      throw new Error('Invalid JWT token');
+    const supabase = createSupabaseWithAuth(authHeader);
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return errorResponse('Unauthorized', 401, { success: false });
     }
 
-    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-    const userId = payload.sub;
-
-    if (!userId) {
-      throw new Error('User ID not found in token');
-    }
-
-    const supabase = createSupabaseAdmin();
+    const userId = user.id;
     
     console.log(`Processing ${files.length} files for user ${userId}, store ${storeId}`);
 

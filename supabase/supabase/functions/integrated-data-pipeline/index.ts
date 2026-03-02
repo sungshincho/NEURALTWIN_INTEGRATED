@@ -1,7 +1,7 @@
 import { parseCSVFromStorage } from './csv-parser.ts';
 import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
 import { errorResponse } from "../_shared/error.ts";
-import { createSupabaseAdmin } from "../_shared/supabase-client.ts";
+import { createSupabaseWithAuth } from "../_shared/supabase-client.ts";
 
 interface PipelineRequest {
   import_id: string;
@@ -368,13 +368,16 @@ Deno.serve(async (req) => {
   if (corsResponse) return corsResponse;
 
   try {
-    const supabase = createSupabaseAdmin();
+    // 인증 확인
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return errorResponse('Authorization header required', 401);
+    }
 
-    const authHeader = req.headers.get('Authorization')!;
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    const supabase = createSupabaseWithAuth(authHeader);
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
-      throw new Error('Unauthorized');
+      return errorResponse('Unauthorized', 401);
     }
 
     const { import_id, store_id, auto_fix = true, skip_validation = false } = await req.json() as PipelineRequest;

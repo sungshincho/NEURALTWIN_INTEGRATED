@@ -8,7 +8,7 @@
 // ============================================================================
 
 import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
-import { createSupabaseAdmin } from "../_shared/supabase-client.ts";
+import { createSupabaseAdmin, createSupabaseWithAuth } from "../_shared/supabase-client.ts";
 import { errorResponse } from "../_shared/error.ts";
 
 // 변환 함수 정의 (Phase 7 field_mappings 지원)
@@ -115,7 +115,11 @@ Deno.serve(async (req) => {
   if (corsResponse) return corsResponse;
 
   try {
-    const supabase = createSupabaseAdmin();
+    // dual-mode: auth 헤더 있으면 auth client, 없으면 admin (스케줄러 호출)
+    const authHeader = req.headers.get('Authorization');
+    const supabase = authHeader
+      ? createSupabaseWithAuth(authHeader)
+      : createSupabaseAdmin();
 
     const body = await req.json();
     const { scheduleId, connection_id, manualRun = false, sync_type } = body;

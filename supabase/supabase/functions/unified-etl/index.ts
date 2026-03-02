@@ -1,7 +1,7 @@
 import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
 import { requireEnv } from "../_shared/env.ts";
 import { errorResponse } from "../_shared/error.ts";
-import { createSupabaseAdmin } from "../_shared/supabase-client.ts";
+import { createSupabaseAdmin, createSupabaseWithAuth } from "../_shared/supabase-client.ts";
 
 /**
  * Unified ETL Function
@@ -171,19 +171,21 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get('Authorization');
 
     if (!authHeader) {
-      return errorResponse('No authorization header', 401);
+      return errorResponse('Authorization header required', 401);
     }
 
-    // Check if using service role key (for internal calls from scheduler)
+    // dual-mode: service role key → admin client, user JWT → auth client
     const token = authHeader.replace('Bearer ', '');
     const isServiceRole = token === supabaseServiceKey;
 
-    const supabase = createSupabaseAdmin();
-
+    let supabase: any;
     let userId: string | null = null;
 
-    if (!isServiceRole) {
-      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (isServiceRole) {
+      supabase = createSupabaseAdmin();
+    } else {
+      supabase = createSupabaseWithAuth(authHeader);
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user) {
         return errorResponse('Unauthorized', 401);
       }

@@ -1,5 +1,5 @@
 import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
-import { createSupabaseAdmin } from "../_shared/supabase-client.ts";
+import { createSupabaseAdmin, createSupabaseWithAuth } from "../_shared/supabase-client.ts";
 import { errorResponse } from "../_shared/error.ts";
 
 type WeatherRequest = {
@@ -186,10 +186,15 @@ Deno.serve(async (req) => {
   const corsResponse = handleCorsOptions(req);
   if (corsResponse) return corsResponse;
 
-  // Supabase 클라이언트 초기화 (Service Role로 RLS 우회)
+  // Supabase 클라이언트 초기화 (dual-mode: auth 있으면 auth, 없으면 admin)
   let supabase: any = null;
   try {
-    supabase = createSupabaseAdmin();
+    const authHeader = req.headers.get('Authorization');
+    if (authHeader) {
+      supabase = createSupabaseWithAuth(authHeader);
+    } else {
+      supabase = createSupabaseAdmin();
+    }
   } catch (_) {
     // Supabase env vars not available, continue without DB
   }

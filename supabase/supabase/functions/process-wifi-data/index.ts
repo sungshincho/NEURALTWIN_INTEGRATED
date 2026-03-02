@@ -1,5 +1,5 @@
 import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
-import { createSupabaseAdmin } from "../_shared/supabase-client.ts";
+import { createSupabaseWithAuth } from "../_shared/supabase-client.ts";
 import { errorResponse } from "../_shared/error.ts";
 
 interface WiFiTrackingRow {
@@ -46,14 +46,16 @@ Deno.serve(async (req) => {
   if (corsResponse) return corsResponse;
 
   try {
-    const supabaseClient = createSupabaseAdmin();
+    // 인증 확인
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return errorResponse('Authorization header required', 401);
+    }
 
-    const authHeader = req.headers.get('Authorization')!;
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token);
-
+    const supabaseClient = createSupabaseWithAuth(authHeader);
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
     if (userError || !user) {
-      throw new Error('Unauthorized');
+      return errorResponse('Unauthorized', 401);
     }
 
     const { filePath, storeId } = await req.json();

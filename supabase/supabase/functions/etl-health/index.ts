@@ -7,7 +7,7 @@
 
 import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
 import { errorResponse } from "../_shared/error.ts";
-import { createSupabaseAdmin } from "../_shared/supabase-client.ts";
+import { createSupabaseWithAuth } from "../_shared/supabase-client.ts";
 
 interface HealthCheckRequest {
   store_id?: string;
@@ -64,7 +64,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const startTime = Date.now();
 
   try {
-    const supabase = createSupabaseAdmin();
+    // 인증 확인
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return errorResponse('Authorization header required', 401);
+    }
+
+    const supabase = createSupabaseWithAuth(authHeader);
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return errorResponse('Unauthorized', 401);
+    }
 
     // Parse request
     let params: HealthCheckRequest = {};

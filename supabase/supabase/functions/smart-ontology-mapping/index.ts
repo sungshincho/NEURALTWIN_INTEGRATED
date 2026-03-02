@@ -1,5 +1,5 @@
 import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
-import { createSupabaseAdmin } from "../_shared/supabase-client.ts";
+import { createSupabaseAdmin, createSupabaseWithAuth } from "../_shared/supabase-client.ts";
 import { errorResponse } from "../_shared/error.ts";
 import { chatCompletion } from "../_shared/ai/gateway.ts";
 
@@ -15,21 +15,27 @@ Deno.serve(async (req) => {
   if (corsResponse) return corsResponse;
 
   try {
-    const supabase = createSupabaseAdmin();
-
     const { import_id, id_columns, foreign_key_columns, user_id } = await req.json() as SmartMappingRequest;
 
-    // user_id가 제공되면 그것을 사용, 아니면 Authorization header에서 가져오기
+    // dual-mode: user_id가 제공되면 내부 호출 (admin), 아니면 auth 헤더 사용
+    let supabase: any;
     let userId: string;
+
     if (user_id) {
+      // 내부 호출 (pipeline에서 user_id 직접 전달)
+      supabase = createSupabaseAdmin();
       userId = user_id;
     } else {
       const authHeader = req.headers.get('Authorization');
-      if (!authHeader) throw new Error('Authorization required');
+      if (!authHeader) {
+        return errorResponse('Authorization header required', 401, { success: false });
+      }
 
-      const token = authHeader.replace('Bearer ', '');
-      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-      if (authError || !user) throw new Error('Unauthorized');
+      supabase = createSupabaseWithAuth(authHeader);
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        return errorResponse('Unauthorized', 401, { success: false });
+      }
       userId = user.id;
     }
 

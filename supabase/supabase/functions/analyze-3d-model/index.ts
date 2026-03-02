@@ -1,6 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
-import { createSupabaseAdmin } from "../_shared/supabase-client.ts";
+import { createSupabaseWithAuth } from "../_shared/supabase-client.ts";
 import { errorResponse } from "../_shared/error.ts";
 import { chatCompletion } from "../_shared/ai/gateway.ts";
 
@@ -11,29 +11,19 @@ Deno.serve(async (req) => {
   try {
     const { fileName, fileUrl } = await req.json();
 
-    // Get JWT token from Authorization header
+    // 인증 확인
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      throw new Error('Authorization header is required');
+      return errorResponse('Authorization header required', 401, { success: false });
     }
 
-    // Extract user ID from JWT token (Bearer token format)
-    const token = authHeader.replace('Bearer ', '');
-    const parts = token.split('.');
-    if (parts.length !== 3) {
-      throw new Error('Invalid JWT token');
+    const supabase = createSupabaseWithAuth(authHeader);
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return errorResponse('Unauthorized', 401, { success: false });
     }
 
-    // Decode JWT payload (base64url encoded)
-    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-    const userId = payload.sub;
-
-    if (!userId) {
-      throw new Error('User ID not found in token');
-    }
-
-    // Use service role key for database operations (bypasses RLS)
-    const supabase = createSupabaseAdmin();
+    const userId = user.id;
     
     // 1. Get existing entity types from ontology
     const { data: entityTypes, error: entityTypesError } = await supabase
