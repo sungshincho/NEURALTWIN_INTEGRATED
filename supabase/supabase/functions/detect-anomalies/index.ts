@@ -50,6 +50,17 @@ interface AnomalyResult {
   z_score: number;
   direction: "above" | "below";
   severity: "info" | "warning" | "critical";
+  detection_layer: "L1_statistical" | "L2_pattern" | "L4_cross";
+  context?: string; // 패턴 설명 또는 교차 분석 설명
+}
+
+/** L4 Cross-dimensional anomaly patterns */
+interface CrossAnomalyPattern {
+  name: string;
+  condition: (metrics: Record<string, number>, means: Record<string, number>) => boolean;
+  severity: "info" | "warning" | "critical";
+  title: string;
+  message: (storeName: string, metrics: Record<string, number>, means: Record<string, number>) => string;
 }
 
 interface StoreProcessingResult {
@@ -60,8 +71,93 @@ interface StoreProcessingResult {
   anomalies_found: number;
   alerts_created: number;
   anomalies: AnomalyResult[];
+  cross_anomalies?: CrossAnomalyAlert[];
   skipped_reason?: string;
 }
+
+interface CrossAnomalyAlert {
+  pattern: string;
+  severity: "info" | "warning" | "critical";
+  title: string;
+  message: string;
+}
+
+// ============================================================================
+// L4 Cross-Dimensional Anomaly Patterns
+// ============================================================================
+
+const CROSS_ANOMALY_PATTERNS: CrossAnomalyPattern[] = [
+  {
+    name: "traffic_up_conversion_down",
+    condition: (m, avg) =>
+      m.total_visitors > avg.total_visitors * 1.1 &&
+      m.conversion_rate < avg.conversion_rate * 0.85,
+    severity: "critical",
+    title: "방문객 증가 + 전환율 하락",
+    message: (store, m, avg) => {
+      const visitorPct = roundTo(((m.total_visitors - avg.total_visitors) / avg.total_visitors) * 100, 1);
+      const convPct = roundTo(((m.conversion_rate - avg.conversion_rate) / avg.conversion_rate) * 100, 1);
+      return `${store}에서 방문객이 +${visitorPct}% 증가했지만, 전환율은 ${convPct}% 하락했습니다.\n` +
+        `트래픽은 늘었는데 구매로 이어지지 않고 있어요. 매장 동선이나 상품 배치를 점검해보세요.`;
+    },
+  },
+  {
+    name: "visitors_down_dwell_up",
+    condition: (m, avg) =>
+      m.total_visitors < avg.total_visitors * 0.85 &&
+      m.avg_visit_duration_seconds > avg.avg_visit_duration_seconds * 1.15,
+    severity: "warning",
+    title: "방문객 감소 + 체류시간 증가",
+    message: (store, m, avg) => {
+      const visitorPct = roundTo(((m.total_visitors - avg.total_visitors) / avg.total_visitors) * 100, 1);
+      const dwellPct = roundTo(((m.avg_visit_duration_seconds - avg.avg_visit_duration_seconds) / avg.avg_visit_duration_seconds) * 100, 1);
+      return `${store}에서 방문객이 ${visitorPct}% 줄었지만, 체류시간은 +${dwellPct}% 늘었습니다.\n` +
+        `적은 수의 고관여 고객이 방문 중입니다. 유입 채널과 외부 환경(날씨/이벤트)을 확인해보세요.`;
+    },
+  },
+  {
+    name: "revenue_down_visitors_normal",
+    condition: (m, avg) =>
+      m.total_revenue < avg.total_revenue * 0.8 &&
+      m.total_visitors >= avg.total_visitors * 0.9,
+    severity: "critical",
+    title: "매출 급감 — 방문객 정상",
+    message: (store, m, avg) => {
+      const revPct = roundTo(((m.total_revenue - avg.total_revenue) / avg.total_revenue) * 100, 1);
+      return `${store}에서 방문객 수는 정상인데 매출이 ${revPct}% 하락했습니다.\n` +
+        `객단가 또는 전환율 문제로 보입니다. POS 데이터와 구매 패턴을 점검해보세요.`;
+    },
+  },
+  {
+    name: "all_metrics_declining",
+    condition: (m, avg) =>
+      m.total_visitors < avg.total_visitors * 0.9 &&
+      m.conversion_rate < avg.conversion_rate * 0.9 &&
+      m.total_revenue < avg.total_revenue * 0.9,
+    severity: "critical",
+    title: "전체 지표 동반 하락",
+    message: (store, m, avg) => {
+      const visitorPct = roundTo(((m.total_visitors - avg.total_visitors) / avg.total_visitors) * 100, 1);
+      const convPct = roundTo(((m.conversion_rate - avg.conversion_rate) / avg.conversion_rate) * 100, 1);
+      const revPct = roundTo(((m.total_revenue - avg.total_revenue) / avg.total_revenue) * 100, 1);
+      return `${store}에서 방문객(${visitorPct}%), 전환율(${convPct}%), 매출(${revPct}%)이 동시에 하락했습니다.\n` +
+        `외부 요인(날씨, 주변 공사, 경쟁매장 오픈)이나 매장 운영 변경을 확인해보세요.`;
+    },
+  },
+  {
+    name: "basket_spike_visitors_drop",
+    condition: (m, avg) =>
+      m.avg_basket_size > avg.avg_basket_size * 1.2 &&
+      m.total_visitors < avg.total_visitors * 0.85,
+    severity: "info",
+    title: "객단가 상승 + 방문객 감소",
+    message: (store, m, avg) => {
+      const basketPct = roundTo(((m.avg_basket_size - avg.avg_basket_size) / avg.avg_basket_size) * 100, 1);
+      return `${store}에서 객단가가 +${basketPct}% 올랐지만 방문객은 줄었습니다.\n` +
+        `VIP/단골 고객 비중이 높아진 것일 수 있습니다. 신규 고객 유입 전략을 검토해보세요.`;
+    },
+  },
+];
 
 // ============================================================================
 // Main Handler
@@ -283,27 +379,17 @@ async function processStore(
   }
 
   // ------------------------------------------------------------------
-  // 2c. Compute Z-scores for each monitored metric
+  // 2c. L1 — Statistical Z-score anomalies (전체 30일 기준)
   // ------------------------------------------------------------------
   const anomalies: AnomalyResult[] = [];
 
   for (const metric of MONITORED_METRICS) {
     const currentValue = Number(latestRecord[metric.column]);
+    if (currentValue == null || isNaN(currentValue)) continue;
 
-    // Skip if current value is null/NaN
-    if (currentValue == null || isNaN(currentValue)) {
-      continue;
-    }
-
-    // Calculate stats from historical data
     const stats = calculateStats(historicalData, metric.column);
+    if (stats.count < 5 || stats.stddev === 0) continue;
 
-    // Skip if insufficient non-null data points or zero stddev
-    if (stats.count < 5 || stats.stddev === 0) {
-      continue;
-    }
-
-    // Calculate Z-score
     const zScore = (currentValue - stats.mean) / stats.stddev;
     const absZScore = Math.abs(zScore);
 
@@ -321,21 +407,120 @@ async function processStore(
         z_score: roundTo(zScore, 3),
         direction,
         severity,
+        detection_layer: "L1_statistical",
       });
     }
   }
 
   // ------------------------------------------------------------------
-  // 2d. Create user_alerts for detected anomalies
+  // 2d. L2 — Pattern anomaly (요일별 비교)
+  // ------------------------------------------------------------------
+  const latestDate = new Date(latestRecord.date + "T00:00:00Z");
+  const latestDayOfWeek = latestDate.getUTCDay(); // 0=Sun, 6=Sat
+
+  // Filter historical data to same day-of-week
+  const sameDayData = historicalData.filter((row) => {
+    const d = new Date(String(row.date) + "T00:00:00Z");
+    return d.getUTCDay() === latestDayOfWeek;
+  });
+
+  if (sameDayData.length >= 3) {
+    const dayNames = ["일", "월", "화", "수", "목", "금", "토"];
+    const dayName = dayNames[latestDayOfWeek];
+
+    for (const metric of MONITORED_METRICS) {
+      const currentValue = Number(latestRecord[metric.column]);
+      if (currentValue == null || isNaN(currentValue)) continue;
+
+      const dayStats = calculateStats(sameDayData, metric.column);
+      if (dayStats.count < 3 || dayStats.stddev === 0) continue;
+
+      const zScore = (currentValue - dayStats.mean) / dayStats.stddev;
+      const absZScore = Math.abs(zScore);
+
+      // Use slightly higher threshold for pattern detection (2.0 → 1.8)
+      // since day-of-week comparison is more specific
+      if (absZScore >= Math.max(zThreshold - 0.2, 1.5)) {
+        // Skip if L1 already detected this metric
+        const alreadyDetected = anomalies.some(
+          (a) => a.metric === metric.column && a.detection_layer === "L1_statistical"
+        );
+        if (alreadyDetected) continue;
+
+        const direction: "above" | "below" = zScore > 0 ? "above" : "below";
+        const severity = classifySeverity(absZScore, direction, metric.column);
+        const dirKo = direction === "above" ? "높습니다" : "낮습니다";
+
+        anomalies.push({
+          metric: metric.column,
+          label: metric.label,
+          unit: metric.unit,
+          current_value: roundTo(currentValue, 2),
+          mean: roundTo(dayStats.mean, 2),
+          stddev: roundTo(dayStats.stddev, 2),
+          z_score: roundTo(zScore, 3),
+          direction,
+          severity,
+          detection_layer: "L2_pattern",
+          context: `${dayName}요일 평균(${roundTo(dayStats.mean, 1)}${metric.unit}) 대비 ${dirKo}. ${dayName}요일치고 이례적인 수치입니다.`,
+        });
+      }
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // 2e. L4 — Cross-dimensional anomaly (교차 분석)
+  // ------------------------------------------------------------------
+  const crossAlerts: CrossAnomalyAlert[] = [];
+
+  // Build current + average metric maps for cross-pattern detection
+  const currentMetrics: Record<string, number> = {};
+  const avgMetrics: Record<string, number> = {};
+
+  for (const metric of MONITORED_METRICS) {
+    const val = Number(latestRecord[metric.column]);
+    if (val != null && !isNaN(val)) currentMetrics[metric.column] = val;
+
+    const stats = calculateStats(historicalData, metric.column);
+    if (stats.count >= 5) avgMetrics[metric.column] = stats.mean;
+  }
+
+  const storeName = store.store_name || store.id.slice(0, 8);
+
+  // Only run cross-analysis if we have enough metrics
+  if (Object.keys(currentMetrics).length >= 3 && Object.keys(avgMetrics).length >= 3) {
+    for (const pattern of CROSS_ANOMALY_PATTERNS) {
+      try {
+        if (pattern.condition(currentMetrics, avgMetrics)) {
+          crossAlerts.push({
+            pattern: pattern.name,
+            severity: pattern.severity,
+            title: pattern.title,
+            message: pattern.message(storeName, currentMetrics, avgMetrics),
+          });
+
+          console.log(
+            `[detect-anomalies] L4 cross-anomaly detected: ${pattern.name} for ${storeName}`
+          );
+        }
+      } catch {
+        // Pattern condition may fail if metrics are missing — skip silently
+      }
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // 2f. Create user_alerts for all detected anomalies
   // ------------------------------------------------------------------
   let alertsCreated = 0;
 
-  if (anomalies.length > 0) {
+  if (anomalies.length > 0 || crossAlerts.length > 0) {
     alertsCreated = await createAlerts(
       supabase,
       store,
       latestRecord.date,
-      anomalies
+      anomalies,
+      crossAlerts
     );
   }
 
@@ -344,9 +529,10 @@ async function processStore(
     store_id: store.id,
     store_name: store.store_name,
     date: latestRecord.date,
-    anomalies_found: anomalies.length,
+    anomalies_found: anomalies.length + crossAlerts.length,
     alerts_created: alertsCreated,
     anomalies,
+    cross_anomalies: crossAlerts.length > 0 ? crossAlerts : undefined,
   };
 }
 
@@ -443,7 +629,8 @@ async function createAlerts(
   supabase: ReturnType<typeof createSupabaseAdmin>,
   store: { id: string; org_id: string; store_name: string | null },
   date: string,
-  anomalies: AnomalyResult[]
+  anomalies: AnomalyResult[],
+  crossAlerts: CrossAnomalyAlert[] = []
 ): Promise<number> {
   const alerts: Array<{
     org_id: string;
@@ -505,6 +692,26 @@ async function createAlerts(
     );
   }
 
+  // L4 Cross-dimensional anomaly alerts
+  for (const cross of crossAlerts) {
+    alerts.push({
+      org_id: store.org_id,
+      store_id: store.id,
+      alert_type: "anomaly_cross",
+      severity: cross.severity,
+      title: `[교차분석] ${storeName} — ${cross.title}`,
+      message: cross.message,
+      action_url: `/dashboard/analytics?store_id=${store.id}&date=${date}`,
+      action_label: "분석 대시보드 확인",
+      metadata: {
+        detection_date: date,
+        anomaly_type: "cross_dimensional",
+        pattern: cross.pattern,
+      },
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    });
+  }
+
   if (alerts.length === 0) {
     return 0;
   }
@@ -515,7 +722,7 @@ async function createAlerts(
     .from("user_alerts")
     .select("id, metadata")
     .eq("store_id", store.id)
-    .eq("alert_type", "anomaly_detection")
+    .in("alert_type", ["anomaly_detection", "anomaly_cross"])
     .gte(
       "created_at",
       new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
@@ -576,14 +783,23 @@ function buildAlertMessage(
     : 0;
   const absPercent = Math.abs(percentChange);
 
-  return (
+  const layerLabel = anomaly.detection_layer === "L2_pattern"
+    ? "요일별 패턴 분석"
+    : "30일 통계 분석";
+
+  let msg =
     `${date} 기준, ${storeName}의 ${anomaly.label}이(가) ` +
-    `30일 평균 대비 ${absPercent}% ${directionKo}했습니다.\n\n` +
+    `${layerLabel} 평균 대비 ${absPercent}% ${directionKo}했습니다.\n\n` +
     `현재값: ${anomaly.current_value.toLocaleString()}${anomaly.unit}\n` +
-    `30일 평균: ${anomaly.mean.toLocaleString()}${anomaly.unit}\n` +
+    `평균: ${anomaly.mean.toLocaleString()}${anomaly.unit}\n` +
     `표준편차: ${anomaly.stddev.toLocaleString()}${anomaly.unit}\n` +
-    `Z-score: ${anomaly.z_score} (임계값: ±2.0)`
-  );
+    `Z-score: ${anomaly.z_score} (임계값: ±2.0)`;
+
+  if (anomaly.context) {
+    msg += `\n\n💡 ${anomaly.context}`;
+  }
+
+  return msg;
 }
 
 /**
