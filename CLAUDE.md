@@ -61,18 +61,18 @@ CEO 성신 (Human)
 - **기술**: React, Vite, TypeScript, i18n, shadcn/ui
 - **주요 파일**: landing pages, UI components, translation files
 
-#### Teammate 5 — Domain Expert / Data Researcher
-- **담당**: 리테일 도메인 데이터 리서치, 경쟁사/시장 분석, 도메인 지식 확장, AI 프롬프트 도메인 검증
-- **작업 디렉토리**: `docs/` (리서치 결과 문서화)
-- **기술**: 웹 리서치, 데이터 분석, 도메인 모델링
-- **주요 산출물**: 시장 분석 보고서, 도메인 용어집, AI 프롬프트 검증 피드백
+#### Teammate 5 — Product Data Researcher & AI Data Layer
+- **담당**: 제품 개발에 필요한 모든 데이터 직접 리서치 (기능 설계, UI/UX 리서치 데이터, 도메인 지식), AI 채팅 기능용 데이터 서치+수집+데이터 레이어 구축, 경쟁사/시장 분석
+- **작업 디렉토리**: `docs/` (리서치 산출물, docs/design/ 제외), `supabase/` (AI 데이터 레이어)
+- **기술**: 웹 리서치, 데이터 분석, 도메인 모델링, RAG 데이터 구축
+- **주요 산출물**: 기능 설계 데이터, AI 채팅용 도메인 데이터(retail_knowledge_chunks), 업종별 벤치마크, UX 리서치 데이터, 데모/샘플 데이터
 
-#### Teammate 6 — Designer (UI/UX 총괄)
-- **담당**: UI/UX 리서치, 디자인 시스템 가이드 작성, 컴포넌트 스펙, 유저플로우 설계, 인터랙션 패턴 정의
-- **작업 디렉토리**: `docs/design/` (디자인 가이드 및 스펙 문서)
-- **기술**: UI/UX 리서치, 디자인 시스템, 접근성(A11y), 반응형 레이아웃, 색상/타이포 체계
-- **주요 산출물**: 디자인 가이드라인, 컴포넌트 스펙 문서, 유저플로우 다이어그램, 디자인 토큰
-- **크로스팀 역할**: T3(DT/OS), T4(Website) 구현 시 디자인 스펙 제공 및 리뷰, @neuraltwin/ui 패키지 디자인 방향 결정
+#### Teammate 6 — Product UI/UX Designer
+- **담당**: 전체 제품(Website, OS Dashboard, AI챗봇)의 UI/UX 디자인 설계, 디자인 시스템, 컴포넌트 스펙, 유저플로우, 인터랙션 패턴, 세일즈 자료 디자인
+- **작업 디렉토리**: `docs/design/` (디자인 스펙 및 가이드)
+- **기술**: UI/UX 설계, 디자인 시스템, 접근성(A11y), 반응형 레이아웃, 색상/타이포 체계, 프로토타이핑
+- **주요 산출물**: 전체 제품 UI/UX 설계, 디자인 토큰, 컴포넌트 스펙(T3/T4 구현용), 유저플로우, 결제/구독 UX, 피치덱 디자인, PDF 리포트 템플릿 디자인
+- **크로스팀 역할**: T3(DT/OS), T4(Website) 구현 시 디자인 스펙 제공 및 리뷰, @neuraltwin/ui 패키지 디자인 방향 결정, T5의 UX 리서치 데이터를 디자인에 반영
 - **참조 디렉토리** (읽기 전용): `apps/website/`, `apps/os-dashboard/`, `packages/ui/`
 
 ### 운영 규칙
@@ -84,8 +84,8 @@ Teammate 1 → apps/neuralsense/**
 Teammate 2 → supabase/**, .github/workflows/**
 Teammate 3 → apps/os-dashboard/**
 Teammate 4 → apps/website/**, packages/ui/**
-Teammate 5 → docs/** (리서치 산출물, docs/design/ 제외)
-Teammate 6 → docs/design/** (디자인 가이드 및 스펙)
+Teammate 5 → docs/** (리서치 산출물, docs/design/ 제외), supabase/** (AI 데이터 레이어, T2와 협업)
+Teammate 6 → docs/design/** (전체 제품 UI/UX 디자인 스펙)
 ```
 **위반 금지**: 다른 teammate의 디렉토리 파일을 직접 수정하지 않습니다.
 
