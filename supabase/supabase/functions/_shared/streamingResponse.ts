@@ -3,36 +3,10 @@
  * Server-Sent Events 스트리밍 응답 유틸리티
  */
 
-// =============================================
-// CORS 허용 Origin 목록
-// =============================================
+import { getCorsHeadersByOrigin } from "./cors.ts";
 
-const ALLOWED_ORIGINS = [
-  'https://neuraltwin.com',
-  'https://www.neuraltwin.com',
-  'https://neuraltwin.website',
-  'https://www.neuraltwin.website',
-  'http://localhost:3000',
-  'http://localhost:5173',
-  'http://localhost:8080',
-];
-
-// =============================================
-// CORS 헤더 생성
-// =============================================
-
-export function getCORSHeaders(origin?: string): Record<string, string> {
-  const allowedOrigin = origin && ALLOWED_ORIGINS.includes(origin)
-    ? origin
-    : ALLOWED_ORIGINS[0];
-
-  return {
-    'Access-Control-Allow-Origin': allowedOrigin,
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    'Access-Control-Max-Age': '86400',
-  };
-}
+// Re-export for backward compatibility (errorHandler.ts imports getCORSHeaders)
+export const getCORSHeaders = getCorsHeadersByOrigin;
 
 // =============================================
 // SSE Response 생성

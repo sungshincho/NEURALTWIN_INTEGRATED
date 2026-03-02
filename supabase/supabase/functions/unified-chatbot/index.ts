@@ -10,33 +10,7 @@
 
 import { handleWebsiteRequest } from './website/handler.ts';
 import { handleOSRequest } from './os/handler.ts';
-
-// ═══════════════════════════════════════════
-//  CORS 헤더 (공유)
-// ═══════════════════════════════════════════
-
-const ALLOWED_ORIGINS = [
-  'https://neuraltwin.com',
-  'https://www.neuraltwin.com',
-  'https://neuraltwin.website',
-  'https://www.neuraltwin.website',
-  'http://localhost:3000',
-  'http://localhost:5173',
-  'http://localhost:8080',
-];
-
-function getCorsHeaders(request: Request): Record<string, string> {
-  const origin = request.headers.get('Origin') || '';
-  const isAllowed = ALLOWED_ORIGINS.includes(origin) || origin.endsWith('.vercel.app');
-  const allowedOrigin = isAllowed ? origin : ALLOWED_ORIGINS[0];
-
-  return {
-    'Access-Control-Allow-Origin': allowedOrigin,
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, x-session-id, x-neuraltwin-channel',
-    'Access-Control-Allow-Credentials': 'true',
-  };
-}
+import { getCorsHeaders } from "@shared/cors.ts";
 
 // ═══════════════════════════════════════════
 //  채널 감지

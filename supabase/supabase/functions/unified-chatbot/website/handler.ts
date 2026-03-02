@@ -9,6 +9,7 @@
  */
 
 import { createSupabaseAdmin, createSupabaseWithAuth } from "@shared/supabase-client.ts";
+import { getCorsHeaders } from "@shared/cors.ts";
 import { buildEnrichedPrompt, formatClassification } from './topicRouter.ts';
 import { extractPainPoints, type PainPointResult } from './painPointExtractor.ts';
 import { evaluateSalesBridge, checkExplicitInterest, type SalesBridgeResult } from './salesBridge.ts';
@@ -631,36 +632,7 @@ interface ConversationRecord {
   message_count: number;
 }
 
-// ═══════════════════════════════════════════
-//  CORS 헤더
-// ═══════════════════════════════════════════
-
-const ALLOWED_ORIGINS = [
-  'https://neuraltwin.com',
-  'https://www.neuraltwin.com',
-  'https://neuraltwin.website',
-  'https://www.neuraltwin.website',
-  'http://localhost:3000',
-  'http://localhost:5173',
-  'http://localhost:8080',
-];
-
-function getCorsHeaders(request: Request): Record<string, string> {
-  const origin = request.headers.get('Origin') || '';
-
-  // Vercel 프리뷰/배포 URL 패턴 허용
-  const isAllowed = ALLOWED_ORIGINS.includes(origin) ||
-                    origin.endsWith('.vercel.app');
-
-  const allowedOrigin = isAllowed ? origin : ALLOWED_ORIGINS[0];
-
-  return {
-    'Access-Control-Allow-Origin': allowedOrigin,
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, x-session-id',
-    'Access-Control-Allow-Credentials': 'true',
-  };
-}
+// CORS: imported from @shared/cors.ts (getCorsHeaders)
 
 // ═══════════════════════════════════════════
 //  JWT 검증 & 사용자 추출 (v2.1)
