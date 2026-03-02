@@ -12,6 +12,7 @@ import { useSearchParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { GlobalDateFilter } from '@/components/common/GlobalDateFilter';
+import { ReportGenerator } from '@/components/reports/ReportGenerator';
 import {
   LayoutDashboard,
   Store,
@@ -142,7 +143,10 @@ function InsightHubContent({ activeTab, setActiveTab }: {
             </div>
           </div>
 
-          <GlobalDateFilter />
+          <div className="flex items-center gap-3">
+            <ReportGenerator />
+            <GlobalDateFilter />
+          </div>
         </div>
 
       {/* Data Quality Banner */}
