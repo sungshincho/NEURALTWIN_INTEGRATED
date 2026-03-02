@@ -17,6 +17,7 @@ import {
   formatRetailConceptsForPrompt,
   formatZoneDataForPrompt,
 } from '../_shared/ai/prompts.ts';
+import { retrieveContext } from '../_shared/ai/rag-helper.ts';
 
 /**
  * retail-ai-inference Edge Function
@@ -50,6 +51,10 @@ interface RetailAIRequest {
   store_id: string;
   /** 4-Layer 구조화 응답 포함 여부 (기본: true) */
   include_layers?: boolean;
+  /** RAG 지식 검색 사용 여부 (기본: true) */
+  use_rag?: boolean;
+  /** RAG 업종 필터 (fashion, beauty, fnb, lifestyle, general) */
+  industry?: string;
   parameters?: {
     days?: number;
     zone_id?: string;
@@ -170,9 +175,9 @@ Deno.serve(async (req) => {
     }
 
     const body: RetailAIRequest = await req.json();
-    const { inference_type, store_id, include_layers = true, parameters = {} } = body;
+    const { inference_type, store_id, include_layers = true, use_rag = true, industry, parameters = {} } = body;
 
-    console.log(`[retail-ai-inference] Type: ${inference_type}, Store: ${store_id}, Layers: ${include_layers}`);
+    console.log(`[retail-ai-inference] Type: ${inference_type}, Store: ${store_id}, Layers: ${include_layers}, RAG: ${use_rag}`);
 
     // 1. 온톨로지 그래프 데이터 로드
     const graphData = await loadGraphData(supabase, store_id, user.id);
@@ -206,8 +211,45 @@ Deno.serve(async (req) => {
       console.warn('[retail-ai-inference] Could not load store context:', e);
     }
 
-    // 4. AI 프롬프트 구성 (4-Layer 시스템 프롬프트 사용)
-    const prompt = buildPromptWithLayers(inference_type, graphData, conceptsData, contextData, parameters, storeContext);
+    // 3-2. RAG 지식 검색 (선택적, 실패해도 계속 진행)
+    let ragContext = '';
+    let ragMeta: { searchMethod: string; chunkCount: number } = { searchMethod: 'none', chunkCount: 0 };
+    if (use_rag) {
+      try {
+        // 추론 타입에 맞는 RAG 카테고리 매핑
+        const ragCategoryMap: Record<string, string | undefined> = {
+          layout_optimization: 'best_practice',
+          zone_analysis: 'best_practice',
+          traffic_flow: 'operation_tip',
+          demand_forecast: 'benchmark',
+          inventory_optimization: 'operation_tip',
+          cross_sell: 'best_practice',
+          customer_segmentation: 'industry_insight',
+          anomaly_detection: 'kpi_definition',
+        };
+        const ragCategory = ragCategoryMap[inference_type];
+
+        // 업종 감지: 요청에 명시되지 않으면 매장 store_type에서 추론
+        const ragIndustry = industry ?? storeContext?.storeType ?? undefined;
+
+        const retrieval = await retrieveContext({
+          query: `${inference_type} 리테일 매장 ${ragCategory ?? ''} 분석`,
+          supabaseClient: supabase,
+          industry: ragIndustry,
+          category: ragCategory,
+          limit: 3,
+        });
+
+        ragContext = retrieval.context;
+        ragMeta = { searchMethod: retrieval.searchMethod, chunkCount: retrieval.chunks.length };
+        console.log(`[retail-ai-inference] RAG: ${ragMeta.chunkCount} chunks via ${ragMeta.searchMethod}`);
+      } catch (ragErr) {
+        console.warn('[retail-ai-inference] RAG retrieval failed (continuing without):', ragErr);
+      }
+    }
+
+    // 4. AI 프롬프트 구성 (4-Layer 시스템 프롬프트 + RAG 컨텍스트)
+    const prompt = buildPromptWithLayers(inference_type, graphData, conceptsData, contextData, parameters, storeContext, ragContext);
 
     // 5. AI 추론 실행 (4-Layer 파싱 포함)
     const { aiResult, layers } = await callAIWithLayers(prompt, include_layers);
@@ -221,7 +263,7 @@ Deno.serve(async (req) => {
       parameters,
     });
 
-    // 7. 응답 구성 (기존 필드 + 선택적 4-Layer)
+    // 7. 응답 구성 (기존 필드 + 선택적 4-Layer + RAG 메타)
     const responseBody: Record<string, unknown> = {
       success: true,
       inference_type,
@@ -231,6 +273,8 @@ Deno.serve(async (req) => {
         entities_analyzed: graphData.entities.length,
         relations_analyzed: graphData.relations.length,
         concepts_computed: Object.keys(conceptsData).length,
+        rag_chunks_used: ragMeta.chunkCount,
+        rag_search_method: ragMeta.searchMethod,
       },
     };
 
@@ -443,6 +487,7 @@ function buildPromptWithLayers(
   contextData: any,
   parameters: any,
   storeContext?: StoreContext,
+  ragContext?: string,
 ): string {
   // 4-Layer 시스템 프롬프트 (리테일 도메인 + 한국어 + JSON 스키마 포함)
   const systemPrompt = buildRetailInferencePrompt(inferenceType, storeContext);
@@ -451,6 +496,11 @@ function buildPromptWithLayers(
   const graphSection = formatGraphDataForPrompt(graphData);
   const conceptsSection = formatRetailConceptsForPrompt(conceptsData);
   const kpiSection = formatKPIDataForPrompt(contextData.recent_kpis || []);
+
+  // RAG 지식 컨텍스트 (검색 결과가 있을 때만 추가)
+  const ragSection = ragContext
+    ? `\n## 참고 도메인 지식 (RAG 검색 결과)\n아래는 분석과 관련된 리테일 도메인 지식입니다. 인사이트와 추천 생성 시 이 정보를 참고하되, 매장의 실제 데이터를 우선시하세요.\n\n${ragContext}`
+    : '';
 
   // 추론 타입별 추가 데이터 섹션
   let additionalDataSection = '';
@@ -482,7 +532,7 @@ ${graphSection}
 ${conceptsSection}
 
 ${kpiSection}
-
+${ragSection}
 ${additionalDataSection}
 
 ${parametersSection}`;
