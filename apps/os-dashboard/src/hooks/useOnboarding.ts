@@ -496,12 +496,30 @@ export function useCompleteGuide() {
 // 온보딩 완료 여부 확인
 // ============================================================================
 
+/**
+ * 온보딩 완료 여부 확인 (Supabase + localStorage 이중 체크)
+ *
+ * 1) Supabase onboarding_progress 테이블에 completed_at이 있는 경우
+ * 2) localStorage 'neuraltwin-onboarding-completed' === 'true'인 경우
+ *
+ * 어느 쪽이든 true면 온보딩 완료로 판단합니다.
+ */
 export function useIsOnboardingComplete() {
   const { data: progress, isLoading } = useOnboardingProgress();
-  
+
+  // localStorage fallback
+  let localComplete = false;
+  try {
+    localComplete = localStorage.getItem('neuraltwin-onboarding-completed') === 'true';
+  } catch {
+    // localStorage unavailable
+  }
+
+  const supabaseComplete = progress?.completed_at !== null && progress?.completed_at !== undefined;
+
   return {
-    isComplete: progress?.completed_at !== null,
-    isLoading,
+    isComplete: supabaseComplete || localComplete,
+    isLoading: isLoading && !localComplete,
     progress,
   };
 }
