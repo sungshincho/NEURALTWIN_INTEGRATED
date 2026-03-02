@@ -31,6 +31,7 @@ import { useEffect } from "react";
 import { trackPageView, trackMiniFeature, trackFunnelStep } from "@/lib/analytics";
 import { useTranslation } from "react-i18next";
 import { SEOHead } from "@/components/seo/SEOHead";
+import { InteractiveDemo } from "@/components/landing/InteractiveDemo";
 
 import dashboardStoreImage from "@/assets/dashboard-store-license.png";
 import dashboardHQImage from "@/assets/dashboard-hq-license.png";
@@ -516,6 +517,9 @@ const Product = () => {
           </div>
         </div>
       </section>
+
+      {/* Interactive Demo Section */}
+      <InteractiveDemo />
 
       {/* Technology Stack Section */}
       <section id="technology-pipeline" className="py-20 bg-gradient-to-b from-muted/20 to-background">
