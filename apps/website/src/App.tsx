@@ -20,6 +20,10 @@ import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
 import NotFound from "./pages/NotFound";
 
+// Blog / Case Study — lazy load (marketing content)
+const Blog = lazy(() => import("./pages/Blog"));
+const CaseStudyPage = lazy(() => import("./pages/CaseStudy"));
+
 // Protected pages — lazy load
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Profile = lazy(() => import("./pages/Profile"));
@@ -80,6 +84,8 @@ const App = () => (
               <Route path="/contact" element={<Contact />} />
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/terms" element={<Terms />} />
+              <Route path="/blog" element={<Blog />} />
+              <Route path="/case-study/:slug" element={<CaseStudyPage />} />
 
               {/* ===== Protected Routes (Website) ===== */}
               <Route
