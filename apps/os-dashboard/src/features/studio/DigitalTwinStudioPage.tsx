@@ -13,12 +13,13 @@ import { useLocation, useSearchParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, Loader2, Sparkles, Layers, Save, Play, GitCompare, Pause, Square, RotateCcw, Users, FlaskConical, CheckCircle, Cloud, CloudRain, CloudSnow, Sun, Calendar } from 'lucide-react';
+import { AlertCircle, Loader2, Sparkles, Layers, Save, Play, GitCompare, Pause, Square, RotateCcw, Users, FlaskConical, CheckCircle, Cloud, CloudRain, CloudSnow, Sun, Calendar, Clock } from 'lucide-react';
+import { useTimeTravelPlayback } from '@/hooks/useTimeTravelPlayback';
 import { toast } from 'sonner';
 
 // 새 스튜디오 컴포넌트
 import { Canvas3D, SceneProvider, useScene } from './core';
-import { LayerPanel, SimulationPanel, ToolPanel, SceneSavePanel, OverlayControlPanel, PropertyPanel } from './panels';
+import { LayerPanel, SimulationPanel, ToolPanel, SceneSavePanel, OverlayControlPanel, PropertyPanel, TimelineControls } from './panels';
 import { HeatmapOverlay, CustomerFlowOverlay, LayoutOptimizationOverlay, FlowOptimizationOverlay, CongestionOverlay, StaffingOverlay, StaffAvatarsOverlay, CustomerFlowOverlayEnhanced, StaffReallocationOverlay, ZonesFloorOverlay } from './overlays';
 import { DraggablePanel, QuickToggleBar, ViewModeToggle, ResultReportPanel, type ViewMode } from './components';
 import type { DiagnosticIssue } from './components/DiagnosticIssueList';
@@ -91,6 +92,12 @@ export default function DigitalTwinStudioPage() {
   const {
     getDays
   } = useDateFilterStore();
+
+  // 시간 여행 (Time Travel)
+  const {
+    isEnabled: isTimeTravelEnabled,
+    toggle: toggleTimeTravel,
+  } = useTimeTravelPlayback({ enableKeyboard: true });
 
   // 모드 관리
   const {
@@ -1474,10 +1481,28 @@ export default function DigitalTwinStudioPage() {
 
           {/* ========== UI 오버레이 ========== */}
           <div className="absolute inset-0 z-10 pointer-events-none">
-            {/* ----- 상단 중앙: 퀵 토글 바 ----- */}
+            {/* ----- 상단 중앙: 퀵 토글 바 + 시간 여행 버튼 ----- */}
             <div className="absolute top-4 left-1/2 -translate-x-1/2 pointer-events-auto z-20 flex items-center gap-3">
               {/* 퀵 토글 바 */}
               <QuickToggleBar activeOverlays={activeOverlays as any[]} onToggle={id => toggleOverlay(id as OverlayType)} />
+
+              {/* 시간 여행 토글 버튼 */}
+              <div className="flex items-center px-2 py-1.5 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 shadow-lg">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={toggleTimeTravel}
+                  className={`h-8 px-3 rounded-lg transition-all border border-transparent ${
+                    isTimeTravelEnabled
+                      ? 'bg-purple-500/30 border-purple-500'
+                      : 'hover:bg-white/10'
+                  }`}
+                  style={{ color: isTimeTravelEnabled ? '#a78bfa' : 'rgba(255,255,255,0.6)' }}
+                >
+                  <Clock className="w-4 h-4 mr-1.5" />
+                  <span className="text-xs">시간 여행</span>
+                </Button>
+              </div>
             </div>
 
             {/* ----- 상단 우측: AI 리포트 + 씬 저장 + 뷰 모드 토글 ----- */}
@@ -1769,6 +1794,9 @@ export default function DigitalTwinStudioPage() {
             )}
 
             {/* 하단 중앙 버튼 제거됨 - 탭에서 동일 기능 제공 */}
+
+            {/* ----- 하단: 시간 여행 타임라인 컨트롤 ----- */}
+            <TimelineControls />
           </div>
         </div>
       </SceneProvider>

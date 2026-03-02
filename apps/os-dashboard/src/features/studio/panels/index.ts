@@ -11,3 +11,4 @@ export { SceneSavePanel } from './SceneSavePanel';
 export { OverlayControlPanel } from './OverlayControlPanel';
 export { PropertyPanel } from './PropertyPanel';
 export { OptimizationResultPanel } from './OptimizationResultPanel';
+export { TimelineControls } from './TimelineControls';
