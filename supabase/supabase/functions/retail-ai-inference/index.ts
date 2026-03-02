@@ -2,7 +2,21 @@ import { createSupabaseWithAuth } from "../_shared/supabase-client.ts";
 import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
 import { errorResponse } from "../_shared/error.ts";
 import { chatCompletion } from "../_shared/ai/gateway.ts";
-import { safeJsonParse, INFERENCE_FALLBACK, logParseResult } from '../_shared/safeJsonParse.ts';
+import { safeJsonParse, logParseResult } from '../_shared/safeJsonParse.ts';
+import {
+  type FourLayerResponse,
+  parseFourLayerResponse,
+  convertFlatToFourLayer,
+  fourLayerToText,
+  type StoreContext,
+} from '../_shared/ai/response-framework.ts';
+import {
+  buildRetailInferencePrompt,
+  formatKPIDataForPrompt,
+  formatGraphDataForPrompt,
+  formatRetailConceptsForPrompt,
+  formatZoneDataForPrompt,
+} from '../_shared/ai/prompts.ts';
 
 /**
  * retail-ai-inference Edge Function
@@ -34,6 +48,8 @@ type InferenceType =
 interface RetailAIRequest {
   inference_type: InferenceType;
   store_id: string;
+  /** 4-Layer 구조화 응답 포함 여부 (기본: true) */
+  include_layers?: boolean;
   parameters?: {
     days?: number;
     zone_id?: string;
@@ -58,7 +74,10 @@ interface AIInferenceResult {
   confidence: number;
 }
 
-// 추론 타입별 프롬프트 템플릿
+/**
+ * @deprecated 4-Layer 전환 완료. buildRetailInferencePrompt(prompts.ts)로 대체되었습니다.
+ * 기존 참조 코드 호환을 위해 유지합니다.
+ */
 const inferencePrompts: Record<InferenceType, string> = {
   layout_optimization: `You are a retail store layout optimization expert.
 Analyze the provided store data including zone performance, customer flow patterns, and sales metrics.
@@ -151,9 +170,9 @@ Deno.serve(async (req) => {
     }
 
     const body: RetailAIRequest = await req.json();
-    const { inference_type, store_id, parameters = {} } = body;
+    const { inference_type, store_id, include_layers = true, parameters = {} } = body;
 
-    console.log(`[retail-ai-inference] Type: ${inference_type}, Store: ${store_id}`);
+    console.log(`[retail-ai-inference] Type: ${inference_type}, Store: ${store_id}, Layers: ${include_layers}`);
 
     // 1. 온톨로지 그래프 데이터 로드
     const graphData = await loadGraphData(supabase, store_id, user.id);
@@ -164,11 +183,34 @@ Deno.serve(async (req) => {
     // 3. 추가 컨텍스트 데이터 로드
     const contextData = await loadContextData(supabase, store_id, inference_type, parameters);
 
-    // 4. AI 프롬프트 구성
-    const prompt = buildPrompt(inference_type, graphData, conceptsData, contextData, parameters);
+    // 3-1. 매장 컨텍스트 로드 (4-Layer 프롬프트용)
+    let storeContext: StoreContext | undefined;
+    try {
+      const { data: storeData } = await supabase
+        .from('stores')
+        .select('id, name, store_type, area_sqm')
+        .eq('id', store_id)
+        .single();
 
-    // 5. AI 추론 실행
-    const aiResult = await callAI(prompt);
+      if (storeData) {
+        storeContext = {
+          storeId: storeData.id,
+          storeName: storeData.name ?? store_id,
+          storeType: storeData.store_type ?? undefined,
+          areaSqm: storeData.area_sqm ?? undefined,
+          zoneCount: contextData.zones?.length ?? undefined,
+          productCount: graphData.stats.entityByType?.['product'] ?? undefined,
+        };
+      }
+    } catch (e) {
+      console.warn('[retail-ai-inference] Could not load store context:', e);
+    }
+
+    // 4. AI 프롬프트 구성 (4-Layer 시스템 프롬프트 사용)
+    const prompt = buildPromptWithLayers(inference_type, graphData, conceptsData, contextData, parameters, storeContext);
+
+    // 5. AI 추론 실행 (4-Layer 파싱 포함)
+    const { aiResult, layers } = await callAIWithLayers(prompt, include_layers);
 
     // 6. 결과 저장
     await supabase.from('ai_inference_results').insert({
@@ -179,7 +221,8 @@ Deno.serve(async (req) => {
       parameters,
     });
 
-    return new Response(JSON.stringify({
+    // 7. 응답 구성 (기존 필드 + 선택적 4-Layer)
+    const responseBody: Record<string, unknown> = {
       success: true,
       inference_type,
       store_id,
@@ -189,7 +232,14 @@ Deno.serve(async (req) => {
         relations_analyzed: graphData.relations.length,
         concepts_computed: Object.keys(conceptsData).length,
       },
-    }), {
+    };
+
+    if (include_layers && layers) {
+      responseBody.layers = layers;
+      responseBody.layerSummary = fourLayerToText(layers);
+    }
+
+    return new Response(JSON.stringify(responseBody), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
@@ -380,8 +430,65 @@ async function loadContextData(
   return contextData;
 }
 
-// ============== Prompt Building ==============
+// ============== Prompt Building (4-Layer Enhanced) ==============
 
+/**
+ * 4-Layer 시스템 프롬프트 + 데이터 컨텍스트를 결합한 프롬프트를 생성합니다.
+ * 기존 buildPrompt를 대체하며, 4-Layer 응답 구조를 AI에게 지시합니다.
+ */
+function buildPromptWithLayers(
+  inferenceType: InferenceType,
+  graphData: any,
+  conceptsData: any,
+  contextData: any,
+  parameters: any,
+  storeContext?: StoreContext,
+): string {
+  // 4-Layer 시스템 프롬프트 (리테일 도메인 + 한국어 + JSON 스키마 포함)
+  const systemPrompt = buildRetailInferencePrompt(inferenceType, storeContext);
+
+  // 데이터 컨텍스트 조립
+  const graphSection = formatGraphDataForPrompt(graphData);
+  const conceptsSection = formatRetailConceptsForPrompt(conceptsData);
+  const kpiSection = formatKPIDataForPrompt(contextData.recent_kpis || []);
+
+  // 추론 타입별 추가 데이터 섹션
+  let additionalDataSection = '';
+  if (contextData.zones && contextData.zones.length > 0) {
+    additionalDataSection += '\n' + formatZoneDataForPrompt(contextData.zones);
+  }
+  if (contextData.zone_metrics && contextData.zone_metrics.length > 0) {
+    additionalDataSection += `\n## 구역 일별 성과 데이터 (최근 ${contextData.zone_metrics.length}건)\n${JSON.stringify(contextData.zone_metrics.slice(0, 30), null, 2)}`;
+  }
+  if (contextData.inventory && contextData.inventory.length > 0) {
+    additionalDataSection += `\n## 재고 데이터 (${contextData.inventory.length}개 항목)\n${JSON.stringify(contextData.inventory.slice(0, 30).map((e: any) => ({ label: e.label, properties: e.properties })), null, 2)}`;
+  }
+  if (contextData.hourly_metrics && contextData.hourly_metrics.length > 0) {
+    additionalDataSection += `\n## 시간대별 성과 데이터 (${contextData.hourly_metrics.length}건)\n${JSON.stringify(contextData.hourly_metrics.slice(0, 24), null, 2)}`;
+  }
+  if (contextData.customers && contextData.customers.length > 0) {
+    additionalDataSection += `\n## 고객 데이터 (${contextData.customers.length}명)\n${JSON.stringify(contextData.customers.slice(0, 20).map((e: any) => ({ label: e.label, properties: e.properties })), null, 2)}`;
+  }
+  if (contextData.store_visits && contextData.store_visits.length > 0) {
+    additionalDataSection += `\n## 방문 데이터 (최근 ${contextData.store_visits.length}건)\n${JSON.stringify(contextData.store_visits.slice(0, 30), null, 2)}`;
+  }
+
+  const parametersSection = `\n## 분석 파라미터\n${JSON.stringify(parameters, null, 2)}`;
+
+  return `${systemPrompt}
+
+${graphSection}
+
+${conceptsSection}
+
+${kpiSection}
+
+${additionalDataSection}
+
+${parametersSection}`;
+}
+
+/** @deprecated buildPromptWithLayers를 사용하세요. 기존 호환용으로 유지합니다. */
 function buildPrompt(
   inferenceType: InferenceType,
   graphData: any,
@@ -389,94 +496,38 @@ function buildPrompt(
   contextData: any,
   parameters: any
 ): string {
-  const systemPrompt = inferencePrompts[inferenceType];
-
-  const graphSummary = `
-## Knowledge Graph Summary
-- Total Entities: ${graphData.stats.totalEntities}
-- Total Relations: ${graphData.stats.totalRelations}
-- Entity Types: ${JSON.stringify(graphData.stats.entityByType, null, 2)}
-- Relation Types: ${JSON.stringify(graphData.stats.relationByType, null, 2)}
-
-### Sample Entities (Top 20)
-${JSON.stringify(graphData.entities.slice(0, 20).map((e: any) => ({
-  label: e.label,
-  type: e.entity_type?.name,
-  properties: e.properties,
-})), null, 2)}
-
-### Sample Relations (Top 20)
-${JSON.stringify(graphData.relations.slice(0, 20).map((r: any) => ({
-  source: r.source?.label,
-  relation: r.relation_type?.name,
-  target: r.target?.label,
-  weight: r.weight,
-})), null, 2)}
-`;
-
-  const conceptsSummary = `
-## Retail Concepts Analysis
-${JSON.stringify(conceptsData, null, 2)}
-`;
-
-  const contextSummary = `
-## Additional Context
-### Recent KPIs
-${JSON.stringify(contextData.recent_kpis?.slice(0, 7), null, 2)}
-
-### Analysis Parameters
-${JSON.stringify(parameters, null, 2)}
-`;
-
-  const responseFormat = `
-## Response Format
-Respond with a JSON object containing:
-{
-  "insights": ["Key insight 1", "Key insight 2", ...],
-  "recommendations": [
-    {
-      "title": "Recommendation title",
-      "description": "Detailed description",
-      "priority": "critical|high|medium|low",
-      "category": "layout|inventory|marketing|operations",
-      "expected_impact": "Expected business impact",
-      "action_items": ["Action 1", "Action 2"]
-    }
-  ],
-  "metrics": {
-    "key_metric_1": value,
-    "key_metric_2": value
-  },
-  "confidence": 0.85
-}
-`;
-
-  return `${systemPrompt}
-
-${graphSummary}
-
-${conceptsSummary}
-
-${contextSummary}
-
-${responseFormat}`;
+  return buildPromptWithLayers(inferenceType, graphData, conceptsData, contextData, parameters);
 }
 
-// ============== AI Execution ==============
+// ============== AI Execution (4-Layer Enhanced) ==============
 
-async function callAI(prompt: string): Promise<AIInferenceResult> {
+/**
+ * AI 호출 결과를 기존 flat 형식 + 4-Layer 구조 양쪽으로 파싱합니다.
+ * 4-Layer 파싱이 실패해도 기존 flat 결과는 유지됩니다 (하위 호환).
+ *
+ * @param prompt - AI 프롬프트 (4-Layer 시스템 프롬프트 포함)
+ * @param includeLayers - 4-Layer 파싱 수행 여부
+ * @returns { aiResult, layers }
+ */
+async function callAIWithLayers(
+  prompt: string,
+  includeLayers: boolean,
+): Promise<{ aiResult: AIInferenceResult; layers: FourLayerResponse | null }> {
   try {
     const data = await chatCompletion({
       model: 'gemini-2.5-flash',
-      messages: [{ role: 'user', content: prompt }],
+      messages: [
+        { role: 'system', content: prompt.split('\n\n')[0] },  // 시스템 프롬프트 부분
+        { role: 'user', content: prompt },
+      ],
       jsonMode: true,
-      maxTokens: 3000,
+      maxTokens: 4000,
     });
 
     const content = data.choices?.[0]?.message?.content || '';
 
-    // 🆕 safeJsonParse 사용 (Sprint 0: S0-3)
-    const parseResult = safeJsonParse<AIInferenceResult>(content, {
+    // 기존 flat 파싱 (하위 호환 유지)
+    const parseResult = safeJsonParse<AIInferenceResult & Record<string, unknown>>(content, {
       fallback: {
         insights: ['AI 응답 파싱에 실패했습니다.'],
         recommendations: [],
@@ -492,7 +543,6 @@ async function callAI(prompt: string): Promise<AIInferenceResult> {
       },
     });
 
-    // 파싱 결과 로깅
     logParseResult(parseResult, 'retail-ai-inference');
 
     if (!parseResult.success) {
@@ -501,25 +551,51 @@ async function callAI(prompt: string): Promise<AIInferenceResult> {
 
     const result = parseResult.data;
 
-    return {
+    const aiResult: AIInferenceResult = {
       insights: result.insights || [],
       recommendations: result.recommendations || [],
       metrics: result.metrics || {},
       confidence: parseResult.success ? (result.confidence || 0.7) : 0.3,
-      // 🆕 폴백 여부 표시
       ...(parseResult.success ? {} : { _fallback: true, _parseError: parseResult.error }),
     } as AIInferenceResult;
+
+    // 4-Layer 파싱 (선택적)
+    let layers: FourLayerResponse | null = null;
+    if (includeLayers && parseResult.success) {
+      // AI 응답에 4-layer 구조가 포함되어 있으면 직접 파싱
+      layers = parseFourLayerResponse(content);
+
+      if (!layers) {
+        // 4-Layer 직접 파싱 실패 시, flat 결과를 변환하여 생성
+        console.log('[retail-ai-inference] 4-layer direct parse failed, converting from flat result');
+        layers = convertFlatToFourLayer(aiResult);
+      } else {
+        console.log('[retail-ai-inference] 4-layer response parsed successfully');
+      }
+    }
+
+    return { aiResult, layers };
   } catch (e) {
     console.error('AI call failed:', e);
-    // 폴백
-    return {
+    const fallbackResult: AIInferenceResult = {
       insights: ['AI 분석 중 오류가 발생했습니다.'],
       recommendations: [],
       metrics: {},
       confidence: 0,
       _fallback: true,
     } as AIInferenceResult;
+
+    return {
+      aiResult: fallbackResult,
+      layers: includeLayers ? convertFlatToFourLayer(fallbackResult) : null,
+    };
   }
+}
+
+/** @deprecated callAIWithLayers를 사용하세요. 기존 호환용으로 유지합니다. */
+async function callAI(prompt: string): Promise<AIInferenceResult> {
+  const { aiResult } = await callAIWithLayers(prompt, false);
+  return aiResult;
 }
 
 // ============== Rule-based Fallback ==============
