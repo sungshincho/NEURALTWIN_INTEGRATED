@@ -14,7 +14,7 @@ import Product from "./pages/Product";
 import Chat from "./pages/Chat";
 import About from "./pages/About";
 import Auth from "./pages/Auth";
-import Pricing from "./pages/Pricing";
+import PricingPage from "./pages/PricingPage";
 import Contact from "./pages/Contact";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
@@ -76,7 +76,7 @@ const App = () => (
               <Route path="/product" element={<Product />} />
               <Route path="/about" element={<About />} />
               <Route path="/auth" element={<Auth />} />
-              <Route path="/pricing" element={<Pricing />} />
+              <Route path="/pricing" element={<PricingPage />} />
               <Route path="/contact" element={<Contact />} />
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/terms" element={<Terms />} />
