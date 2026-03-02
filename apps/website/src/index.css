@@ -5,6 +5,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Mobile optimization — Sprint 4.13 */
+@import './styles/mobile.css';
+
 /* NEURALTWIN Design System
    Colors: Dark Navy + Electric Blue + Glassmorphism
    All colors MUST be HSL.

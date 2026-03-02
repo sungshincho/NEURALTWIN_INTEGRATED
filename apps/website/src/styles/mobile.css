@@ -1,0 +1,388 @@
+/* ============================================
+   NEURALTWIN Website — Mobile Optimization
+   Sprint 4.13 | 2026-03-02
+   ============================================
+   CSS-only mobile overrides. Do NOT restructure components.
+   Breakpoints: mobile < 640px, tablet 640-767px, desktop >= 768px
+   ============================================ */
+
+/* ===== 0. Global — Safe Area & Scroll Prevention ===== */
+
+@supports (padding: env(safe-area-inset-top)) {
+  header.fixed {
+    padding-top: env(safe-area-inset-top);
+  }
+}
+
+/* Prevent horizontal overflow on mobile */
+@media (max-width: 767px) {
+  html,
+  body {
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Minimum body font size for readability */
+@media (max-width: 639px) {
+  body {
+    font-size: max(14px, 1rem);
+    -webkit-text-size-adjust: 100%;
+  }
+}
+
+/* ===== 1. Hero Section — Text Size & Button Stacking ===== */
+
+@media (max-width: 639px) {
+  /* Hero heading: reduce from 3xl/4xl to 2xl */
+  h1.text-4xl,
+  h1.text-5xl,
+  .text-4xl,
+  .text-5xl {
+    font-size: 1.75rem !important; /* 28px */
+    line-height: 1.2 !important;
+  }
+
+  /* Hero subtitle */
+  .text-xl,
+  .text-2xl {
+    font-size: 1.125rem !important; /* 18px */
+    line-height: 1.4 !important;
+  }
+
+  /* Stack hero buttons vertically */
+  .flex.gap-4:has(> a),
+  .flex.gap-3:has(> a),
+  .flex.space-x-4:has(> a) {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  /* Full-width CTA buttons on mobile */
+  .flex.gap-4 > a,
+  .flex.gap-3 > a,
+  .flex.space-x-4 > a {
+    width: 100%;
+    text-align: center;
+    justify-content: center;
+  }
+}
+
+/* ===== 2. Feature Cards — Single Column ===== */
+
+@media (max-width: 639px) {
+  /* Force single column for all card grids */
+  .grid.grid-cols-2,
+  .grid.grid-cols-3,
+  .grid.md\:grid-cols-2,
+  .grid.md\:grid-cols-3,
+  .grid.lg\:grid-cols-3 {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Reduce section padding */
+  section {
+    padding-top: 3rem;
+    padding-bottom: 3rem;
+  }
+
+  /* Section headings */
+  section h2 {
+    font-size: 1.5rem !important;
+    line-height: 1.2 !important;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 767px) {
+  /* 2-column on tablet */
+  .grid.grid-cols-3,
+  .grid.lg\:grid-cols-3 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+/* ===== 3. Pricing Cards — Stack on Mobile ===== */
+
+@media (max-width: 767px) {
+  /* Pricing grid: single column */
+  .grid:has(.pricing-card),
+  .grid.grid-cols-1.md\:grid-cols-2.lg\:grid-cols-4,
+  .grid.lg\:grid-cols-4 {
+    grid-template-columns: 1fr !important;
+    gap: 16px;
+  }
+
+  /* Pricing card: full-width */
+  .pricing-card,
+  [class*="PricingCard"] {
+    width: 100%;
+  }
+}
+
+/* ===== 4. Interactive Demo — Simplified on Mobile ===== */
+
+@media (max-width: 639px) {
+  /* Demo section: reduce vertical padding */
+  #interactive-demo {
+    padding-top: 3rem;
+    padding-bottom: 3rem;
+  }
+
+  /* Demo section header */
+  #interactive-demo h2 {
+    font-size: 1.5rem !important;
+  }
+
+  /* Demo tab buttons: smaller on mobile */
+  #interactive-demo [role="tablist"] {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  #interactive-demo [role="tablist"]::-webkit-scrollbar {
+    display: none;
+  }
+
+  #interactive-demo [role="tab"] {
+    padding: 8px 12px;
+    font-size: 12px;
+    flex-shrink: 0;
+    min-height: 40px;
+  }
+
+  /* Scenario cards: reduce inner padding */
+  #interactive-demo .max-w-5xl {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  /* Heatmap grid: reduce cell size for small screens */
+  [class*="DemoHeatmapGrid"] {
+    transform: scale(0.85);
+    transform-origin: center top;
+  }
+}
+
+/* ===== 5. Navigation — Mobile Hamburger Menu ===== */
+
+@media (max-width: 767px) {
+  /* Mobile menu: ensure it fills available width */
+  .md\:hidden.glass {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    max-height: calc(100vh - 64px);
+    overflow-y: auto;
+  }
+
+  /* Mobile menu items: good touch targets */
+  .md\:hidden a {
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+  }
+
+  /* Header hamburger button: minimum touch target */
+  header button.md\:hidden {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+/* ===== 6. Footer — Simplified Layout ===== */
+
+@media (max-width: 639px) {
+  /* Footer grid: stack columns */
+  footer .grid {
+    grid-template-columns: 1fr !important;
+    gap: 24px;
+  }
+
+  /* Footer: reduce padding */
+  footer .container {
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+  }
+
+  /* Footer heading: left-align */
+  footer h3 {
+    font-size: 0.875rem;
+  }
+}
+
+/* ===== 7. Touch Targets — Minimum 44x44px ===== */
+
+@media (max-width: 767px) {
+  button,
+  a,
+  [role="button"],
+  [role="tab"],
+  [role="menuitem"],
+  input[type="checkbox"],
+  input[type="radio"],
+  select {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Exceptions: inline elements and badges */
+  a.inline,
+  a.text-muted-foreground,
+  footer a,
+  span[role="button"] {
+    min-height: auto;
+    min-width: auto;
+    /* But ensure reasonable padding */
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
+
+  /* Footer links: don't force 44px, but add padding */
+  footer ul a {
+    min-height: 36px;
+    display: flex;
+    align-items: center;
+  }
+}
+
+/* ===== 8. Chat Page — Mobile Fullscreen ===== */
+
+@media (max-width: 639px) {
+  /* Chat page input area: safe area for keyboard */
+  [class*="chat-input"],
+  [class*="ChatInput"] {
+    padding-bottom: env(safe-area-inset-bottom, 8px);
+  }
+
+  /* Chat messages: full width */
+  [class*="chat-message"],
+  [class*="ChatBubble"] {
+    max-width: 90% !important;
+  }
+}
+
+/* ===== 9. Product Page — Responsive Tabs ===== */
+
+@media (max-width: 639px) {
+  /* Product page tabs: horizontal scroll */
+  [role="tablist"] {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    flex-wrap: nowrap;
+  }
+
+  [role="tablist"]::-webkit-scrollbar {
+    display: none;
+  }
+
+  [role="tab"] {
+    flex-shrink: 0;
+    white-space: nowrap;
+    font-size: 13px;
+    padding: 8px 14px;
+  }
+
+  /* Product feature images: contain within viewport */
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+}
+
+/* ===== 10. Prevent Hover-Only Interactions ===== */
+
+@media (hover: none) and (pointer: coarse) {
+  /* Provide active state feedback for touch devices */
+  button:active,
+  a:active,
+  [role="button"]:active,
+  [role="tab"]:active {
+    opacity: 0.75;
+    transition: opacity 0.1s ease;
+  }
+
+  /* Remove hover-only effects */
+  .hover\:bg-muted\/50:hover,
+  .hover\:text-foreground:hover {
+    background-color: transparent;
+    color: inherit;
+  }
+
+  .hover\:bg-muted\/50:active,
+  .hover\:text-foreground:active {
+    opacity: 0.8;
+  }
+
+  /* Remove hover-based animations on touch */
+  .hover\:-translate-y-0\.5:hover {
+    transform: none;
+  }
+
+  .hover\:-translate-y-0\.5:active {
+    transform: translateY(-1px);
+  }
+}
+
+/* ===== 11. Safe Area Bottom — For Fixed Input Areas ===== */
+
+@supports (padding: env(safe-area-inset-bottom)) {
+  @media (max-width: 767px) {
+    /* Ensure body content doesn't hide behind bottom notch */
+    body {
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+  }
+}
+
+/* ===== 12. Dialogs & Modals — Full Width on Mobile ===== */
+
+@media (max-width: 639px) {
+  [role="dialog"] {
+    width: calc(100vw - 24px) !important;
+    max-width: 100vw !important;
+    max-height: calc(100vh - 48px) !important;
+    margin: 12px;
+  }
+}
+
+/* ===== 13. Container Padding Adjustments ===== */
+
+@media (max-width: 639px) {
+  .container {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}
+
+/* ===== 14. 3D Feature Components — Responsive ===== */
+
+@media (max-width: 639px) {
+  /* 3D visualizer components: reduce height on mobile */
+  [class*="Visualizer3D"],
+  [class*="Simulator3D"],
+  [class*="Heatmap3D"] {
+    max-height: 250px !important;
+  }
+
+  canvas {
+    touch-action: manipulation;
+  }
+}
+
+/* ===== 15. Onboarding Overlay — Mobile Fit ===== */
+
+@media (max-width: 639px) {
+  [class*="OnboardingOverlay"],
+  [class*="onboarding"] {
+    padding: 16px !important;
+  }
+
+  [class*="OnboardingOverlay"] h2,
+  [class*="onboarding"] h2 {
+    font-size: 1.25rem !important;
+  }
+}

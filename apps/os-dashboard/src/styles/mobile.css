@@ -1,0 +1,370 @@
+/* ============================================
+   NEURALTWIN OS Dashboard — Mobile Optimization
+   Sprint 4.13 | 2026-03-02
+   ============================================
+   CSS-only mobile overrides. Do NOT restructure components.
+   Breakpoints: mobile < 640px, tablet 640-1023px, desktop >= 1024px
+   ============================================ */
+
+/* ===== 0. Global — Safe Area & Scroll Prevention ===== */
+
+@supports (padding: env(safe-area-inset-top)) {
+  .sticky.top-0,
+  header.sticky {
+    padding-top: env(safe-area-inset-top);
+  }
+}
+
+/* Prevent accidental horizontal scroll */
+@media (max-width: 1023px) {
+  html,
+  body {
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Minimum body font size for readability */
+@media (max-width: 639px) {
+  body {
+    font-size: max(14px, 1rem);
+    -webkit-text-size-adjust: 100%;
+  }
+}
+
+/* ===== 1. Sidebar — Collapsible on Mobile ===== */
+
+/* On mobile the sidebar overlay covers the screen;
+   ensure the trigger (hamburger) is always reachable. */
+@media (max-width: 767px) {
+  /* SidebarTrigger: enlarge touch target */
+  [data-sidebar="trigger"],
+  button[aria-label*="sidebar" i],
+  button[aria-label*="Toggle" i] {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Sidebar panel: slide from left, full height */
+  [data-sidebar="sidebar"] {
+    max-width: 280px;
+  }
+}
+
+/* ===== 2. Header — Compact on Mobile ===== */
+
+@media (max-width: 639px) {
+  header.sticky {
+    height: auto;
+    min-height: 48px;
+    padding-left: 12px;
+    padding-right: 12px;
+    gap: 8px;
+  }
+
+  /* Shrink header icon buttons */
+  header.sticky button {
+    min-width: 40px;
+    min-height: 40px;
+  }
+}
+
+/* ===== 3. Tab Navigation — Horizontal Scroll ===== */
+
+@media (max-width: 767px) {
+  /* InsightHubPage tab list wrapper — allow horizontal scroll */
+  [role="tablist"],
+  .tabs-glass-inner {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; /* Firefox */
+    flex-wrap: nowrap;
+    white-space: nowrap;
+  }
+
+  [role="tablist"]::-webkit-scrollbar,
+  .tabs-glass-inner::-webkit-scrollbar {
+    display: none; /* Chrome/Safari */
+  }
+
+  /* Make the inline-block wrapper full width on mobile for scroll */
+  .inline-block:has([role="tablist"]) {
+    display: block;
+    width: 100%;
+  }
+
+  /* Tab triggers: slightly smaller padding */
+  [role="tab"],
+  .tab-trigger-glass {
+    padding: 8px 14px;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+}
+
+/* ===== 4. Metric Cards — Responsive Grid ===== */
+
+@media (max-width: 639px) {
+  /* 1-column stack on mobile */
+  .grid-cols-2,
+  .grid-cols-3,
+  .grid-cols-4,
+  .sm\:grid-cols-2,
+  .md\:grid-cols-3,
+  .lg\:grid-cols-4 {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Reduce card padding on mobile */
+  .glass-card-3d-inner,
+  .glass-card-3d-dark-inner {
+    padding: 16px;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 1023px) {
+  /* 2-column on tablet */
+  .grid-cols-3,
+  .grid-cols-4,
+  .md\:grid-cols-3,
+  .lg\:grid-cols-4 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+/* ===== 5. Digital Twin Studio — Touch Controls ===== */
+
+@media (max-width: 767px) {
+  /* Simplify studio toolbar: stack vertically */
+  .digital-twin-studio .absolute.top-4.left-4,
+  .digital-twin-studio .absolute.top-4.right-4 {
+    position: fixed;
+    z-index: 50;
+  }
+
+  /* Enlarge touch targets for 3D controls */
+  .digital-twin-studio button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Draggable panels: full width on mobile */
+  .digital-twin-studio [data-panel],
+  .digital-twin-studio .draggable-panel {
+    width: 100% !important;
+    max-width: 100% !important;
+    left: 0 !important;
+    right: 0 !important;
+    border-radius: 0;
+  }
+
+  /* Canvas container: fill screen */
+  .digital-twin-studio canvas {
+    touch-action: manipulation;
+  }
+}
+
+/* ===== 6. Time Travel Timeline — Compact Layout ===== */
+
+@media (max-width: 767px) {
+  /* Compress timeline controls */
+  [class*="TimelineControls"],
+  [class*="timeline-controls"] {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  /* Playback buttons: smaller */
+  [class*="TimelineControls"] button,
+  [class*="timeline-controls"] button {
+    min-width: 36px;
+    min-height: 36px;
+    padding: 6px;
+  }
+
+  /* Slider: thicker thumb for touch */
+  [class*="TimelineControls"] input[type="range"],
+  [class*="timeline-controls"] input[type="range"] {
+    height: 8px;
+  }
+
+  [class*="TimelineControls"] input[type="range"]::-webkit-slider-thumb,
+  [class*="timeline-controls"] input[type="range"]::-webkit-slider-thumb {
+    width: 24px;
+    height: 24px;
+  }
+}
+
+/* ===== 7. AI Insight Panel — Full Width on Mobile ===== */
+
+@media (max-width: 767px) {
+  /* AI recommendation cards: single column */
+  [class*="AIRecommendation"],
+  [class*="ai-insight"],
+  [class*="InsightBubble"] {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+
+/* ===== 8. Charts — Responsive Sizing ===== */
+
+@media (max-width: 639px) {
+  /* Recharts containers: fill parent */
+  .recharts-responsive-container,
+  .recharts-wrapper {
+    min-height: 200px !important;
+  }
+
+  /* Chart legend: wrap items */
+  .recharts-legend-wrapper {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 4px !important;
+    font-size: 10px !important;
+  }
+}
+
+/* ===== 9. Tables — Horizontal Scroll + Sticky Column ===== */
+
+@media (max-width: 767px) {
+  /* Table container: horizontal scroll */
+  .overflow-auto:has(table),
+  div:has(> table) {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Sticky first column */
+  table th:first-child,
+  table td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: inherit;
+  }
+
+  /* Reduce table cell padding */
+  table th,
+  table td {
+    padding: 8px 10px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+}
+
+/* ===== 10. Chat Panel — Full Width on Mobile ===== */
+
+@media (max-width: 767px) {
+  /* Chat panel slides in full-width on mobile */
+  [class*="ChatPanel"] {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+
+/* ===== 11. Touch Targets — Global Minimum 44x44px ===== */
+
+@media (max-width: 767px) {
+  /* All interactive elements: minimum touch area */
+  button,
+  a,
+  [role="button"],
+  [role="tab"],
+  [role="menuitem"],
+  input[type="checkbox"],
+  input[type="radio"],
+  select,
+  .cursor-pointer {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Exceptions: inline text links and badge-like small elements */
+  a.inline,
+  span[role="button"],
+  .badge-3d,
+  .badge-3d-dark {
+    min-height: auto;
+    min-width: auto;
+  }
+}
+
+/* ===== 12. Main Content Padding ===== */
+
+@media (max-width: 639px) {
+  main.flex-1 {
+    padding: 12px;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 1023px) {
+  main.flex-1 {
+    padding: 16px;
+  }
+}
+
+/* ===== 13. Notification Center Dropdown — Mobile Friendly ===== */
+
+@media (max-width: 639px) {
+  [class*="NotificationCenter"] [data-radix-popper-content-wrapper] {
+    width: calc(100vw - 24px) !important;
+    max-width: 100vw !important;
+  }
+}
+
+/* ===== 14. Date Filter — Compact on Mobile ===== */
+
+@media (max-width: 639px) {
+  /* GlobalDateFilter: stack controls */
+  [class*="GlobalDateFilter"],
+  [class*="date-filter"] {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+}
+
+/* ===== 15. Prevent Hover-Only Interactions ===== */
+
+/* Add active state for touch devices where hover is unavailable */
+@media (hover: none) and (pointer: coarse) {
+  button:active,
+  a:active,
+  [role="button"]:active,
+  [role="tab"]:active {
+    opacity: 0.75;
+    transition: opacity 0.1s ease;
+  }
+
+  /* Disable hover-only visual effects on touch */
+  .hover\:bg-white\/10:hover,
+  .hover\:bg-black\/5:hover {
+    background-color: transparent;
+  }
+
+  .hover\:bg-white\/10:active,
+  .hover\:bg-black\/5:active {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+}
+
+/* ===== 16. Safe Area Bottom — For Bottom Navigation or Fixed Elements ===== */
+
+@supports (padding: env(safe-area-inset-bottom)) {
+  @media (max-width: 767px) {
+    main.flex-1 {
+      padding-bottom: calc(12px + env(safe-area-inset-bottom));
+    }
+  }
+}
+
+/* ===== 17. Report Generator — Full Width Modal on Mobile ===== */
+
+@media (max-width: 639px) {
+  [role="dialog"] {
+    width: calc(100vw - 24px) !important;
+    max-width: 100vw !important;
+    max-height: calc(100vh - 48px) !important;
+  }
+}

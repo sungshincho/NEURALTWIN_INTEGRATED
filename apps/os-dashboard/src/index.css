@@ -6,6 +6,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Mobile optimization — Sprint 4.13 */
+@import './styles/mobile.css';
+
 @layer base {
   :root {
     /* ===== Light Mode - Pure Black/White Monochrome ===== */

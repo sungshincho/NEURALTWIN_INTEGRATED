@@ -84,7 +84,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   return (
     <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
-      <div className="flex min-h-screen w-full relative">
+      <div className="flex min-h-screen w-full relative overflow-x-hidden">
         {/* ===== Background Layers ===== */}
         
         {/* Base gradient - 다크모드 반전 */}
@@ -135,18 +135,19 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <div className="flex-1 flex flex-col relative" style={{ zIndex: 10 }}>
           {/* Header - 다크모드 반전 */}
           <header
-            className="sticky top-0 z-40 flex h-14 items-center gap-4 px-4 lg:px-6 transition-all duration-300"
+            className="sticky top-0 z-40 flex h-14 items-center gap-2 sm:gap-4 px-3 sm:px-4 lg:px-6 transition-all duration-300"
             style={{
-              background: isDark 
+              paddingTop: 'env(safe-area-inset-top, 0px)',
+              background: isDark
                 ? 'linear-gradient(165deg, rgba(20,20,24,0.98) 0%, rgba(12,12,15,0.97) 30%, rgba(16,16,20,0.98) 60%, rgba(14,14,18,0.97) 100%)'
                 : 'linear-gradient(165deg, rgba(255,255,255,0.95) 0%, rgba(250,250,252,0.92) 30%, rgba(255,255,255,0.95) 60%, rgba(248,248,250,0.92) 100%)',
               backdropFilter: 'blur(40px) saturate(180%)',
               WebkitBackdropFilter: 'blur(40px) saturate(180%)',
-              borderBottom: isDark 
-                ? '1px solid rgba(255,255,255,0.08)' 
+              borderBottom: isDark
+                ? '1px solid rgba(255,255,255,0.08)'
                 : '1px solid rgba(0,0,0,0.06)',
-              boxShadow: isDark 
-                ? '0 2px 4px rgba(0,0,0,0.3), 0 8px 16px rgba(0,0,0,0.2)' 
+              boxShadow: isDark
+                ? '0 2px 4px rgba(0,0,0,0.3), 0 8px 16px rgba(0,0,0,0.2)'
                 : '0 1px 2px rgba(0,0,0,0.03), 0 4px 8px rgba(0,0,0,0.04)',
             }}
           >
@@ -259,7 +260,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </header>
 
           {/* Main Content */}
-          <main className="flex-1 p-4 lg:p-6">{children}</main>
+          <main className="flex-1 p-3 sm:p-4 lg:p-6">{children}</main>
         </div>
 
         {/* Chat Panel */}
