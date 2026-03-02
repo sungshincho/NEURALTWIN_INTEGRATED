@@ -1,5 +1,5 @@
 import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
-import { createSupabaseAdmin } from "../_shared/supabase-client.ts";
+import { createSupabaseWithAuth } from "../_shared/supabase-client.ts";
 import { errorResponse } from "../_shared/error.ts";
 
 Deno.serve(async (req) => {
@@ -7,19 +7,16 @@ Deno.serve(async (req) => {
   if (corsResponse) return corsResponse;
 
   try {
-    const supabase = createSupabaseAdmin();
-
-    // Get authenticated user
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      throw new Error('No authorization header');
+      return errorResponse('Unauthorized', 401);
     }
 
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    
+    const supabase = createSupabaseWithAuth(authHeader);
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
     if (userError || !user) {
-      throw new Error('Unauthorized');
+      return errorResponse('Unauthorized', 401);
     }
 
     console.log('Monitoring inventory for user:', user.id);

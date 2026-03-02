@@ -6,7 +6,7 @@
 import * as XLSX from "xlsx"
 import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
 import { errorResponse } from "../_shared/error.ts";
-import { createSupabaseAdmin } from "../_shared/supabase-client.ts";
+import { createSupabaseAdmin, createSupabaseWithAuth } from "../_shared/supabase-client.ts";
 
 interface ParseRequest {
   session_id: string;
@@ -286,22 +286,22 @@ Deno.serve(async (req) => {
   if (corsResponse) return corsResponse;
 
   try {
-    const supabase = createSupabaseAdmin();
-
     // 인증 확인
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      throw new Error("Authorization header required");
+      return errorResponse("Authorization header required", 401, { success: false });
     }
 
-    const token = authHeader.replace("Bearer ", "");
+    const supabase = createSupabaseWithAuth(authHeader);
+    const supabaseAdmin = createSupabaseAdmin(); // Storage 작업용 admin 클라이언트
+
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser(token);
+    } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      throw new Error("Unauthorized");
+      return errorResponse("Unauthorized", 401, { success: false });
     }
 
     // 요청 파싱
@@ -335,8 +335,8 @@ Deno.serve(async (req) => {
       .update({ status: "parsing", updated_at: new Date().toISOString() })
       .eq("id", session_id);
 
-    // 파일 다운로드
-    const { data: fileData, error: downloadError } = await supabase.storage
+    // 파일 다운로드 (admin 클라이언트 사용)
+    const { data: fileData, error: downloadError } = await supabaseAdmin.storage
       .from("user-imports")
       .download(session.file_path);
 

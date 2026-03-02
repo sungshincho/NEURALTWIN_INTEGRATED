@@ -5,7 +5,7 @@
 
 import { corsHeaders, handleCorsOptions } from "../_shared/cors.ts";
 import { errorResponse } from "../_shared/error.ts";
-import { createSupabaseAdmin } from "../_shared/supabase-client.ts";
+import { createSupabaseAdmin, createSupabaseWithAuth } from "../_shared/supabase-client.ts";
 
 interface UploadResponse {
   success: boolean;
@@ -63,22 +63,22 @@ Deno.serve(async (req) => {
   if (corsResponse) return corsResponse;
 
   try {
-    const supabase = createSupabaseAdmin();
-
     // 인증 확인
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      throw new Error("Authorization header required");
+      return errorResponse("Authorization header required", 401, { success: false });
     }
 
-    const token = authHeader.replace("Bearer ", "");
+    const supabase = createSupabaseWithAuth(authHeader);
+    const supabaseAdmin = createSupabaseAdmin(); // Storage 작업용 admin 클라이언트
+
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser(token);
+    } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      throw new Error("Unauthorized");
+      return errorResponse("Unauthorized", 401, { success: false });
     }
 
     // FormData 파싱
@@ -114,8 +114,8 @@ Deno.serve(async (req) => {
       ? `imports/${storeId}/${timestamp}_${sanitizedFileName}`
       : `imports/global/${user.id}/${timestamp}_${sanitizedFileName}`;
 
-    // Storage에 파일 업로드
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    // Storage에 파일 업로드 (admin 클라이언트 사용)
+    const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
       .from("user-imports")
       .upload(filePath, file, {
         contentType: file.type || "application/octet-stream",
@@ -157,7 +157,7 @@ Deno.serve(async (req) => {
     if (sessionError) {
       console.error("Session creation error:", sessionError);
       // 세션 생성 실패 시 업로드된 파일 삭제
-      await supabase.storage.from("user-imports").remove([filePath]);
+      await supabaseAdmin.storage.from("user-imports").remove([filePath]);
       throw new Error(`Session creation failed: ${sessionError.message}`);
     }
 
