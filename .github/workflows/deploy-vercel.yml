@@ -1,0 +1,103 @@
+name: Deploy to Vercel
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/website/**'
+      - 'apps/os-dashboard/**'
+      - 'packages/**'
+
+concurrency:
+  group: deploy-vercel-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      website: ${{ steps.changes.outputs.website }}
+      os-dashboard: ${{ steps.changes.outputs.os-dashboard }}
+      packages: ${{ steps.changes.outputs.packages }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect changed paths
+        id: changes
+        run: |
+          CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
+          echo "website=$(echo "$CHANGED" | grep -q 'apps/website/' && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          echo "os-dashboard=$(echo "$CHANGED" | grep -q 'apps/os-dashboard/' && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          echo "packages=$(echo "$CHANGED" | grep -q 'packages/' && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+
+      # On workflow_dispatch, deploy everything
+      - name: Force all on manual trigger
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "website=true" >> $GITHUB_OUTPUT
+          echo "os-dashboard=true" >> $GITHUB_OUTPUT
+          echo "packages=true" >> $GITHUB_OUTPUT
+        id: force
+
+  deploy-website:
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.website == 'true' || needs.detect-changes.outputs.packages == 'true' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Pull Vercel environment
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+        working-directory: apps/website
+        env:
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_WEBSITE_PROJECT_ID }}
+
+      - name: Build with Vercel
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        working-directory: apps/website
+        env:
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_WEBSITE_PROJECT_ID }}
+
+      - name: Deploy to Vercel (Production)
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+        working-directory: apps/website
+        env:
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_WEBSITE_PROJECT_ID }}
+
+  deploy-os-dashboard:
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.os-dashboard == 'true' || needs.detect-changes.outputs.packages == 'true' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Pull Vercel environment
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+        working-directory: apps/os-dashboard
+        env:
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_OS_PROJECT_ID }}
+
+      - name: Build with Vercel
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        working-directory: apps/os-dashboard
+        env:
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_OS_PROJECT_ID }}
+
+      - name: Deploy to Vercel (Production)
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+        working-directory: apps/os-dashboard
+        env:
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_OS_PROJECT_ID }}

@@ -4,6 +4,8 @@
   "buildCommand": "cd ../.. && pnpm turbo run build --filter=@neuraltwin/os-dashboard",
   "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
   "outputDirectory": "dist",
+  "cleanUrls": true,
+  "trailingSlash": false,
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
   "headers": [
     {
@@ -30,9 +32,21 @@
       ]
     },
     {
-      "source": "/assets/(.*)\\.(glb|gltf|hdr|bin)",
+      "source": "/assets/(.*)\\.(glb|gltf|hdr|bin|draco)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    },
+    {
+      "source": "/(.*)\\.(?:png|jpg|jpeg|gif|svg|webp|ico|avif)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=86400, stale-while-revalidate=604800" }
+      ]
+    },
+    {
+      "source": "/lighting-presets/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=86400, stale-while-revalidate=604800" }
       ]
     }
   ]
