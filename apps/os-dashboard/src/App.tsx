@@ -30,6 +30,9 @@ import { OnboardingFlow } from "@/components/onboarding/OnboardingFlow";
 // AI Insight floating panel
 import { AIInsightBubble } from "@/components/ai/AIInsightBubble";
 
+// Demo Mode — Sprint 4.4: 3 시나리오 데모 + 가이드 투어
+import { DemoModeProvider } from "@/components/demo";
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -47,6 +50,8 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <SelectedStoreProvider>
+            {/* Demo Mode — Sprint 4.4: URL ?demo= 감지 + 가이드 투어 + CTA */}
+            <DemoModeProvider>
             {/* Onboarding 2.0 — 2단계 간소화 플로우 (Zustand + localStorage 기반) */}
             <OnboardingFlow />
             {/* AI Insight 플로팅 패널 — 모든 페이지에서 접근 가능 */}
@@ -54,6 +59,9 @@ const App = () => (
             <Suspense fallback={<div className="flex h-screen w-full items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>}>
             <Routes>
               <Route path="/auth" element={<Auth />} />
+
+              {/* 데모 라우트 — 인증 불필요, 시나리오 선택 화면으로 진입 */}
+              <Route path="/demo" element={<InsightHubPage />} />
 
               {/* 새로운 4개 메인 라우트 */}
               <Route path="/" element={<ProtectedRoute><InsightHubPage /></ProtectedRoute>} />
@@ -84,6 +92,7 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
             </Suspense>
+            </DemoModeProvider>
           </SelectedStoreProvider>
         </AuthProvider>
       </BrowserRouter>
