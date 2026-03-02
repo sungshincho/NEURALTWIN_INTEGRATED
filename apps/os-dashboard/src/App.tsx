@@ -23,8 +23,9 @@ const DataControlTowerPage = React.lazy(() => import("@/features/data-control/Da
 const LineageExplorerPage = React.lazy(() => import("@/features/data-control/LineageExplorerPage"));
 const ConnectorSettingsPage = React.lazy(() => import("@/features/data-control/ConnectorSettingsPage"));
 
-// Onboarding 2.0 — 2-step instant start flow (Sprint 3.10)
-import { OnboardingFlow } from "@/features/onboarding/components/OnboardingFlow";
+// Onboarding 2.0 — Redesigned 2-step flow (Sprint 3.10)
+import { OnboardingFlow } from "@/components/onboarding/OnboardingFlow";
+// Legacy: import { OnboardingFlow } from "@/features/onboarding/components/OnboardingFlow";
 
 // AI Insight floating panel
 import { AIInsightBubble } from "@/components/ai/AIInsightBubble";
